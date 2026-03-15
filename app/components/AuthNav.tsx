@@ -126,5 +126,43 @@ export default function AuthNav() {
     }
   };
 
-  return null;
+  return (
+    <div className="flex items-center gap-3">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt="頭像"
+          className="w-8 h-8 rounded-full object-cover border border-gray-300"
+        />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+          <span className="text-lg">👤</span>
+        </div>
+      )}
+      <span className="font-medium text-base truncate max-w-[120px]" title={name}>{name}</span>
+      <button
+        aria-label="開啟個人選單"
+        className="zen-ghost px-2 py-1 rounded"
+        onClick={() => setIsMenuOpen((v) => !v)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        ☰
+      </button>
+      {isMenuOpen && (
+        <div
+          className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-50"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <Link href={`/account/${encodedName}/profile`} className="block px-4 py-2 hover:bg-gray-100">個人檔案</Link>
+          <button
+            onClick={handleSignOut}
+            className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+          >登出</button>
+          {logoutError && <div className="text-xs text-red-500 px-4 py-1">登出失敗: {logoutError}</div>}
+        </div>
+      )}
+    </div>
+  );
 }
