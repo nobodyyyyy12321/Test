@@ -210,7 +210,7 @@ export default function StudyChineseSetPage() {
 
         {!loading && questions.length > 0 && !showResults ? (
           <div className="mt-6 space-y-4 w-full">
-            <div className="text-sm text-zinc-400">第 {currentIndex + 1} 題</div>
+            <div className="text-sm text-zinc-400">題號{currentIndex + 1}</div>
 
             <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
               <span>{currentQuestion.title}</span>
@@ -284,7 +284,7 @@ export default function StudyChineseSetPage() {
                         : "border-red-500 bg-red-50 dark:bg-red-900/10"
                     }`}
                   >
-                    <p className="font-medium mb-2">第 {question.number} 題：{question.title}</p>
+                    <p className="font-medium mb-2">題號{question.number}：{question.title}</p>
                     <div className="text-sm space-y-1">
                       <p>
                         你的答案：

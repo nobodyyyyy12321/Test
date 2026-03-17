@@ -176,7 +176,7 @@ export default function QuotePage() {
         {!showResults ? (
           <div className="mt-6 space-y-4 w-full">
             <div className="text-sm text-zinc-400">
-              第 {currentQuestion.number} 題
+              題號{currentQuestion.number}
             </div>
 
             <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
@@ -253,7 +253,7 @@ export default function QuotePage() {
                         : "border-red-500 bg-red-50 dark:bg-red-900/10"
                     }`}
                   >
-                    <p className="font-medium mb-2">第 {question.number} 題：{question.title}</p>
+                    <p className="font-medium mb-2">題號{question.number}：{question.title}</p>
                     <div className="text-sm space-y-1">
                       <p>你的答案：<span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${isCorrect ? "bg-green-200 text-green-700 dark:bg-green-900/50 dark:text-green-400" : "bg-red-200 text-red-700 dark:bg-red-900/50 dark:text-red-400"}`}>
                         {userAns} {userOption?.text}
