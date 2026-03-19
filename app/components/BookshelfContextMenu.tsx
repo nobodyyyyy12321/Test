@@ -166,7 +166,7 @@ export default function BookshelfContextMenu() {
               <span className="w-7 h-7 rounded-full bg-gray-600 text-white text-base font-semibold flex items-center justify-center mr-2">
                 {(target?.title || "使用者").slice(0, 1).toUpperCase()}
               </span>
-              <span>{target?.title || "使用者"}</span>
+              <span>{target?.title || "使用者"}</span>//
             </div>
             <button onClick={() => window.location.href = `/account/${encodeURIComponent(target?.title || "")}/profile`} className="block w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">檔案</button>
             <button onClick={() => window.location.href = `/account/${encodeURIComponent(target?.title || "")}/record`} className="block w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">紀錄</button>
