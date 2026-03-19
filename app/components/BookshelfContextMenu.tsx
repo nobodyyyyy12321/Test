@@ -172,6 +172,7 @@ export default function BookshelfContextMenu() {
             <button onClick={() => window.location.href = `/account/${encodeURIComponent(target?.title || "")}/record`} className="block w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">紀錄</button>
             <button onClick={() => window.location.href = `/account/${encodeURIComponent(target?.title || "")}/lists`} className="block w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人清單</button>
             <button onClick={() => window.location.href = `/account/${encodeURIComponent(target?.title || "")}/settings`} className="block w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">設定</button>
+                        <button onClick={() => window.location.href = "/account/plan"} className="block w-full text-left px-4 py-3 text-sm hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 font-semibold">付費方案</button>
             <button onClick={() => window.location.href = `/api/auth/signout`} className="block w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">登出</button>
             {/* 點左鍵自動關閉選單，不顯示關閉按鈕 */}
           </div>
