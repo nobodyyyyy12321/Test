@@ -66,7 +66,6 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
             { name: "名言佳句", href: "/quote" },
             { name: "综合", href: "/綜合" },
             { name: "比赛", href: "/under-construction" },
-            { name: "撩语录", href: "/under-construction" },
             { name: "八卦", href: "/under-construction" },
             { name: "猜谜", href: "/under-construction" },
             { name: "笑话", href: "/under-construction" },
@@ -87,6 +86,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
         ? [
             { name: "Matemáticas", href: "/under-construction" },
             { name: "Química", href: "/under-construction" },
+            { name: "Física", href: "/under-construction" },
             { name: "Concurso", href: "/under-construction" },
             { name: "Cita", href: "/under-construction" },
           ]
