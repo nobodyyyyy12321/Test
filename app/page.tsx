@@ -44,7 +44,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const category2: Record<string, Array<{ name: string; href: string }>> = {
     english: [
-      { name: "2000單", href: "[category1]/[category2]" },
+      { name: "2000單", href: "/under-construction" },
       { name: "學測", href: "/under-construction" },
       // 其他子分類...
     ],
@@ -369,16 +369,31 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                 zIndex: 21
                               }}>
                                 <div className="subcategory-row-inner" style={{display:'flex',gap:12,background:'var(--zen-bg, #fff)',borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,0.08)',padding:'8px 16px'}}>
-                                {Array.isArray(category2[subcatKey]) && category2[subcatKey].map((sub) => (
-                                  <Link
-                                    key={sub.href}
-                                    href={sub.href}
-                                    className="book-link bookshelf-btn"
-                                    style={{ minWidth: 0, whiteSpace: 'nowrap' }}
-                                  >
-                                    {sub.name}
-                                  </Link>
-                                ))}
+                                {Array.isArray(category2[subcatKey]) && category2[subcatKey].map((sub) => {
+                                  const isValidHref =
+                                    typeof sub.href === "string" &&
+                                    sub.href.trim() !== "" &&
+                                    (sub.href.startsWith("/") || sub.href.startsWith("http://") || sub.href.startsWith("https://"));
+                                  const isValidName = typeof sub.name === "string" && sub.name.trim() !== "";
+                                  if (isValidHref && isValidName) {
+                                    return (
+                                      <Link
+                                        key={sub.href}
+                                        href={sub.href}
+                                        className="book-link bookshelf-btn"
+                                        style={{ minWidth: 0, whiteSpace: 'nowrap' }}
+                                      >
+                                        {sub.name}
+                                      </Link>
+                                    );
+                                  } else {
+                                    if (typeof window !== "undefined") {
+                                      // eslint-disable-next-line no-console
+                                      console.warn("Invalid subcategory for Link:", sub);
+                                    }
+                                    return null;
+                                  }
+                                })}
                                 </div>
                               </div>
                               {/* 點擊空白區域收合的透明遮罩，zIndex 調低避免遮住子按鈕 */}
