@@ -107,7 +107,10 @@ export default function RootLayout({
           />
           {/* ...existing code... */}
           {/* Hide GlobalUpOneLevelButton on feedback page */}
-          {typeof window !== "undefined" && window.location.pathname.startsWith("/feedback") ? null : <GlobalUpOneLevelButton />}
+          {/* 只在非 /feedback 路徑顯示上一層按鈕，於伺服器端也正確隱藏 */}
+          {typeof window === "undefined" || !(
+            (typeof window !== "undefined" && window.location.pathname.startsWith("/feedback"))
+          ) ? null : <GlobalUpOneLevelButton />}
 
           <LanguageGate>{children}</LanguageGate>
         </Providers>
