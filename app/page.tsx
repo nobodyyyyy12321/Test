@@ -339,27 +339,49 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                     rows.push(
                       <React.Fragment key={"frag-" + i}>
                         {rowContent}
-                        {isInsertRow && (
-                          <div key={"subrow-" + i} style={{ gridColumn: '1 / -1', width: '100%', margin: '8px 0', display: 'flex', justifyContent: 'center', zIndex: 20 }}>
-                            <div style={{ display: 'flex', gap: 12, background: 'var(--zen-bg, #fff)', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: '8px 16px' }}>
-                              {category2[subcatKey].map((sub) => (
-                                <Link
-                                  key={sub.href}
-                                  href={sub.href}
-                                  className="book-link bookshelf-btn"
-                                  style={{ minWidth: 0, whiteSpace: 'nowrap' }}
-                                >
-                                  {sub.name}
-                                </Link>
-                              ))}
+                        {isInsertRow && (() => {
+                          // 母按鈕在這排的 index
+                          const motherIdx = filteredSubjects.findIndex((subject) => {
+                            const catKey = subject.href.replace(/^\//, "");
+                            return openCategory === catKey && category2[catKey];
+                          }) - i;
+                          // 計算母按鈕的寬度與 row 寬度
+                          // bookshelf-grid 8欄，假設每格寬度均等
+                          const percent = (motherIdx + 0.5) / COLS * 100;
+                          return (
+                            <div key={"subrow-" + i} style={{ gridColumn: '1 / -1', width: '100%', margin: '8px 0', position: 'relative', height: 0 }}>
+                              <div style={{
+                                position: 'absolute',
+                                left: `calc(${percent}% )`,
+                                top: 0,
+                                transform: 'translateX(-50%)',
+                                display: 'flex',
+                                gap: 12,
+                                background: 'var(--zen-bg, #fff)',
+                                borderRadius: 8,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                padding: '8px 16px',
+                                zIndex: 21
+                              }}>
+                                {category2[subcatKey].map((sub) => (
+                                  <Link
+                                    key={sub.href}
+                                    href={sub.href}
+                                    className="book-link bookshelf-btn"
+                                    style={{ minWidth: 0, whiteSpace: 'nowrap' }}
+                                  >
+                                    {sub.name}
+                                  </Link>
+                                ))}
+                              </div>
+                              {/* 點擊空白區域收合的透明遮罩，zIndex 調低避免遮住子按鈕 */}
+                              <div
+                                onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
+                                style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 5, background: 'transparent' }}
+                              />
                             </div>
-                            {/* 點擊空白區域收合的透明遮罩 */}
-                            <div
-                              onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
-                              style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10, background: 'transparent' }}
-                            />
-                          </div>
-                        )}
+                          );
+                        })()}
                       </React.Fragment>
                     );
                     i += COLS;
