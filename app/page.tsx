@@ -299,7 +299,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                       {row.map((subject) => {
                         const catKey = subject.href.replace(/^\//, "");
                         return (
-                          <div key={subject.name} style={{ position: "relative" }}>
+                          <div key={subject.name} style={{ position: "relative", margin: 3 }}>
                             <button
                               type="button"
                               className="book-link bookshelf-btn"
@@ -340,24 +340,25 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                           onClick={e => e.stopPropagation()}
                         >
                           {category2[expandedCatKey].map((sub) => (
-                            <Link
-                              key={sub.href}
-                              href={sub.href}
-                              className="book-link bookshelf-btn"
-                              style={{
-                                fontSize: 16,
-                                textAlign: "center",
-                                padding: "0.5em 1.2em",
-                                width: "auto",
-                                minWidth: 0,
-                                display: "inline-flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                verticalAlign: "middle"
-                              }}
-                            >
-                              {sub.name}
-                            </Link>
+                            <div key={sub.href} style={{ margin: 3, display: "inline-block" }}>
+                              <Link
+                                href={sub.href}
+                                className="book-link bookshelf-btn"
+                                style={{
+                                  fontSize: 16,
+                                  textAlign: "center",
+                                  padding: "0.5em 1.2em",
+                                  width: "auto",
+                                  minWidth: 0,
+                                  display: "inline-flex",
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  verticalAlign: "middle"
+                                }}
+                              >
+                                {sub.name}
+                              </Link>
+                            </div>
                           ))}
                         </div>
                       </div>
