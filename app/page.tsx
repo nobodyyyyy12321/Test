@@ -197,10 +197,10 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
   // 根據搜尋欄過濾科目與文章標題
   const filteredSubjects = useMemo(() => {
     const q = subjectQuery.trim().toLowerCase();
-    if (!q) return subjects;
+    if (!q) return category1;
     const rangePattern = /^\d+\s*-\s*\d+$/;
     // 過濾掉範圍型名稱
-    const searchPool = [...subjects, ...childSubjects].filter((subject) => !rangePattern.test(subject.name.trim()));
+    const searchPool = [...category1, ...childSubjects].filter((subject) => !rangePattern.test(subject.name.trim()));
     // 名稱包含關鍵字的科目
     const subjectMatches = searchPool.filter((subject) => subject.name.toLowerCase().includes(q));
     // 合併科目與文章搜尋結果，去重
