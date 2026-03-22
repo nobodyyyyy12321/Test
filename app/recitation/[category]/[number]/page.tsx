@@ -1,6 +1,6 @@
 import React from "react";
-import { getArticleByNumber } from "../../../lib/articles-firebase";
-import { auth } from "../../../auth";
+import { getArticleByNumber } from "../../../../lib/articles-firebase";
+import { auth } from "../../../../auth";
 import Link from "next/link";
 import RecitationClient from "./RecitationClient";
 import AddToListButton from "./AddToListButton";

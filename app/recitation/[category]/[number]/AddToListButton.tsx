@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import ShareIcon from "../../components/ShareIcon";
+import ShareIcon from "../../../components/ShareIcon";
 
 type Props = {
   articleId: string;

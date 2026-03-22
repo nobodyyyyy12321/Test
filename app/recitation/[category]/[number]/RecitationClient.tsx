@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import ShareIcon from "../../components/ShareIcon";
+import ShareIcon from "../../../components/ShareIcon";
 
 type RecitationClientProps = {
   articleId: string;

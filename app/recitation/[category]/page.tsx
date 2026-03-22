@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { getArticlesByCategory } from "../../lib/articles-firebase";
+import { getArticlesByCategory } from "../../../lib/articles-firebase";
 
 type Props = { params: Promise<{ category: string }> };
 
@@ -29,7 +29,7 @@ export default async function CategoryPage({ params }: Props) {
                   <Link
                     key={a.id}
                     className="book-link category-book-link"
-                    href={`/${encodeURIComponent(category)}/${a.number}`}
+                    href={`recitation/${encodeURIComponent(category)}/${a.number}`}
                     title={`${a.title}${a.author ? ` — ${a.author}` : ""}`}
                     aria-label={`${a.title}${a.author ? ` — ${a.author}` : ""}`}
                   >
