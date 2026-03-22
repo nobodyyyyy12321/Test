@@ -15,6 +15,7 @@ import ShareIcon from "./components/ShareIcon";
 
 
 import "./speaker-icon.css";
+import MusicTip from "./components/MusicTip";
 
 
 
@@ -401,11 +402,9 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
 
         <footer className="w-full mt-auto pt-16 pb-6 flex items-center justify-center gap-4 relative">
           <div className="speaker-icon">
+            <img src="/icons/speaker.png" alt="Speaker Icon" />
+            { <MusicTip/>  } 
           </div>
-            {/* <div className="speaker-icon">
-              <img src="/icons/speaker.png" alt="Speaker Icon" />
-              <MusicTip />
-            </div> */}
           <Link
             href="/feedback"
             className="inline-flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-full bg-transparent text-[var(--zen-ink)] text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity"
@@ -430,7 +429,6 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       </main>
     </div>
   );
-
 }
 
 
