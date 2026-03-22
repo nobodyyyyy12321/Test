@@ -278,18 +278,57 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
             />
             <div className="w-full overflow-visible">
               <div className="bookshelf-grid home-bookshelf-grid">
-                {filteredSubjects.map((subject) => (
-                  <div key={subject.name} style={{ position: "relative" }}>
-                    <Link
-                      href={subject.href}
-                      className="book-link bookshelf-btn"
-                      data-title={subject.name}
-                      data-href={subject.href}
-                    >
-                      {subject.name}
-                    </Link>
-                  </div>
-                ))}
+                {filteredSubjects.map((subject) => {
+                  const catKey = subject.href.replace(/^\//, "");
+                  const hasSub = !!category2[catKey];
+                  const isOpen = openCategory === catKey;
+                  return (
+                    <div key={subject.name} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      {hasSub ? (
+                        <button
+                          type="button"
+                          className="book-link bookshelf-btn"
+                          data-title={subject.name}
+                          data-href={subject.href}
+                          onClick={() => setOpenCategory(isOpen ? null : catKey)}
+                        >
+                          {subject.name}
+                        </button>
+                      ) : (
+                        <Link
+                          href={subject.href}
+                          className="book-link bookshelf-btn"
+                          data-title={subject.name}
+                          data-href={subject.href}
+                        >
+                          {subject.name}
+                        </Link>
+                      )}
+                      {/* 子分類直接顯示在母按鈕下方，不佔整行 */}
+                      {isOpen && category2[catKey] && (
+                        <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 20, marginTop: 8 }}>
+                          <div style={{ display: "flex", gap: 12, background: "var(--zen-bg, #fff)", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", padding: "8px 16px" }}>
+                            {category2[catKey].map((sub) => (
+                              <Link
+                                key={sub.href}
+                                href={sub.href}
+                                className="book-link bookshelf-btn"
+                                style={{ minWidth: 0, whiteSpace: "nowrap" }}
+                              >
+                                {sub.name}
+                              </Link>
+                            ))}
+                          </div>
+                          {/* 點擊空白區域收合的透明遮罩 */}
+                          <div
+                            onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
+                            style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: 10, background: "transparent" }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
             {filteredSubjects.length === 0 && (
