@@ -41,6 +41,17 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
     const [musicPlaying, setMusicPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const musicUrl = "/music/light-music.mp3";
+    const [openCategory, setOpenCategory] = useState<string | null>(null);
+    // 假設只有英文有子分類，實際可根據 API 或資料結構擴充
+    const category2: Record<string, Array<{ name: string; href: string }>> = {
+      english: [
+        { name: "2000單", href: "/english/2000" },
+        { name: "學測", href: "/under-construction" },
+        // 其他子分類...
+      ],
+      // chinese: [...],
+      // math: [...],
+    };
   const searchParams = useSearchParams();
   const router = useRouter();
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
@@ -267,18 +278,33 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
             />
             <div className="w-full overflow-visible">
               <div className="bookshelf-grid home-bookshelf-grid">
-                {filteredSubjects.map((subject) => (
-                  <div key={subject.name} style={{ position: "relative" }}>
-                    <Link
-                      href={subject.href}
-                      className="book-link bookshelf-btn"
-                      data-title={subject.name}
-                      data-href={subject.href}
-                    >
-                      {subject.name}
-                    </Link>
-                  </div>
-                ))}
+                {filteredSubjects.map((subject) => {
+                  const catKey = subject.href.replace(/^\//, "");
+                  const hasSub = category2[catKey];
+                  return (
+                    <div key={subject.name} style={{ position: "relative" }}>
+                      <button
+                        type="button"
+                        className="book-link bookshelf-btn"
+                        data-title={subject.name}
+                        data-href={subject.href}
+                        onClick={() => setOpenCategory(openCategory === catKey ? null : catKey)}
+                        style={{ width: "100%" }}
+                      >
+                        {subject.name}
+                      </button>
+                      {hasSub && openCategory === catKey && (
+                        <ul style={{ marginTop: 8, background: "#fff", borderRadius: 8, boxShadow: "0 2px 8px #0001", padding: 8 }}>
+                          {category2[catKey].map((sub) => (
+                            <li key={sub.href} style={{ margin: 4 }}>
+                              <Link href={sub.href} className="book-link" style={{ fontSize: 16 }}>{sub.name}</Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
             {filteredSubjects.length === 0 && (
@@ -367,7 +393,6 @@ export default function Home() {
                       { name: "英文", href: "/english" },
                       { name: "名言佳句", href: "/quote" },
                       { name: "综合", href: "/綜合" },
-                      { name: "撩语录", href: "/under-construction" },
                       { name: "数学", href: "/math" },
                       { name: "物理", href: "/physics" },
                       { name: "化学", href: "/chemistry" },
@@ -386,7 +411,6 @@ export default function Home() {
                       { name: "英文", href: "/english" },
                       { name: "名言佳句", href: "/quote" },
                       { name: "綜合", href: "/綜合" },
-                      { name: "撩語錄", href: "/under-construction" },
                       { name: "數學", href: "/math" },
                       { name: "物理", href: "/physics" },
                       { name: "化學", href: "/chemistry" },
@@ -413,7 +437,6 @@ export default function Home() {
                             { name: "英文", href: "/english" },
                             { name: "名言佳句", href: "/quote" },
                             { name: "综合", href: "/綜合" },
-                            { name: "撩语录", href: "/under-construction" },
                             { name: "数学", href: "/math" },
                             { name: "物理", href: "/physics" },
                             { name: "化学", href: "/chemistry" },
@@ -432,7 +455,6 @@ export default function Home() {
                             { name: "英文", href: "/english" },
                             { name: "名言佳句", href: "/quote" },
                             { name: "綜合", href: "/綜合" },
-                            { name: "撩語錄", href: "/under-construction" },
                             { name: "數學", href: "/math" },
                             { name: "物理", href: "/physics" },
                             { name: "化學", href: "/chemistry" },
