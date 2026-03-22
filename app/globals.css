@@ -1,3 +1,20 @@
+/* 子分類橫向單排樣式 */
+.subcategory-row {
+  width: 100%;
+  position: relative;
+  height: 0;
+  margin: 12px 0;
+}
+.subcategory-row-inner {
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  background: var(--zen-bg, #fff);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
 @import "tailwindcss";
 
 :root {

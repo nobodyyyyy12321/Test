@@ -48,6 +48,15 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "學測", href: "/under-construction" },
       // 其他子分類...
     ],
+    recitation: [
+      { name: "漢", href: "/recitation/漢" },
+      { name: "唐", href: "/recitation/唐" },
+      { name: "宋", href: "/recitation/宋" },
+      { name: "明", href: "/recitation/明" },
+      { name: "清", href: "/recitation/清" },
+      { name: "民", href: "/recitation/民" },
+      // 你可以根據實際需求增減子分類
+    ],
     // chinese: [...],
     // math: [...],
   };
@@ -57,9 +66,9 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
   const [loadedCategories, setLoadedCategories] = useState<string[]>([]);
   const [subjectQuery, setSubjectQuery] = useState("");
   const [articleMatches, setArticleMatches] = useState<Array<{ name: string; href: string }>>([]);
-  let subjects: { name: string; href: string }[] = [];
+  let category1: { name: string; href: string }[] = [];
   if (language === "en") {
-    subjects = [
+    category1 = [
       { name: "Learn Chinese", href: "/study-chinese" },
       { name: "Math", href: "/under-construction" },
       { name: "Physics", href: "/under-construction" },
@@ -68,7 +77,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "Quote", href: "/under-construction" },
     ];
   } else if (language === "zh-CN") {
-    subjects = [
+    category1 = [
       { name: "背东西", href: "/recitation" },
       { name: "国文", href: "/chinese" },
       { name: "英文", href: "/english" },
@@ -93,7 +102,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "社会", href: "/social" },
     ];
   } else if (language === "es") {
-    subjects = [
+    category1 = [
       { name: "Matemáticas", href: "/under-construction" },
       { name: "Química", href: "/under-construction" },
       { name: "Física", href: "/under-construction" },
@@ -101,7 +110,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "Cita", href: "/under-construction" },
     ];
   } else if (language === "th") {
-    subjects = [
+    category1 = [
       { name: "คณิตศาสตร์", href: "/under-construction" },
       { name: "ฟิสิกส์", href: "/under-construction" },
       { name: "เคมี", href: "/under-construction" },
@@ -109,7 +118,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "คำคม", href: "/under-construction" },
     ];
   } else if (language === "id") {
-    subjects = [
+    category1 = [
       { name: "Matematika", href: "/under-construction" },
       { name: "Fisika", href: "/under-construction" },
       { name: "Kimia", href: "/under-construction" },
@@ -117,7 +126,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "Kutipan", href: "/under-construction" },
     ];
   } else if (language === "ko") {
-    subjects = [
+    category1 = [
       { name: "수학", href: "/under-construction" },
       { name: "물리", href: "/under-construction" },
       { name: "화학", href: "/under-construction" },
@@ -125,7 +134,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       { name: "명언", href: "/under-construction" },
     ];
   } else {
-    subjects = [
+    category1 = [
       { name: "背東西", href: "/recitation" },
       { name: "國文", href: "/chinese" },
       { name: "英文", href: "/english" },
@@ -203,7 +212,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       unique.set(`${item.name}::${item.href}`, item);
     }
     return Array.from(unique.values());
-  }, [subjects, childSubjects, subjectQuery, articleMatches]);
+  }, [category1, childSubjects, subjectQuery, articleMatches]);
 
   // 首頁載入時取得所有分類（API）
   useEffect(() => {
@@ -296,7 +305,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                       subcatKey = catKey;
                     }
                   });
-                  // 分割 subjects，插入子分類 row
+                  // 分割 category1，插入子分類 row
                   let i = 0;
                   while (i < filteredSubjects.length) {
                     // 取出一排
@@ -351,20 +360,15 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                           // bookshelf-grid 8欄，假設每格寬度均等
                           const percent = (motherIdx + 0.5) / COLS * 100;
                           return (
-                            <div key={"subrow-" + i} style={{ gridColumn: '1 / -1', width: '100%', position: 'relative', height: 0, margin: `${bookshelfRowGap/2}px 0` }}>
+                            <div key={"subrow-" + i} className="subcategory-row" style={{ gridColumn: '1 / -1', width: '100%', position: 'relative', height: 0, margin: `${bookshelfRowGap/2}px 0` }}>
                               <div style={{
                                 position: 'absolute',
                                 left: `calc(${percent}% )`,
                                 top: 0,
                                 transform: 'translateX(-50%)',
-                                display: 'flex',
-                                gap: 12,
-                                background: 'var(--zen-bg, #fff)',
-                                borderRadius: 8,
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                                padding: '8px 16px',
                                 zIndex: 21
                               }}>
+                                <div className="subcategory-row-inner" style={{display:'flex',gap:12,background:'var(--zen-bg, #fff)',borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,0.08)',padding:'8px 16px'}}>
                                 {category2[subcatKey].map((sub) => (
                                   <Link
                                     key={sub.href}
@@ -375,6 +379,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                     {sub.name}
                                   </Link>
                                 ))}
+                                </div>
                               </div>
                               {/* 點擊空白區域收合的透明遮罩，zIndex 調低避免遮住子按鈕 */}
                               <div
