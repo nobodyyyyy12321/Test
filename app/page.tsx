@@ -277,105 +277,20 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
               aria-label={language === "en" ? "Search subjects" : language === "zh-CN" ? "搜索科目" : "搜尋科目"}
             />
             <div className="w-full overflow-visible">
-              {/* 將主題分成多排，每排固定顯示 N 個，展開時在該排下方插入子分類橫列 */}
-              {(() => {
-                const subjectsPerRow = 7;
-                const rows = [];
-                for (let i = 0; i < filteredSubjects.length; i += subjectsPerRow) {
-                  rows.push(filteredSubjects.slice(i, i + subjectsPerRow));
-                }
-                let expandedRowIdx = -1;
-                let expandedCatKey: string | null = null;
-                filteredSubjects.forEach((subject, idx) => {
-                  const catKey = subject.href.replace(/^\//, "");
-                  if (openCategory === catKey) {
-                    expandedRowIdx = Math.floor(idx / subjectsPerRow);
-                    expandedCatKey = catKey;
-                  }
-                });
-                return rows.map((row, rowIdx) => (
-                  <div key={rowIdx} style={{ width: "100%" }}>
-                    <div className="bookshelf-grid home-bookshelf-grid">
-                      {row.map((subject) => {
-                        const catKey = subject.href.replace(/^\//, "");
-                        return (
-                          <div key={subject.name} style={{ position: "relative" }}>
-                            <button
-                              type="button"
-                              className="book-link bookshelf-btn"
-                              data-title={subject.name}
-                              data-href={subject.href}
-                              onClick={() => setOpenCategory(openCategory === catKey ? null : catKey)}
-                              style={{ width: "100%" }}
-                            >
-                              {subject.name}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* 若這一排有展開，則在下方插入子分類橫列 */}
-                    {expandedRowIdx === rowIdx && expandedCatKey && category2[expandedCatKey] && (
-                      <div style={{ position: "relative", width: "100%" }}>
-                        {/* 點擊空白區域收合的透明遮罩 */}
-                        <div
-                          onClick={(e) => {
-                            // 只允許左鍵點擊收合
-                            if (e.button === 0) setOpenCategory(null);
-                          }}
-                          style={{
-                            position: "fixed",
-                            top: 0,
-                            left: 0,
-                            width: "100vw",
-                            height: "100vh",
-                            zIndex: 10,
-                            background: "transparent",
-                            cursor: "default"
-                          }}
-                        />
-                        <div style={{ display: "flex", justifyContent: "center", width: "100%", margin: "16px 0", position: "relative", zIndex: 11 }}>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "repeat(8, auto)",
-                              gap: 16,
-                              justifyItems: "center",
-                              alignItems: "center",
-                              width: "auto"
-                            }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            {category2[expandedCatKey].map((sub) => (
-                              <div key={sub.href} style={{ display: "flex", justifyContent: "center" }}>
-                                <Link
-                                  href={sub.href}
-                                  className="book-link bookshelf-btn"
-                                  style={{
-                                    fontSize: 16,
-                                    textAlign: "center",
-                                    padding: "0.5em 1.2em",
-                                    width: "auto",
-                                    minWidth: 0,
-                                    maxWidth: "100%",
-                                    display: "inline-flex",
-                                    justifyContent: "center",
-                                    alignItems: "center",
-                                    verticalAlign: "middle",
-                                    whiteSpace: "nowrap"
-                                  }}
-                                >
-                                  {sub.name}
-                                </Link>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+              <div className="bookshelf-grid home-bookshelf-grid">
+                {filteredSubjects.map((subject) => (
+                  <div key={subject.name} style={{ position: "relative" }}>
+                    <Link
+                      href={subject.href}
+                      className="book-link bookshelf-btn"
+                      data-title={subject.name}
+                      data-href={subject.href}
+                    >
+                      {subject.name}
+                    </Link>
                   </div>
-                ));
-              })()}
+                ))}
+              </div>
             </div>
             {filteredSubjects.length === 0 && (
               <p className="text-sm zen-subtle text-center">
