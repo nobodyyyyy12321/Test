@@ -44,7 +44,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const category2: Record<string, Array<{ name: string; href: string }>> = {
     english: [
-      { name: "2000單", href: "/english/2000" },
+      { name: "2000單", href: "[category1]/[category2]" },
       { name: "學測", href: "/under-construction" },
       // 其他子分類...
     ],
@@ -369,7 +369,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                 zIndex: 21
                               }}>
                                 <div className="subcategory-row-inner" style={{display:'flex',gap:12,background:'var(--zen-bg, #fff)',borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,0.08)',padding:'8px 16px'}}>
-                                {category2[subcatKey].map((sub) => (
+                                {Array.isArray(category2[subcatKey]) && category2[subcatKey].map((sub) => (
                                   <Link
                                     key={sub.href}
                                     href={sub.href}
