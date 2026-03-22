@@ -122,7 +122,6 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
             { name: "名言佳句", href: "/quote" },
             { name: "綜合", href: "/綜合" },
             { name: "比賽", href: "/under-construction" },
-            { name: "撩語錄", href: "/under-construction" },
             { name: "八卦", href: "/under-construction" },
             { name: "猜謎", href: "/under-construction" },
             { name: "笑話", href: "/under-construction" },
