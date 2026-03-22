@@ -285,7 +285,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                   rows.push(filteredSubjects.slice(i, i + subjectsPerRow));
                 }
                 let expandedRowIdx = -1;
-                let expandedCatKey = null;
+                let expandedCatKey: string | null = null;
                 filteredSubjects.forEach((subject, idx) => {
                   const catKey = subject.href.replace(/^\//, "");
                   if (openCategory === catKey) {
@@ -299,7 +299,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                       {row.map((subject) => {
                         const catKey = subject.href.replace(/^\//, "");
                         return (
-                          <div key={subject.name} style={{ position: "relative", margin: 3 }}>
+                          <div key={subject.name} style={{ position: "relative" }}>
                             <button
                               type="button"
                               className="book-link bookshelf-btn"
@@ -334,32 +334,42 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                             cursor: "default"
                           }}
                         />
-                        <div
-                          className="flex flex-row flex-wrap justify-center gap-4 my-4 items-center"
-                          style={{ position: "relative", zIndex: 11 }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {category2[expandedCatKey].map((sub) => (
-                            <div key={sub.href} style={{ margin: 3, display: "inline-block" }}>
-                              <Link
-                                href={sub.href}
-                                className="book-link bookshelf-btn"
-                                style={{
-                                  fontSize: 16,
-                                  textAlign: "center",
-                                  padding: "0.5em 1.2em",
-                                  width: "auto",
-                                  minWidth: 0,
-                                  display: "inline-flex",
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                  verticalAlign: "middle"
-                                }}
-                              >
-                                {sub.name}
-                              </Link>
-                            </div>
-                          ))}
+                        <div style={{ display: "flex", justifyContent: "center", width: "100%", margin: "16px 0", position: "relative", zIndex: 11 }}>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(8, auto)",
+                              gap: 16,
+                              justifyItems: "center",
+                              alignItems: "center",
+                              width: "auto"
+                            }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {category2[expandedCatKey].map((sub) => (
+                              <div key={sub.href} style={{ display: "flex", justifyContent: "center" }}>
+                                <Link
+                                  href={sub.href}
+                                  className="book-link bookshelf-btn"
+                                  style={{
+                                    fontSize: 16,
+                                    textAlign: "center",
+                                    padding: "0.5em 1.2em",
+                                    width: "auto",
+                                    minWidth: 0,
+                                    maxWidth: "100%",
+                                    display: "inline-flex",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    verticalAlign: "middle",
+                                    whiteSpace: "nowrap"
+                                  }}
+                                >
+                                  {sub.name}
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
