@@ -1,4 +1,7 @@
+
+
 "use client";
+import React from "react";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, Suspense, useRef } from "react";
@@ -278,57 +281,91 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
             />
             <div className="w-full overflow-visible">
               <div className="bookshelf-grid home-bookshelf-grid">
-                {filteredSubjects.map((subject) => {
-                  const catKey = subject.href.replace(/^\//, "");
-                  const hasSub = !!category2[catKey];
-                  const isOpen = openCategory === catKey;
-                  return (
-                    <div key={subject.name} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      {hasSub ? (
-                        <button
-                          type="button"
-                          className="book-link bookshelf-btn"
-                          data-title={subject.name}
-                          data-href={subject.href}
-                          onClick={() => setOpenCategory(isOpen ? null : catKey)}
-                        >
-                          {subject.name}
-                        </button>
-                      ) : (
-                        <Link
-                          href={subject.href}
-                          className="book-link bookshelf-btn"
-                          data-title={subject.name}
-                          data-href={subject.href}
-                        >
-                          {subject.name}
-                        </Link>
-                      )}
-                      {/* 子分類直接顯示在母按鈕下方，不佔整行 */}
-                      {isOpen && category2[catKey] && (
-                        <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 20, marginTop: 8 }}>
-                          <div style={{ display: "flex", gap: 12, background: "var(--zen-bg, #fff)", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", padding: "8px 16px" }}>
-                            {category2[catKey].map((sub) => (
-                              <Link
-                                key={sub.href}
-                                href={sub.href}
-                                className="book-link bookshelf-btn"
-                                style={{ minWidth: 0, whiteSpace: "nowrap" }}
-                              >
-                                {sub.name}
-                              </Link>
-                            ))}
+                {(() => {
+                  // bookshelf-grid 設定 8 欄
+                  const COLS = 8;
+                  const rows: React.ReactNode[] = [];
+                  let insertIdx = -1;
+                  let subcatKey = '';
+                  // 找到展開的母按鈕 index
+                  filteredSubjects.forEach((subject, idx) => {
+                    const catKey = subject.href.replace(/^\//, "");
+                    if (openCategory === catKey && category2[catKey]) {
+                      insertIdx = idx;
+                      subcatKey = catKey;
+                    }
+                  });
+                  // 分割 subjects，插入子分類 row
+                  let i = 0;
+                  while (i < filteredSubjects.length) {
+                    // 取出一排
+                    const rowSubjects = filteredSubjects.slice(i, i + COLS);
+                    // 檢查這排是否為插入點
+                    const isInsertRow = insertIdx !== -1 && i + COLS > insertIdx && i <= insertIdx;
+                    // 渲染這排
+                    const rowContent = (
+                      <div style={{ display: 'contents' }} key={"row-" + i}>
+                        {rowSubjects.map((subject) => {
+                          const catKey = subject.href.replace(/^\//, "");
+                          const hasSub = !!category2[catKey];
+                          const isOpen = openCategory === catKey;
+                          return (
+                            <div key={subject.name} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              {hasSub ? (
+                                <button
+                                  type="button"
+                                  className="book-link bookshelf-btn"
+                                  data-title={subject.name}
+                                  data-href={subject.href}
+                                  onClick={() => setOpenCategory(isOpen ? null : catKey)}
+                                >
+                                  {subject.name}
+                                </button>
+                              ) : (
+                                <Link
+                                  href={subject.href}
+                                  className="book-link bookshelf-btn"
+                                  data-title={subject.name}
+                                  data-href={subject.href}
+                                >
+                                  {subject.name}
+                                </Link>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                    rows.push(
+                      <React.Fragment key={"frag-" + i}>
+                        {rowContent}
+                        {isInsertRow && (
+                          <div key={"subrow-" + i} style={{ gridColumn: '1 / -1', width: '100%', margin: '8px 0', display: 'flex', justifyContent: 'center', zIndex: 20 }}>
+                            <div style={{ display: 'flex', gap: 12, background: 'var(--zen-bg, #fff)', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: '8px 16px' }}>
+                              {category2[subcatKey].map((sub) => (
+                                <Link
+                                  key={sub.href}
+                                  href={sub.href}
+                                  className="book-link bookshelf-btn"
+                                  style={{ minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                  {sub.name}
+                                </Link>
+                              ))}
+                            </div>
+                            {/* 點擊空白區域收合的透明遮罩 */}
+                            <div
+                              onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
+                              style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10, background: 'transparent' }}
+                            />
                           </div>
-                          {/* 點擊空白區域收合的透明遮罩 */}
-                          <div
-                            onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
-                            style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: 10, background: "transparent" }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </React.Fragment>
+                    );
+                    i += COLS;
+                  }
+                  return rows;
+                })()}
               </div>
             </div>
             {filteredSubjects.length === 0 && (
