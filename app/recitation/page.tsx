@@ -87,7 +87,7 @@ export default function RecitationPage() {
             <div className="bookshelf-scroll">
               <div className="bookshelf-grid">
                 {categories.map((category) => (
-                  <Link key={category} href={`${encodeURIComponent(category)}`} className="book-link">
+                  <Link key={category} href={`recitation/${encodeURIComponent(category)}`} className="book-link">
                     {category}
                   </Link>
                 ))}
