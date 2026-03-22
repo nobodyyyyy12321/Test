@@ -30,6 +30,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       language === "en"
         ? []
         : language === "zh-CN"
+          ? []
           : language === "es"
             ? []
             : language === "th"
