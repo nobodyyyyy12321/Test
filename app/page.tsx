@@ -30,7 +30,6 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       language === "en"
         ? []
         : language === "zh-CN"
-          ? []
           : language === "es"
             ? []
             : language === "th"
@@ -86,7 +85,6 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
       : language === "es"
         ? [
             { name: "Matemáticas", href: "/under-construction" },
-            { name: "Física", href: "/under-construction" },
             { name: "Química", href: "/under-construction" },
             { name: "Concurso", href: "/under-construction" },
             { name: "Cita", href: "/under-construction" },
