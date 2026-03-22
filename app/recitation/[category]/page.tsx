@@ -29,7 +29,7 @@ export default async function CategoryPage({ params }: Props) {
                   <Link
                     key={a.id}
                     className="book-link category-book-link"
-                    href={`recitation/${encodeURIComponent(category)}/${a.number}`}
+                    href={`/recitation/${encodeURIComponent(category)}/${a.number}`}
                     title={`${a.title}${a.author ? ` — ${a.author}` : ""}`}
                     aria-label={`${a.title}${a.author ? ` — ${a.author}` : ""}`}
                   >

@@ -41,6 +41,17 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
     const [musicPlaying, setMusicPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const musicUrl = "/music/light-music.mp3";
+    const [openCategory, setOpenCategory] = useState<string | null>(null);
+    // 假設只有英文有子分類，實際可根據 API 或資料結構擴充
+    const category2: Record<string, Array<{ name: string; href: string }>> = {
+      english: [
+        { name: "2000單", href: "/english/2000" },
+        { name: "學測", href: "/under-construction" },
+        // 其他子分類...
+      ],
+      // chinese: [...],
+      // math: [...],
+    };
   const searchParams = useSearchParams();
   const router = useRouter();
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
@@ -367,7 +378,6 @@ export default function Home() {
                       { name: "英文", href: "/english" },
                       { name: "名言佳句", href: "/quote" },
                       { name: "综合", href: "/綜合" },
-                      { name: "撩语录", href: "/under-construction" },
                       { name: "数学", href: "/math" },
                       { name: "物理", href: "/physics" },
                       { name: "化学", href: "/chemistry" },
@@ -386,7 +396,6 @@ export default function Home() {
                       { name: "英文", href: "/english" },
                       { name: "名言佳句", href: "/quote" },
                       { name: "綜合", href: "/綜合" },
-                      { name: "撩語錄", href: "/under-construction" },
                       { name: "數學", href: "/math" },
                       { name: "物理", href: "/physics" },
                       { name: "化學", href: "/chemistry" },
@@ -413,7 +422,6 @@ export default function Home() {
                             { name: "英文", href: "/english" },
                             { name: "名言佳句", href: "/quote" },
                             { name: "综合", href: "/綜合" },
-                            { name: "撩语录", href: "/under-construction" },
                             { name: "数学", href: "/math" },
                             { name: "物理", href: "/physics" },
                             { name: "化学", href: "/chemistry" },
@@ -432,7 +440,6 @@ export default function Home() {
                             { name: "英文", href: "/english" },
                             { name: "名言佳句", href: "/quote" },
                             { name: "綜合", href: "/綜合" },
-                            { name: "撩語錄", href: "/under-construction" },
                             { name: "數學", href: "/math" },
                             { name: "物理", href: "/physics" },
                             { name: "化學", href: "/chemistry" },
