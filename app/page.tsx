@@ -315,13 +315,14 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                     // 渲染這排
                     const rowContent = (
                       <div style={{ display: 'contents' }} key={"row-" + i}>
-                        {rowSubjects.map((subject) => {
+                        {rowSubjects.flatMap((subject, idx2) => {
                           const catKey = subject.href.replace(/^\//, "");
                           const hasSub = !!category2[catKey];
                           const isOpen = openCategory === catKey;
-                          return (
-                            <div key={subject.name} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              {hasSub ? (
+                          // 若是展開的母按鈕，右側插入一個 bookshelf-grid 格子作為子按鈕群
+                          if (hasSub && isOpen) {
+                            return [
+                              <div key={subject.name} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <button
                                   type="button"
                                   className="book-link bookshelf-btn"
@@ -331,45 +332,9 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                 >
                                   {subject.name}
                                 </button>
-                              ) : (
-                                <Link
-                                  href={subject.href}
-                                  className="book-link bookshelf-btn"
-                                  data-title={subject.name}
-                                  data-href={subject.href}
-                                >
-                                  {subject.name}
-                                </Link>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                    rows.push(
-                      <React.Fragment key={"frag-" + i}>
-                        {rowContent}
-                        {isInsertRow && (() => {
-                          // bookshelf-grid row 間距（與 home-bookshelf-grid gap 一致）
-                          const bookshelfRowGap = 24; // px，與 home-bookshelf-grid gap: 24px
-                          // 母按鈕在這排的 index
-                          const motherIdx = filteredSubjects.findIndex((subject) => {
-                            const catKey = subject.href.replace(/^\//, "");
-                            return openCategory === catKey && category2[catKey];
-                          }) - i;
-                          // bookshelf-grid 8欄，假設每格寬度均等
-                          const percent = (motherIdx + 0.5) / COLS * 100;
-                          return (
-                            <div key={"subrow-" + i} className="subcategory-row" style={{ gridColumn: '1 / -1', width: '100%', position: 'relative', height: 0, margin: `${bookshelfRowGap/2}px 0` }}>
-                              <div style={{
-                                position: 'absolute',
-                                left: `calc(${percent}% )`,
-                                top: 0,
-                                transform: 'translateX(-50%)',
-                                zIndex: 21
-                              }}>
-                                <div className="subcategory-row-inner" style={{display:'flex',gap:12,background:'var(--zen-bg, #fff)',borderRadius:8,boxShadow:'0 2px 8px rgba(0,0,0,0.08)',padding:'8px 16px'}}>
-                                {Array.isArray(category2[subcatKey]) && category2[subcatKey].map((sub) => {
+                              </div>,
+                              <div key={subject.name + '-sub'} style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
+                                {Array.isArray(category2[catKey]) && category2[catKey].map((sub) => {
                                   const isValidHref =
                                     typeof sub.href === "string" &&
                                     sub.href.trim() !== "" &&
@@ -394,16 +359,47 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                     return null;
                                   }
                                 })}
-                                </div>
                               </div>
-                              {/* 點擊空白區域收合的透明遮罩，zIndex 調低避免遮住子按鈕 */}
-                              <div
-                                onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
-                                style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 5, background: 'transparent' }}
-                              />
-                            </div>
-                          );
-                        })()}
+                            ];
+                          } else {
+                            return (
+                              <div key={subject.name} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                {hasSub ? (
+                                  <button
+                                    type="button"
+                                    className="book-link bookshelf-btn"
+                                    data-title={subject.name}
+                                    data-href={subject.href}
+                                    onClick={() => setOpenCategory(isOpen ? null : catKey)}
+                                  >
+                                    {subject.name}
+                                  </button>
+                                ) : (
+                                  <Link
+                                    href={subject.href}
+                                    className="book-link bookshelf-btn"
+                                    data-title={subject.name}
+                                    data-href={subject.href}
+                                  >
+                                    {subject.name}
+                                  </Link>
+                                )}
+                              </div>
+                            );
+                          }
+                        })}
+                      </div>
+                    );
+                    rows.push(
+                      <React.Fragment key={"frag-" + i}>
+                        {rowContent}
+                        {/* 點擊空白區域收合的透明遮罩，zIndex 調低避免遮住子按鈕 */}
+                        {isInsertRow && (
+                          <div
+                            onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
+                            style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 5, background: 'transparent' }}
+                          />
+                        )}
                       </React.Fragment>
                     );
                     i += COLS;
