@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "智人題庫",
     short_name: "智人題庫",
-    description: "多方位學習管理平台",
+    description: "多方位學習平台",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
