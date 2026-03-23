@@ -333,7 +333,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                   {subject.name}
                                 </button>
                               </div>,
-                              <div key={subject.name + '-sub'} style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
+                              <div key={subject.name + '-sub'} style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
                                 {Array.isArray(category2[catKey]) && category2[catKey].map((sub) => {
                                   const isValidHref =
                                     typeof sub.href === "string" &&
