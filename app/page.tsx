@@ -354,7 +354,14 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                         key={sub.href}
                                         href={sub.href}
                                         className="book-link bookshelf-btn"
-                                        style={{ minWidth: 0, whiteSpace: 'nowrap' }}
+                                        style={{
+                                          minWidth: 0,
+                                          whiteSpace: 'nowrap',
+                                          background: '#282828d9',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
+                                          padding: '0.25em 1.1em',
+                                        }}
                                       >
                                         {sub.name}
                                       </Link>
