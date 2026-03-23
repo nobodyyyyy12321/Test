@@ -333,7 +333,15 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                                   {subject.name}
                                 </button>
                               </div>,
-                              <div key={subject.name + '-sub'} style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+                              <div key={subject.name + '-sub'}
+                                style={{
+                                  display: 'flex',
+                                  gap: '0.875rem',
+                                  alignItems: 'center',
+                                  position: 'relative',
+                                  zIndex: 10
+                                }}
+                              >
                                 {Array.isArray(category2[catKey]) && category2[catKey].map((sub) => {
                                   const isValidHref =
                                     typeof sub.href === "string" &&
@@ -397,7 +405,18 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
                         {isInsertRow && (
                           <div
                             onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
-                            style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 5, background: 'transparent' }}
+                            style={{
+                              position: 'absolute',
+                              left: rowSubjects.findIndex((subject) => {
+                                const catKey = subject.href.replace(/^\//, "");
+                                return openCategory === catKey && category2[catKey];
+                              }) * (100 / COLS) + '%',
+                              top: 0,
+                              width: (100 / COLS) + '%',
+                              height: '100%',
+                              zIndex: 9,
+                              background: 'transparent',
+                            }}
                           />
                         )}
                       </React.Fragment>
