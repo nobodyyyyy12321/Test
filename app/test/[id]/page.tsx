@@ -45,8 +45,7 @@ export default function QuotePage() {
       .then(data => {
         if (data.questions) {
           let loadedQuestions: Question[] = randomMode ? shuffleQuestions(data.questions) : data.questions;
-          // 題號隨機：亂數後重新分配 number
-          loadedQuestions = loadedQuestions.map((q, idx) => ({ ...q, number: idx + 1 }));
+          // 題號顯示原始資料的 number 欄位
           setQuestions(loadedQuestions);
           setUserAnswers(new Array(loadedQuestions.length).fill(null));
           // 隨機選一題開始
