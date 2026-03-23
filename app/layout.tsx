@@ -41,9 +41,9 @@ export const metadata: Metadata = {
   description: "多方位學習平台",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/favicon.png", type: "image/png" }],
-    shortcut: [{ url: "/favicon.png", type: "image/png" }],
-    apple: [{ url: "/favicon.png", type: "image/png" }],
+    icon: [{ url: "/icons/favicon.png", type: "image/png" }],
+    shortcut: [{ url: "/icons/favicon.png", type: "image/png" }],
+    apple: [{ url: "/icons/favicon.png", type: "image/png" }],
   },
 };
 
