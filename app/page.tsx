@@ -1,14 +1,25 @@
-"use client";
 
+
+// 這是 Next.js 首頁的主要組件，負責顯示主畫面與科目分類
+"use client";
+import React from "react";
+
+
+// Next.js 路由與 hooks
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import Link from "next/link";
-import MusicTip from "./components/MusicTip";
+// 自訂元件
+
 import ShareIcon from "./components/ShareIcon";
 
+
 import "./speaker-icon.css";
+import MusicTip from "./components/MusicTip";
 
 
+
+// 首頁內容元件的 props 型別
 type HomeContentProps = {
   categories: string[];
   siteTitle: string;
@@ -16,6 +27,8 @@ type HomeContentProps = {
   language: string;
 };
 
+
+// 搜尋文章的型別
 type SearchArticle = {
   title?: string;
   author?: string;
@@ -23,133 +36,131 @@ type SearchArticle = {
   number?: number;
 };
 
+
+
 function HomeContent({ categories, siteTitle, isSimplified, language }: HomeContentProps) {
-      const [tonearmOn, setTonearmOn] = useState(false);
-    // Add childSubjects declaration
-    const childSubjects =
-      language === "en"
-        ? []
-        : language === "zh-CN"
-          ? []
-          : language === "es"
-            ? []
-            : language === "th"
-              ? []
-              : language === "id"
-                ? []
-                : [];
-    const [musicPlaying, setMusicPlaying] = useState(false);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    const musicUrl = "/music/light-music.mp3";
-    const [openCategory, setOpenCategory] = useState<string | null>(null);
-    // 假設只有英文有子分類，實際可根據 API 或資料結構擴充
-    const category2: Record<string, Array<{ name: string; href: string }>> = {
-      english: [
-        { name: "2000單", href: "/english/2000" },
-        { name: "學測", href: "/under-construction" },
-        // 其他子分類...
-      ],
-      // chinese: [...],
-      // math: [...],
-    };
+  // 子分類（目前僅英文有，其他語言可擴充）
+  const childSubjects: { name: string; href: string }[] = [];
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const category2: Record<string, Array<{ name: string; href: string }>> = {
+    english: [
+      { name: "2000單", href: "/test/englishQuestions" },
+      { name: "學測", href: "/under-construction" },
+      // 其他子分類...
+    ],
+    recitation: [
+      { name: "漢", href: "/recitation/漢" },
+      { name: "唐", href: "/recitation/唐" },
+      { name: "宋", href: "/recitation/宋" },
+      { name: "明", href: "/recitation/明" },
+      { name: "清", href: "/recitation/清" },
+      { name: "民", href: "/recitation/民" },
+      // 你可以根據實際需求增減子分類
+    ],
+    // chinese: [...],
+    // math: [...],
+  };
   const searchParams = useSearchParams();
   const router = useRouter();
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
   const [loadedCategories, setLoadedCategories] = useState<string[]>([]);
   const [subjectQuery, setSubjectQuery] = useState("");
   const [articleMatches, setArticleMatches] = useState<Array<{ name: string; href: string }>>([]);
-  const subjects =
-    language === "en"
-      ? [
-          { name: "Learn Chinese", href: "/study-chinese" },
-          { name: "Math", href: "/under-construction" },
-          { name: "Physics", href: "/under-construction" },
-          { name: "Chemistry", href: "/under-construction" },
-          { name: "Contest", href: "/under-construction" },
-          { name: "Quote", href: "/under-construction" },
-        ]
-      : language === "zh-CN"
-        ? [
-            { name: "背东西", href: "/recitation" },
-            { name: "国文", href: "/chinese" },
-            { name: "英文", href: "/english" },
-            { name: "公职考试", href: "/公職考試" },
-            { name: "名言佳句", href: "/quote" },
-            { name: "综合", href: "/綜合" },
-            { name: "比赛", href: "/under-construction" },
-            { name: "八卦", href: "/under-construction" },
-            { name: "猜谜", href: "/under-construction" },
-            { name: "笑话", href: "/under-construction" },
-            { name: "数学", href: "/math" },
-            { name: "物理", href: "/physics" },
-            { name: "化学", href: "/chemistry" },
-            { name: "生物", href: "/under-construction" },
-            { name: "地理", href: "/under-construction" },
-            { name: "天文", href: "/under-construction" },
-            { name: "历史", href: "/under-construction" },
-            { name: "公民", href: "/under-construction" },
-            { name: "心理", href: "/under-construction" },
-            { name: "哲學", href: "/under-construction" },
-            { name: "自然", href: "/natural" },
-            { name: "社会", href: "/social" },
-          ]
-      : language === "es"
-        ? [
-            { name: "Matemáticas", href: "/under-construction" },
-            { name: "Química", href: "/under-construction" },
-            { name: "Física", href: "/under-construction" },
-            { name: "Concurso", href: "/under-construction" },
-            { name: "Cita", href: "/under-construction" },
-          ]
-      : language === "th"
-        ? [
-            { name: "คณิตศาสตร์", href: "/under-construction" },
-            { name: "ฟิสิกส์", href: "/under-construction" },
-            { name: "เคมี", href: "/under-construction" },
-            { name: "การแข่งขัน", href: "/under-construction" },
-            { name: "คำคม", href: "/under-construction" },
-          ]
-      : language === "id"
-        ? [
-            { name: "Matematika", href: "/under-construction" },
-            { name: "Fisika", href: "/under-construction" },
-            { name: "Kimia", href: "/under-construction" },
-            { name: "Kompetisi", href: "/under-construction" },
-            { name: "Kutipan", href: "/under-construction" },
-          ]
-      : language === "ko"
-        ? [
-            { name: "수학", href: "/under-construction" },
-            { name: "물리", href: "/under-construction" },
-            { name: "화학", href: "/under-construction" },
-            { name: "대회", href: "/under-construction" },
-            { name: "명언", href: "/under-construction" },
-          ]
-      : [
-            { name: "背東西", href: "/recitation" },
-            { name: "國文", href: "/chinese" },
-            { name: "英文", href: "/english" },
-            { name: "公職考試", href: "/公職考試" },
-            { name: "名言佳句", href: "/quote" },
-            { name: "綜合", href: "/綜合" },
-            { name: "比賽", href: "/under-construction" },
-            { name: "八卦", href: "/under-construction" },
-            { name: "猜謎", href: "/under-construction" },
-            { name: "笑話", href: "/under-construction" },
-            { name: "數學", href: "/math" },
-            { name: "物理", href: "/physics" },
-            { name: "化學", href: "/chemistry" },
-            { name: "生物", href: "/under-construction" },
-            { name: "地理", href: "/under-construction" },
-            { name: "天文", href: "/under-construction" },
-            { name: "歷史", href: "/under-construction" },
-            { name: "公民", href: "/under-construction" },
-            { name: "心理", href: "/under-construction" },
-            { name: "哲學", href: "/under-construction" },
-            { name: "自然", href: "/natural" },
-            { name: "社會", href: "/social" },
-          ];
+  let category1: { name: string; href: string }[] = [];
+  if (language === "en") {
+    category1 = [
+      { name: "Learn Chinese", href: "/study-chinese" },
+      { name: "Math", href: "/under-construction" },
+      { name: "Physics", href: "/under-construction" },
+      { name: "Chemistry", href: "/under-construction" },
+      { name: "Contest", href: "/under-construction" },
+      { name: "Quote", href: "/under-construction" },
+    ];
+  } else if (language === "zh-CN") {
+    category1 = [
+      { name: "背东西", href: "/recitation" },
+      { name: "国文", href: "/chinese" },
+      { name: "英文", href: "/english" },
+      { name: "公职考试", href: "/公職考試" },
+      { name: "名言佳句", href: "/test/quoteQuestions" },
+      { name: "综合", href: "/綜合" },
+      { name: "比赛", href: "/under-construction" },
+      { name: "八卦", href: "/under-construction" },
+      { name: "猜谜", href: "/under-construction" },
+      { name: "笑话", href: "/under-construction" },
+      { name: "数学", href: "/math" },
+      { name: "物理", href: "/physics" },
+      { name: "化学", href: "/chemistry" },
+      { name: "生物", href: "/under-construction" },
+      { name: "地理", href: "/under-construction" },
+      { name: "天文", href: "/under-construction" },
+      { name: "历史", href: "/under-construction" },
+      { name: "公民", href: "/under-construction" },
+      { name: "心理", href: "/under-construction" },
+      { name: "哲學", href: "/under-construction" },
+      { name: "自然", href: "/natural" },
+      { name: "社会", href: "/social" },
+    ];
+  } else if (language === "es") {
+    category1 = [
+      { name: "Matemáticas", href: "/under-construction" },
+      { name: "Química", href: "/under-construction" },
+      { name: "Física", href: "/under-construction" },
+      { name: "Concurso", href: "/under-construction" },
+      { name: "Cita", href: "/under-construction" },
+    ];
+  } else if (language === "th") {
+    category1 = [
+      { name: "คณิตศาสตร์", href: "/under-construction" },
+      { name: "ฟิสิกส์", href: "/under-construction" },
+      { name: "เคมี", href: "/under-construction" },
+      { name: "การแข่งขัน", href: "/under-construction" },
+      { name: "คำคม", href: "/under-construction" },
+    ];
+  } else if (language === "id") {
+    category1 = [
+      { name: "Matematika", href: "/under-construction" },
+      { name: "Fisika", href: "/under-construction" },
+      { name: "Kimia", href: "/under-construction" },
+      { name: "Kompetisi", href: "/under-construction" },
+      { name: "Kutipan", href: "/under-construction" },
+    ];
+  } else if (language === "ko") {
+    category1 = [
+      { name: "수학", href: "/under-construction" },
+      { name: "물리", href: "/under-construction" },
+      { name: "화학", href: "/under-construction" },
+      { name: "대회", href: "/under-construction" },
+      { name: "명언", href: "/under-construction" },
+    ];
+  } else {
+    category1 = [
+      { name: "背東西", href: "/recitation" },
+      { name: "國文", href: "/chinese" },
+      { name: "英文", href: "/english" },
+      { name: "公職考試", href: "/公職考試" },
+      { name: "名言佳句", href: "/test/quoteQuestions" },
+      { name: "綜合", href: "/綜合" },
+      { name: "比賽", href: "/under-construction" },
+      { name: "八卦", href: "/under-construction" },
+      { name: "猜謎", href: "/under-construction" },
+      { name: "笑話", href: "/under-construction" },
+      { name: "數學", href: "/math" },
+      { name: "物理", href: "/physics" },
+      { name: "化學", href: "/chemistry" },
+      { name: "生物", href: "/under-construction" },
+      { name: "地理", href: "/under-construction" },
+      { name: "天文", href: "/under-construction" },
+      { name: "歷史", href: "/under-construction" },
+      { name: "公民", href: "/under-construction" },
+      { name: "心理", href: "/under-construction" },
+      { name: "哲學", href: "/under-construction" },
+      { name: "自然", href: "/natural" },
+      { name: "社會", href: "/social" },
+    ];
+  }
 
+  // 監聽搜尋欄輸入，debounce 後向 /api/search 查詢文章標題
   useEffect(() => {
     const q = subjectQuery.trim();
     if (q.length < 2) {
@@ -183,35 +194,36 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
     };
   }, [subjectQuery]);
 
+  // 根據搜尋欄過濾科目與文章標題
   const filteredSubjects = useMemo(() => {
     const q = subjectQuery.trim().toLowerCase();
-    if (!q) return subjects;
+    if (!q) return category1;
     const rangePattern = /^\d+\s*-\s*\d+$/;
-    const searchPool = [...subjects, ...childSubjects].filter((subject) => !rangePattern.test(subject.name.trim()));
+    // 過濾掉範圍型名稱
+    const searchPool = [...category1, ...childSubjects].filter((subject) => !rangePattern.test(subject.name.trim()));
+    // 名稱包含關鍵字的科目
     const subjectMatches = searchPool.filter((subject) => subject.name.toLowerCase().includes(q));
+    // 合併科目與文章搜尋結果，去重
     const unique = new Map<string, { name: string; href: string }>();
-
     for (const item of subjectMatches) {
       unique.set(`${item.name}::${item.href}`, item);
     }
-
     for (const item of articleMatches) {
       unique.set(`${item.name}::${item.href}`, item);
     }
-
     return Array.from(unique.values());
-  }, [subjects, childSubjects, subjectQuery, articleMatches]);
+  }, [category1, childSubjects, subjectQuery, articleMatches]);
 
+  // 首頁載入時取得所有分類（API）
   useEffect(() => {
-    // Fetch categories
     fetch("/api/categories")
       .then((res) => res.json())
       .then((data) => setLoadedCategories(data.categories || []))
       .catch((err) => console.error("Failed to fetch categories:", err));
-
-    // global stats moved to /stats page
+    // 全站統計已移至 /stats 頁面
   }, []);
 
+  // 監聽網址驗證參數，顯示驗證訊息
   useEffect(() => {
     const verified = searchParams?.get("verified");
     const error = searchParams?.get("error");
@@ -228,9 +240,10 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
     }
   }, [searchParams]);
 
+  // --- 畫面渲染 ---
   return (
     <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
-      {/* ...existing code... */}
+      {/* 首頁主內容區塊 */}
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-start py-20 px-16 bg-transparent dark:bg-black">
         {verificationMessage && (
           <div className={`w-full mb-6 p-4 rounded-md ${
@@ -278,18 +291,147 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
             />
             <div className="w-full overflow-visible">
               <div className="bookshelf-grid home-bookshelf-grid">
-                {filteredSubjects.map((subject) => (
-                  <div key={subject.name} style={{ position: "relative" }}>
-                    <Link
-                      href={subject.href}
-                      className="book-link bookshelf-btn"
-                      data-title={subject.name}
-                      data-href={subject.href}
-                    >
-                      {subject.name}
-                    </Link>
-                  </div>
-                ))}
+                {(() => {
+                  // bookshelf-grid 設定 8 欄
+                  const COLS = 8;
+                  const rows: React.ReactNode[] = [];
+                  let insertIdx = -1;
+                  let subcatKey = '';
+                  // 找到展開的母按鈕 index
+                  filteredSubjects.forEach((subject, idx) => {
+                    const catKey = subject.href.replace(/^\//, "");
+                    if (openCategory === catKey && category2[catKey]) {
+                      insertIdx = idx;
+                      subcatKey = catKey;
+                    }
+                  });
+                  // 分割 category1，插入子分類 row
+                  let i = 0;
+                  while (i < filteredSubjects.length) {
+                    // 取出一排
+                    const rowSubjects = filteredSubjects.slice(i, i + COLS);
+                    // 檢查這排是否為插入點
+                    const isInsertRow = insertIdx !== -1 && i + COLS > insertIdx && i <= insertIdx;
+                    // 渲染這排
+                    const rowContent = (
+                      <div style={{ display: 'contents' }} key={"row-" + i}>
+                        {rowSubjects.flatMap((subject, idx2) => {
+                          const catKey = subject.href.replace(/^\//, "");
+                          const hasSub = !!category2[catKey];
+                          const isOpen = openCategory === catKey;
+                          // 若是展開的母按鈕，右側插入一個 bookshelf-grid 格子作為子按鈕群
+                          if (hasSub && isOpen) {
+                            return [
+                              <div key={subject.name} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  className="book-link bookshelf-btn"
+                                  data-title={subject.name}
+                                  data-href={subject.href}
+                                  onClick={() => setOpenCategory(isOpen ? null : catKey)}
+                                >
+                                  {subject.name}
+                                </button>
+                              </div>,
+                              <div key={subject.name + '-sub'}
+                                style={{
+                                  display: 'flex',
+                                  gap: '0.875rem',
+                                  alignItems: 'center',
+                                  position: 'relative',
+                                  zIndex: 10
+                                }}
+                              >
+                                {Array.isArray(category2[catKey]) && category2[catKey].map((sub) => {
+                                  const isValidHref =
+                                    typeof sub.href === "string" &&
+                                    sub.href.trim() !== "" &&
+                                    (sub.href.startsWith("/") || sub.href.startsWith("http://") || sub.href.startsWith("https://"));
+                                  const isValidName = typeof sub.name === "string" && sub.name.trim() !== "";
+                                  if (isValidHref && isValidName) {
+                                    return (
+                                      <Link
+                                        key={sub.href}
+                                        href={sub.href}
+                                        className="book-link bookshelf-btn"
+                                        style={{
+                                          minWidth: 0,
+                                          whiteSpace: 'nowrap',
+                                          background: '#282828d9',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
+                                          padding: '0.25em 1.1em',
+                                        }}
+                                      >
+                                        {sub.name}
+                                      </Link>
+                                    );
+                                  } else {
+                                    if (typeof window !== "undefined") {
+                                      // eslint-disable-next-line no-console
+                                      console.warn("Invalid subcategory for Link:", sub);
+                                    }
+                                    return null;
+                                  }
+                                })}
+                              </div>
+                            ];
+                          } else {
+                            return (
+                              <div key={subject.name} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                {hasSub ? (
+                                  <button
+                                    type="button"
+                                    className="book-link bookshelf-btn"
+                                    data-title={subject.name}
+                                    data-href={subject.href}
+                                    onClick={() => setOpenCategory(isOpen ? null : catKey)}
+                                  >
+                                    {subject.name}
+                                  </button>
+                                ) : (
+                                  <Link
+                                    href={subject.href}
+                                    className="book-link bookshelf-btn"
+                                    data-title={subject.name}
+                                    data-href={subject.href}
+                                  >
+                                    {subject.name}
+                                  </Link>
+                                )}
+                              </div>
+                            );
+                          }
+                        })}
+                      </div>
+                    );
+                    rows.push(
+                      <React.Fragment key={"frag-" + i}>
+                        {rowContent}
+                        {/* 點擊空白區域收合的透明遮罩，zIndex 調低避免遮住子按鈕 */}
+                        {isInsertRow && (
+                          <div
+                            onClick={(e) => { if (e.button === 0) setOpenCategory(null); }}
+                            style={{
+                              position: 'absolute',
+                              left: rowSubjects.findIndex((subject) => {
+                                const catKey = subject.href.replace(/^\//, "");
+                                return openCategory === catKey && category2[catKey];
+                              }) * (100 / COLS) + '%',
+                              top: 0,
+                              width: (100 / COLS) + '%',
+                              height: '100%',
+                              zIndex: 9,
+                              background: 'transparent',
+                            }}
+                          />
+                        )}
+                      </React.Fragment>
+                    );
+                    i += COLS;
+                  }
+                  return rows;
+                })()}
               </div>
             </div>
             {filteredSubjects.length === 0 && (
@@ -303,8 +445,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
         <footer className="w-full mt-auto pt-16 pb-6 flex items-center justify-center gap-4 relative">
           <div className="speaker-icon">
             <img src="/icons/speaker.png" alt="Speaker Icon" />
-            {/* 音樂提示隨語言切換 */}
-            <MusicTip />
+            { <MusicTip/>  } 
           </div>
           <Link
             href="/feedback"
@@ -332,13 +473,14 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
   );
 }
 
+
 export default function Home() {
   const [siteTitle, setSiteTitle] = useState("智人題庫");
   const [isSimplified, setIsSimplified] = useState(false);
   const [language, setLanguage] = useState("zh-TW");
 
   useEffect(() => {
-    const syncTitle = () => {
+    const syncTitle =() => {
       const language = localStorage.getItem("siteLanguage") || "zh-TW";
       setLanguage(language);
       setIsSimplified(language === "zh-CN");
@@ -376,7 +518,7 @@ export default function Home() {
                       { name: "背东西", href: "/recitation" },
                       { name: "国文", href: "/chinese" },
                       { name: "英文", href: "/english" },
-                      { name: "名言佳句", href: "/quote" },
+                      { name: "名言佳句", href: "/test/quoteQuestions" },
                       { name: "综合", href: "/綜合" },
                       { name: "数学", href: "/math" },
                       { name: "物理", href: "/physics" },
@@ -394,7 +536,7 @@ export default function Home() {
                       { name: "背東西", href: "/recitation" },
                       { name: "國文", href: "/chinese" },
                       { name: "英文", href: "/english" },
-                      { name: "名言佳句", href: "/quote" },
+                      { name: "名言佳句", href: "/test/quoteQuestions" },
                       { name: "綜合", href: "/綜合" },
                       { name: "數學", href: "/math" },
                       { name: "物理", href: "/physics" },
@@ -420,7 +562,7 @@ export default function Home() {
                             { name: "背东西", href: "/recitation" },
                             { name: "国文", href: "/chinese" },
                             { name: "英文", href: "/english" },
-                            { name: "名言佳句", href: "/quote" },
+                            { name: "名言佳句", href: "/test/quoteQuestions" },
                             { name: "综合", href: "/綜合" },
                             { name: "数学", href: "/math" },
                             { name: "物理", href: "/physics" },
@@ -438,7 +580,7 @@ export default function Home() {
                             { name: "背東西", href: "/recitation" },
                             { name: "國文", href: "/chinese" },
                             { name: "英文", href: "/english" },
-                            { name: "名言佳句", href: "/quote" },
+                            { name: "名言佳句", href: "/test/quoteQuestions" },
                             { name: "綜合", href: "/綜合" },
                             { name: "數學", href: "/math" },
                             { name: "物理", href: "/physics" },
@@ -500,16 +642,7 @@ export default function Home() {
           </div>
 
           {/* Fixed speaker icon at bottom left */}
-          <div className="fixed left-6 bottom-6 z-50 group">
-            <img
-              src="/public/icons/unnamed__1_-removebg-preview.png"
-              alt="Speaker icon"
-              className="w-10 h-10 object-contain cursor-pointer"
-            />
-            <span className="absolute left-12 top-1/2 -translate-y-1/2 bg-zinc-900 text-white text-xs rounded px-3 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg border border-zinc-700">
-              <MusicTip />
-            </span>
-          </div>
+          {/* Speaker icon removed */}
         </main>
       </div>
     }>

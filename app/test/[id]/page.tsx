@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useParams, useSearchParams } from "next/navigation";
 
 type Option = {
   label: string;
@@ -18,32 +19,44 @@ type Question = {
 
 export default function QuotePage() {
   const { data: session } = useSession();
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = params.id as string;
+  const randomMode = searchParams?.get("random") === "1";
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  const shuffleQuestions = (items: Question[]) => {
-    const shuffled = [...items];
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
   useEffect(() => {
-    fetch("/api/quote/questions")
+    if (!id) return;
+
+    const shuffleQuestions = (items: Question[]) => {
+      const shuffled = [...items];
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    fetch(`/api/questions?id=${id}`)
       .then(res => res.json())
       .then(data => {
         if (data.questions) {
-          const randomizedQuestions = shuffleQuestions(data.questions);
-          setQuestions(randomizedQuestions);
-          setUserAnswers(new Array(randomizedQuestions.length).fill(null));
+          let loadedQuestions: Question[] = randomMode ? shuffleQuestions(data.questions) : data.questions;
+          // 題號隨機：亂數後重新分配 number
+          loadedQuestions = loadedQuestions.map((q, idx) => ({ ...q, number: idx + 1 }));
+          setQuestions(loadedQuestions);
+          setUserAnswers(new Array(loadedQuestions.length).fill(null));
+          // 隨機選一題開始
+          if (loadedQuestions.length > 0) {
+            setCurrentIndex(Math.floor(Math.random() * loadedQuestions.length));
+          }
         }
       })
       .catch(err => console.error("Failed to load questions:", err));
-  }, []);
+  }, [id, randomMode]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,7 +104,7 @@ export default function QuotePage() {
       const answeredCount = userAnswers.filter(a => a !== null).length;
       const correctCount = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
       
-      fetch("/api/user/quote/record", {
+      fetch("/api/user/english/record", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -99,7 +112,7 @@ export default function QuotePage() {
         body: JSON.stringify({
           answered: answeredCount,
           correct: correctCount,
-          set: "1-20",
+          set: id,
         }),
       }).catch(err => console.error("Failed to save record:", err));
     }
@@ -109,6 +122,16 @@ export default function QuotePage() {
     setShowResults(false);
     setCurrentIndex(0);
     setUserAnswers(new Array(questions.length).fill(null));
+  };
+
+  const speakQuestion = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 0.8;
+    window.speechSynthesis.speak(utterance);
   };
 
   if (questions.length === 0) {
@@ -129,7 +152,7 @@ export default function QuotePage() {
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
       <main className="flex w-full max-w-3xl flex-col items-start justify-start py-8 px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full">
-          <h1 className="text-3xl font-bold zen-title">名言佳句</h1>
+          <h1 className="text-3xl font-bold zen-title"></h1>
           {!showResults && (
             <div className="flex gap-3">
               <button
@@ -162,8 +185,29 @@ export default function QuotePage() {
               題號{currentQuestion.number}
             </div>
 
-            <div className="p-6 border border-[1px] rounded text-lg">
-              {currentQuestion.title}
+            <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
+              <span>{currentQuestion.title}</span>
+              <button
+                type="button"
+                onClick={() => speakQuestion(currentQuestion.title)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black bg-white text-black transition-colors hover:bg-zinc-100"
+                aria-label="朗讀英文"
+                title="朗讀英文"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M11 5 6 9H3v6h3l5 4V5z" />
+                  <path d="M15 9a5 5 0 0 1 0 6" />
+                </svg>
+              </button>
             </div>
                 
             <div className="flex flex-col gap-3">
@@ -178,7 +222,7 @@ export default function QuotePage() {
                   }`}
                   style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
                 >
-                  <span className="font-semibold">{option.label}</span> {option.text}
+                  <span className="font-semibold">{option.label}</span> {typeof option.text === "string" ? option.text : JSON.stringify(option.text)}
                 </button>
               ))}
             </div>

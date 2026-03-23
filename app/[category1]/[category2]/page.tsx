@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 
 async function fetchQuestions(category1: string, category2: string) {
-  if (category1 === "english" && category2 === "2000") {
-    const res = await fetch("/api/questions?type=2000");
+  if (category1 === "english") {
+    const res = await fetch("/api/english/questions?range=1-1971");
     const data = await res.json();
     return data.questions || [];
   }
@@ -11,7 +11,8 @@ async function fetchQuestions(category1: string, category2: string) {
 }
 
 export default function Page({ params }: { params: { category1: string; category2: string } }) {
-  const { category1, category2 } = params;
+  const category1 = params?.category1 || "";
+  const category2 = params?.category2 || "";
   const [questions, setQuestions] = useState<any[]>([]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
