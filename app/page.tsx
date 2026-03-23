@@ -444,7 +444,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
 
         <footer className="w-full mt-auto pt-16 pb-6 flex items-center justify-center gap-4 relative">
           <div className="speaker-icon">
-            <img src="/icons/speaker.png" alt="Speaker Icon" />
+            <img src="speaker.png" alt="Speaker Icon" />
             { <MusicTip/>  } 
           </div>
           <Link
