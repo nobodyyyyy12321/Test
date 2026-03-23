@@ -90,8 +90,11 @@ export default function QuotePage() {
       newAnswers[currentIndex] = answer;
       setUserAnswers(newAnswers);
 
+      // 單選題延遲 200ms 再跳下一題
       if (currentIndex < questions.length - 1) {
-        setCurrentIndex(currentIndex + 1);
+        setTimeout(() => {
+          setCurrentIndex(currentIndex + 1);
+        }, 200);
       }
     }
   };
