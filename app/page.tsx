@@ -276,7 +276,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
           >
             {siteTitle}
           </h1>
-          <p className="max-w-md text-lg leading-8 zen-subtle">sapiens.camp</p>
+          <p className="max-w-md text-lg leading-8 zen-subtle"></p>
           {/* 公告區塊已移除 */}
           {/* 全站統計已移至 「全站統計」 頁面 */}
 
@@ -475,7 +475,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
 
 
 export default function Home() {
-  const [siteTitle, setSiteTitle] = useState("智人題庫");
+  const [siteTitle, setSiteTitle] = useState("Test");
   const [isSimplified, setIsSimplified] = useState(false);
   const [language, setLanguage] = useState("zh-TW");
 
@@ -484,7 +484,7 @@ export default function Home() {
       const language = localStorage.getItem("siteLanguage") || "zh-TW";
       setLanguage(language);
       setIsSimplified(language === "zh-CN");
-      setSiteTitle(language === "zh-CN" ? "智人题库" : "智人題庫");
+      setSiteTitle(language === "zh-CN" ? "Test" : "Test");
     };
 
     syncTitle();
@@ -506,7 +506,7 @@ export default function Home() {
             >
               {siteTitle}
             </h1>
-            <p className="max-w-md text-lg leading-8 zen-subtle">sapiens.camp</p>
+            <p className="max-w-md text-lg leading-8 zen-subtle"></p>
 
             <div className="mt-4 flex w-full max-w-5xl flex-col gap-10">
               {(language === "en"

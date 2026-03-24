@@ -37,7 +37,7 @@ const notoSerifSc = Noto_Serif_SC({
 });
 
 export const metadata: Metadata = {
-  title: "智人題庫",
+  title: "Test",
   description: "多方位學習平台",
   manifest: "/manifest.webmanifest",
   icons: {
