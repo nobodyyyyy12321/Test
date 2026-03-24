@@ -96,7 +96,7 @@ export default function RootLayout({
                 "@context": "https://schema.org",
                 "@type": "Organization",
                 "name": "Testtttt",
-                "url": "https://sapiens.camp",
+                "url": "https://testtttt.io",
               }),
             }}
           />
