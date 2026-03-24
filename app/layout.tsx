@@ -72,7 +72,7 @@ export default function RootLayout({
                   <Link href="/" className="cursor-pointer group" aria-label="回到首頁">
                     <img
                       src="/logo-removebg-preview.png"
-                      alt="sapiens.camp logo"
+                      alt="testtttt.io logo"
                       className="w-14 h-14 object-contain transition-opacity group-hover:opacity-80"
                       style={{ background: "transparent" }}
                     />

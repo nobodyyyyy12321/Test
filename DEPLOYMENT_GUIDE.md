@@ -34,7 +34,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 **2. NextAuth URL（必須）**
 
 ```
-NEXTAUTH_URL=https://sapiens.camp
+NEXTAUTH_URL=https://testtttt.io
 ```
 
 **3. Firebase 相關（如果使用 Firebase）**

@@ -636,7 +636,7 @@ export default function Home() {
           <div className="fixed left-6 top-6 z-50">
             <img
               src="/public/logo-removebg-preview.png"
-              alt="sapiens.camp logo"
+              alt="testtttt.io logo"
               className="w-10 h-10 object-contain"
             />
           </div>

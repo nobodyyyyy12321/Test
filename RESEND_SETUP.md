@@ -28,7 +28,7 @@
 **設定自訂域名（生產環境推薦）：**
 1. 在 Resend Dashboard 前往 **Domains**
 2. 點擊 **Add Domain**
-3. 輸入您的域名（例如：`sapiens.camp`）
+3. 輸入您的域名（例如：`testtttt.io`）
 4. 按照指示設定 DNS 記錄（SPF、DKIM、DMARC）
 5. 等待驗證完成（通常幾分鐘內）
 

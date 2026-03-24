@@ -39,7 +39,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 **用途：** 應用程式的完整 URL，用於生成認證回調 URL
 
 **值範例：**
-- 生產環境：`https://sapiens.camp`
+- 生產環境：`https://testtttt.io`
 - 預覽環境：`https://your-preview-url.vercel.app`
 - 本地開發：`http://localhost:3000`
 
@@ -98,7 +98,7 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...
 
 **值範例：** 
 - 使用 Resend 預設：`onboarding@resend.dev`
-- 使用自訂域名：`noreply@sapiens.camp`
+- 使用自訂域名：`noreply@testtttt.io`
 
 ### 8. 意見回饋收件地址（建議）
 
@@ -106,7 +106,7 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...
 
 **用途：** 網站「意見回饋」表單的收件信箱
 
-**值範例：** `support@sapiens.camp`
+**值範例：** `support@testtttt.io`
 
 ---
 
@@ -218,7 +218,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 # Resend（如果使用）
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 MAIL_FROM=onboarding@resend.dev
-FEEDBACK_TO_EMAIL=support@sapiens.camp
+FEEDBACK_TO_EMAIL=support@testtttt.io
 
 # GitHub OAuth（如果使用）
 GITHUB_ID=your-github-client-id
