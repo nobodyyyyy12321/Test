@@ -1,5 +1,3 @@
-
-
 // 這是 Next.js 首頁的主要組件，負責顯示主畫面與科目分類
 "use client";
 import React from "react";
@@ -42,10 +40,20 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
   // 子分類（目前僅英文有，其他語言可擴充）
   const childSubjects: { name: string; href: string }[] = [];
   const [openCategory, setOpenCategory] = useState<string | null>(null);
-  const category2: Record<string, Array<{ name: string; href: string }>> = {
+  const category2: Record<string, Array<{ name: string; href: string; category3?: Array<{ name: string; href: string }> }>> = {
     english: [
       { name: "2000單", href: "/test/englishQuestions?random=1" },
-      { name: "學測", href: "/under-construction" },
+      {
+        name: "學測",
+        href: "/english/學測",
+        category3: [
+          { name: "83", href: "/under-construction" },
+          ...Array.from({ length: 115 - 110 + 1 }, (_, i) => {
+            const year = 110 + i;
+            return { name: `${year}`, href: `/english/學測/${year}` };
+          })
+        ]
+      },
       // 其他子分類...
     ],
     recitation: [
@@ -78,28 +86,28 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
     ];
   } else if (language === "zh-CN") {
     category1 = [
-      { name: "背东西", href: "/recitation" },
-      { name: "国文", href: "/chinese" },
+      { name: "背東西", href: "/recitation" },
+      { name: "國文", href: "/chinese" },
       { name: "英文", href: "/english" },
-      { name: "公职考试", href: "/公職考試" },
+      { name: "公職考試", href: "/公職考試" },
       { name: "名言佳句", href: "/test/quoteQuestions?random=1" },
-      { name: "综合", href: "/綜合" },
-      { name: "比赛", href: "/under-construction" },
+      { name: "綜合", href: "/綜合" },
+      { name: "比賽", href: "/under-construction" },
       { name: "八卦", href: "/under-construction" },
-      { name: "猜谜", href: "/under-construction" },
-      { name: "笑话", href: "/under-construction" },
-      { name: "数学", href: "/math" },
+      { name: "猜謎", href: "/under-construction" },
+      { name: "笑話", href: "/under-construction" },
+      { name: "數學", href: "/math" },
       { name: "物理", href: "/physics" },
-      { name: "化学", href: "/chemistry" },
+      { name: "化學", href: "/chemistry" },
       { name: "生物", href: "/under-construction" },
       { name: "地理", href: "/under-construction" },
       { name: "天文", href: "/under-construction" },
-      { name: "历史", href: "/under-construction" },
+      { name: "歷史", href: "/under-construction" },
       { name: "公民", href: "/under-construction" },
       { name: "心理", href: "/under-construction" },
       { name: "哲學", href: "/under-construction" },
       { name: "自然", href: "/natural" },
-      { name: "社会", href: "/social" },
+      { name: "社會", href: "/social" },
     ];
   } else if (language === "es") {
     category1 = [
