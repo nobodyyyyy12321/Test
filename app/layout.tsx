@@ -80,7 +80,6 @@ export default function RootLayout({
                 </div>
                 {/* 中間空白區或其他元件 */}
                 <div className="flex-1" />
-                {/* 語言列只在首頁顯示（client component） */}
                 <ShowLanguageSelectorOnHome />
               </div>
             </header>
