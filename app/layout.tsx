@@ -37,7 +37,7 @@ const notoSerifSc = Noto_Serif_SC({
 });
 
 export const metadata: Metadata = {
-  title: "Test",
+  title: "Testtttt",
   description: "多方位學習平台",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -95,7 +95,7 @@ export default function RootLayout({
               __html: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                "name": "智人題庫",
+                "name": "Testtttt",
                 "url": "https://sapiens.camp",
               }),
             }}

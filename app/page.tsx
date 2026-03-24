@@ -475,7 +475,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
 
 
 export default function Home() {
-  const [siteTitle, setSiteTitle] = useState("Test");
+  const [siteTitle, setSiteTitle] = useState("Testtttt");
   const [isSimplified, setIsSimplified] = useState(false);
   const [language, setLanguage] = useState("zh-TW");
 
@@ -484,7 +484,7 @@ export default function Home() {
       const language = localStorage.getItem("siteLanguage") || "zh-TW";
       setLanguage(language);
       setIsSimplified(language === "zh-CN");
-      setSiteTitle(language === "zh-CN" ? "Test" : "Test");
+      setSiteTitle(language === "zh-CN" ? "Testtttt" : "Testtttt");
     };
 
     syncTitle();
