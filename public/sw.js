@@ -1,12 +1,8 @@
 const CACHE_NAME = "sapiens-camp-v1";
 const APP_SHELL = [
   "/",
-  "/favicon.ico",
-  "/logo.ico",
+  "/icons/favicon.png",
   "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
