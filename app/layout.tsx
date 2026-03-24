@@ -37,7 +37,7 @@ const notoSerifSc = Noto_Serif_SC({
 });
 
 export const metadata: Metadata = {
-  title: "Testtttt",
+  title: "Test",
   description: "多方位學習平台",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -72,7 +72,7 @@ export default function RootLayout({
                   <Link href="/" className="cursor-pointer group" aria-label="回到首頁">
                     <img
                       src="/logo-removebg-preview.png"
-                      alt="testtttt.io logo"
+                      alt="Test logo"
                       className="w-14 h-14 object-contain transition-opacity group-hover:opacity-80"
                       style={{ background: "transparent" }}
                     />
@@ -92,7 +92,7 @@ export default function RootLayout({
               __html: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                "name": "Testtttt",
+                "name": "Test",
                 "url": "https://testtttt.io",
               }),
             }}

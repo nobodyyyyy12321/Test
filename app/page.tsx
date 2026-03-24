@@ -276,7 +276,8 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
           >
             {siteTitle}
           </h1>
-          <p className="max-w-md text-lg leading-8 zen-subtle"></p>
+          {/* 副標題 */}
+          <p className="max-w-md text-lg leading-8 zen-subtle">testtttt.io</p>
           {/* 公告區塊已移除 */}
           {/* 全站統計已移至 「全站統計」 頁面 */}
 
@@ -475,7 +476,7 @@ function HomeContent({ categories, siteTitle, isSimplified, language }: HomeCont
 
 
 export default function Home() {
-  const [siteTitle, setSiteTitle] = useState("Testtttt");
+  const [siteTitle, setSiteTitle] = useState("Test");
   const [isSimplified, setIsSimplified] = useState(false);
   const [language, setLanguage] = useState("zh-TW");
 
@@ -484,7 +485,7 @@ export default function Home() {
       const language = localStorage.getItem("siteLanguage") || "zh-TW";
       setLanguage(language);
       setIsSimplified(language === "zh-CN");
-      setSiteTitle(language === "zh-CN" ? "Testtttt" : "Testtttt");
+      setSiteTitle(language === "zh-CN" ? "Test" : "Test");
     };
 
     syncTitle();
