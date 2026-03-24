@@ -1,14 +1,10 @@
-
-
 // 這是 Next.js 首頁的主要組件，負責顯示主畫面與科目分類
 "use client";
 import React, { useEffect, useState, useMemo, Suspense } from "react";
 
-
 // Next.js 路由與 hooks
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-// 自訂元件
 
 import ShareIcon from "./components/ShareIcon";
 import "./speaker-icon.css";
@@ -24,8 +20,6 @@ import idData from "../public/locale/id.json";
 import koData from "../public/locale/ko.json";
 import zhTWData from "../public/locale/zh-TW.json";
 import enData from "../public/locale/en.json";
-
-
 
 
 const locales: Record<string, CategoryNode[]> = {
@@ -48,7 +42,6 @@ export const SUPPORTED_LOCALES = {
   "id": "Bahasa Indonesia",
   "ko": "한국어",
 };
-
 
 
 // 搜尋文章的型別

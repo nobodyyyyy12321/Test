@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { CategoryNode } from "@/app/components/CategoryNode";
 // 匯入你的各語言 JSON 或 TS 資料
-import zhTWData from "../../public/locale/zh-TW";
-import enData from "../../public/locale/en";
-import koData from "../../public/locale/ko";
-import zhCNData from "../../public/locale/zh-CN";
+import zhTWData from "../../public/locale/zh-TW.json";
+import enData from "../../public/locale/en.json";
+import koData from "../../public/locale/ko.json";
+import zhCNData from "../../public/locale/zh-CN.json";
 import esData from "../../public/locale/es.json";
 import thData from "../../public/locale/th.json";
 import idData from "../../public/locale/id.json";
