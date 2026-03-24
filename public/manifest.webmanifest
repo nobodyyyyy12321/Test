@@ -1,0 +1,17 @@
+{
+  "name": "Testtttt",
+  "short_name": "Test",
+  "description": "多方位學習平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "zh-TW",
+  "icons": [
+    {
+      "src": "/icons/favicon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
