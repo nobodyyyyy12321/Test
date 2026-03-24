@@ -7,7 +7,7 @@ import Providers from "./providers/SessionProvider";
 import { AudioPlayerProvider } from "./components/audio-player-context";
 import VisitPing from "./components/VisitPing";
 import LanguageGate from "./components/LanguageGate";
-import LanguageSelector from "./components/LanguageSelector";
+import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
 import PWARegister from "./components/PWARegister";
 import BookshelfContextMenu from "./components/BookshelfContextMenu";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
@@ -80,10 +80,8 @@ export default function RootLayout({
                 </div>
                 {/* 中間空白區或其他元件 */}
                 <div className="flex-1" />
-                {/* 語言列靠右並加右側間距 */}
-                <div className="flex-shrink-0 flex items-center gap-6 pr-5">
-                  <LanguageSelector />
-                </div>
+                {/* 語言列只在首頁顯示（client component） */}
+                <ShowLanguageSelectorOnHome />
               </div>
             </header>
 
