@@ -27,6 +27,7 @@ export default function QuotePage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [firstLoaded, setFirstLoaded] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -45,13 +46,11 @@ export default function QuotePage() {
       .then(data => {
         if (data.questions) {
           let loadedQuestions: Question[] = randomMode ? shuffleQuestions(data.questions) : data.questions;
-          // 題號顯示原始資料的 number 欄位
           setQuestions(loadedQuestions);
           setUserAnswers(new Array(loadedQuestions.length).fill(null));
-          // 隨機選一題開始
-          if (loadedQuestions.length > 0) {
-            setCurrentIndex(Math.floor(Math.random() * loadedQuestions.length));
-          }
+          // 一開始 currentIndex 一律設為 0
+          setCurrentIndex(0);
+          setFirstLoaded(true);
         }
       })
       .catch(err => console.error("Failed to load questions:", err));
@@ -72,7 +71,9 @@ export default function QuotePage() {
         checkAnswers();
       }
       if (k === "ARROWLEFT") {
-        setCurrentIndex(Math.max(0, currentIndex - 1));
+        if (!firstLoaded && currentIndex > 0) {
+          setCurrentIndex(currentIndex - 1);
+        }
       }
       if (k === "ARROWRIGHT") {
         setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1));
@@ -93,7 +94,10 @@ export default function QuotePage() {
       if (currentIndex < questions.length - 1) {
         setTimeout(() => {
           setCurrentIndex(currentIndex + 1);
+          setFirstLoaded(false);
         }, 200);
+      } else {
+        setFirstLoaded(false);
       }
     }
   };
@@ -124,6 +128,7 @@ export default function QuotePage() {
     setShowResults(false);
     setCurrentIndex(0);
     setUserAnswers(new Array(questions.length).fill(null));
+    setFirstLoaded(true);
   };
 
   const speakQuestion = (text: string) => {
@@ -158,9 +163,12 @@ export default function QuotePage() {
           {!showResults && (
             <div className="flex gap-3">
               <button
-                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                disabled={currentIndex === 0}
-                className={`px-4 py-2 border rounded-full bg-white text-black text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                onClick={() => {
+                  setCurrentIndex(Math.max(0, currentIndex - 1));
+                  setFirstLoaded(false);
+                }}
+                disabled={currentIndex === 0 || firstLoaded}
+                className={`px-4 py-2 border rounded-full bg-white text-black text-sm transition-opacity ${(currentIndex === 0 || firstLoaded) ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
               >
                 ←
               </button>
