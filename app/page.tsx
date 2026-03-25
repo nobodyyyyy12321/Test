@@ -53,12 +53,6 @@ type SearchArticle = {
   number?: number;
 };
 
-type HomeContentProps = {
-  categories: string[];
-  siteTitle: string;
-  language: string;
-};
-
 // 這是 Server Component，不需要加 "use client"
 
 
