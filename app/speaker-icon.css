@@ -1,7 +1,7 @@
 .speaker-icon {
   position: absolute;
-  left: 20px;
-  bottom: -20px;
+  left: -500px;
+  bottom: -40px;
   margin: 0;
   padding: 0;
   display: flex;
@@ -11,15 +11,15 @@
   width: 180px;
   height: auto;
   display: block;
-  margin-bottom: -20px; /* 讓圖片底部超出footer貼齊頁面底部 */
+  margin-bottom: -40px; /* 讓圖片底部超出footer貼齊頁面底部 */
 }
 .speaker-tooltip {
   position: absolute;
-  left: 130px;
-  bottom: 0px;
+  left: -60px;
+  bottom: -20px;
   background: rgba(30,30,30,0.95);
   color: #fff;
-  padding: 8px 16px;
+  padding: 8px 8px;
   border-radius: 8px;
   font-size: 15px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -27,7 +27,7 @@
   pointer-events: none;
   transition: opacity 0.2s;
   white-space: nowrap;
-  z-index: 1001;
+  z-index: 500;
 }
 .speaker-icon:hover .speaker-tooltip {
   opacity: 1;
