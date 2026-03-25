@@ -4,7 +4,6 @@ import Link from "next/link";
 import "./globals.css";
 import AuthNav from "./components/AuthNav";
 import Providers from "./providers/SessionProvider";
-import { AudioPlayerProvider } from "./components/audio-player-context";
 import VisitPing from "./components/VisitPing";
 import LanguageGate from "./components/LanguageGate";
 import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
@@ -78,6 +77,8 @@ export default function RootLayout({
                 {/* 中間空白區或其他元件 */}
                 <div className="flex-1" />
                 <ShowLanguageSelectorOnHome />
+                {/* 登入後顯示頭像與帳號名稱的元件 */}
+                <AuthNav />
               </div>
             </header>
 

@@ -72,6 +72,7 @@ export function Footer({ language }: FooterProps) {
           className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 text-sm transition-colors border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800">
           {label}
         </Link>
+
       </div>
 
       {/* 版權或標語 */}

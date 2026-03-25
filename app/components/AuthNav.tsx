@@ -9,19 +9,6 @@ export default function AuthNav() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  useEffect(() => {
-    const onContextMenu = (event: MouseEvent) => {
-      // 只在非頭像按鈕時觸發
-      const target = event.target as HTMLElement;
-      if (target.closest("button[aria-label='開啟個人選單']")) return;
-      event.preventDefault();
-      setIsMenuOpen(true);
-    };
-    window.addEventListener("contextmenu", onContextMenu);
-    return () => {
-      window.removeEventListener("contextmenu", onContextMenu);
-    };
-  }, []);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -127,42 +114,54 @@ export default function AuthNav() {
   };
 
   return (
-    <div className="flex items-center gap-3">
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt="頭像"
-          className="w-8 h-8 rounded-full object-cover border border-gray-300"
-        />
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-          <span className="text-lg">👤</span>
-        </div>
-      )}
-      <span className="font-medium text-base truncate max-w-[120px]" title={name}>{name}</span>
-      <button
-        aria-label="開啟個人選單"
-        className="zen-ghost px-2 py-1 rounded"
-        onClick={() => setIsMenuOpen((v) => !v)}
+    <div className="flex items-center">
+      <div 
+        className="relative"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        ☰
-      </button>
-      {isMenuOpen && (
-        <div
-          className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-50"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
+        <button 
+          aria-haspopup="true" 
+          aria-label="開啟個人選單"
+          className="flex items-center"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
-          <Link href={`/account/${encodedName}/profile`} className="block px-4 py-2 hover:bg-gray-100">個人檔案</Link>
-          <button
-            onClick={handleSignOut}
-            className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
-          >登出</button>
-          {logoutError && <div className="text-xs text-red-500 px-4 py-1">登出失敗: {logoutError}</div>}
-        </div>
-      )}
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={`${name} avatar`} className="w-11 h-11 rounded-full object-cover" />
+          ) : session.user.image ? (
+            <img src={session.user.image} alt={`${name} avatar`} className="w-11 h-11 rounded-full object-cover" />
+          ) : (
+            <span className="w-11 h-11 rounded-full bg-gray-600 text-white text-base font-semibold flex items-center justify-center">
+              {name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </button>
+
+        {isMenuOpen && (
+          <div className="absolute right-0 mt-2 w-44 rounded shadow-md z-20 border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
+            <div className="py-1">
+              <div className="px-4 py-3 text-sm truncate border-b border-zinc-200 dark:border-zinc-800" title={name}>{name}</div>
+              <Link href={`/account/${encodedName}/profile`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">檔案</Link>
+              <Link href={`/account/${encodedName}/record`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">紀錄</Link>
+              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">付費方案</Link>
+              <Link href={`/account/${encodedName}/lists`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人書櫃</Link>
+              <Link href={`/account/${encodedName}/settings`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">設定</Link>
+              <button
+                onClick={handleSignOut}
+                className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                登出
+              </button>
+              {logoutError && (
+                <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
+                  <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
+                  <a href="/api/auth/signout" className="mt-1 inline-block text-xs underline">改用預設登出頁</a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
