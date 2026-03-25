@@ -145,7 +145,7 @@ export default function AuthNav() {
               <Link href={`/account/${encodedName}/profile`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">檔案</Link>
               <Link href={`/account/${encodedName}/record`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">紀錄</Link>
               <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">付費方案</Link>
-              <Link href={`/account/${encodedName}/lists`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人書櫃</Link>
+              <Link href={`/account/${encodedName}/lists`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人清單</Link>
               <Link href={`/account/${encodedName}/settings`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">設定</Link>
               <button
                 onClick={handleSignOut}
