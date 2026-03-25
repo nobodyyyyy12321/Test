@@ -1,7 +1,7 @@
 .speaker-icon {
   position: absolute;
-  left: 20px;
-  bottom: -20px;
+  left: -500px;
+  bottom: -40px;
   margin: 0;
   padding: 0;
   display: flex;
@@ -11,11 +11,11 @@
   width: 180px;
   height: auto;
   display: block;
-  margin-bottom: -20px; /* 讓圖片底部超出footer貼齊頁面底部 */
+  margin-bottom: -40px; /* 讓圖片底部超出footer貼齊頁面底部 */
 }
 .speaker-tooltip {
   position: absolute;
-  left: 130px;
+  left: 0px;
   bottom: 0px;
   background: rgba(30,30,30,0.95);
   color: #fff;
