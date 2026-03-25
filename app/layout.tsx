@@ -12,7 +12,6 @@ import PWARegister from "./components/PWARegister";
 import BookshelfContextMenu from "./components/BookshelfContextMenu";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import { Analytics } from "@vercel/analytics/next";
-import RecordPlayer from "./components/RecordPlayer";
 import "./speaker-icon.css";
 // ...existing code...
 
@@ -58,9 +57,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${notoSerifSc.variable} antialiased`}
       >
         <Providers>
-          {/* ...existing code... */}
 
-          {/* 新 header：時間、計時器、語言選單、頭像同一橫排 */}
           <header
               className="w-full py-5 sticky top-0 z-40"
               style={{ backgroundColor: "var(--zen-bg)", boxShadow: "none", borderBottom: "none" }}
@@ -73,7 +70,7 @@ export default function RootLayout({
                     <img
                       src="/logo-removebg-preview.png"
                       alt="Test logo"
-                      className="w-14 h-14 object-contain transition-opacity group-hover:opacity-80"
+                      className="w-18 h-18 object-contain transition-transform duration-200 group-hover:scale-110 group-hover:opacity-80"
                       style={{ background: "transparent" }}
                     />
                   </Link>
