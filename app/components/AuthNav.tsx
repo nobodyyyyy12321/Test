@@ -63,7 +63,7 @@ export default function AuthNav() {
 
   if (!session?.user) {
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3" style={{ marginTop: '1.5rem',marginRight:'1.5rem' }}>
         <Link href="/auth/login" className="zen-ghost px-3 py-1 rounded ml-2">登入</Link>
         <Link href="/auth/register" className="zen-ghost px-3 py-1 rounded">註冊</Link>
       </div>
@@ -115,8 +115,9 @@ export default function AuthNav() {
 
   return (
     <div className="flex items-center">
-      <div 
+      <div
         className="relative"
+        style={{ marginRight: '1.5rem', marginTop: '1.5rem' }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
