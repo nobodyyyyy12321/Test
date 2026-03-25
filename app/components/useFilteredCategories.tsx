@@ -13,22 +13,42 @@ import idData from "../../public/locale/id.json";
 
 export function useFilteredCategories(language: string, query: string): CategoryNode[] {
   const filtered = useMemo(() => {
-    // 強制轉型 (Type Assertion)，告訴 TS 這是 CategoryNode 陣列
-    // 這樣它就不會覺得 enData 只是一個字串
-    const allData = (language === "en" ? enData : zhTWData) as CategoryNode[];
+    let allData: CategoryNode[];
+    switch (language) {
+      case "en":
+        allData = enData as CategoryNode[];
+        break;
+      case "zh-TW":
+        allData = zhTWData as CategoryNode[];
+        break;
+      case "zh-CN":
+        allData = zhCNData as CategoryNode[];
+        break;
+      case "ko":
+        allData = koData as CategoryNode[];
+        break;
+      case "es":
+        allData = esData as CategoryNode[];
+        break;
+      case "th":
+        allData = thData as CategoryNode[];
+        break;
+      case "id":
+        allData = idData as CategoryNode[];
+        break;
+      default:
+        allData = zhTWData as CategoryNode[];
+    }
 
     if (!query) return allData;
 
     const lowerQuery = query.toLowerCase();
 
-    // 現在 .filter 絕對會存在了
     return allData.filter((parent) => {
       const matchParent = parent.name.toLowerCase().includes(lowerQuery);
-      
       const matchChild = parent.children?.some((child) =>
         child.name.toLowerCase().includes(lowerQuery)
       );
-
       return matchParent || matchChild;
     });
   }, [language, query]);

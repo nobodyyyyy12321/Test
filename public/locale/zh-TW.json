@@ -14,7 +14,7 @@
     "name": "英文",
     "children": [
       { "name": "2000單", "href": "/test1/englishQuestions" },
-      { "name": "學測", "children":[ { "name": "115", "href": "/under-construction" } ] }
+      { "name": "學測", "href":"/under-construction"}
     ]
   },
   { "name": "公職考試", "href": "/under-construction" },
