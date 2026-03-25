@@ -9,35 +9,29 @@ import esData from "../../public/locale/es.json";
 import thData from "../../public/locale/th.json";
 import idData from "../../public/locale/id.json";
 
-// 如果有其他語言... import koData from "@/data/ko.json";
 
-/**
- * 專業的多語系與搜尋過濾 Hook
- * @param language 目前語系代碼 (例如: "zh-TW", "en")
- * @param query 搜尋關鍵字
- */
-export function useFilteredCategories(language: string, query: string) {
-  return useMemo(() => {
-    // 1. 建立語系對照表 (Record)
-    const allData: Record<string, CategoryNode[]> = {
-      "zh-TW": zhTWData as CategoryNode[],
-      "zh-CN": zhCNData as CategoryNode[], 
-      "en": enData as CategoryNode[],
-      "ko": koData as CategoryNode[],
-      "es": esData as CategoryNode[],
-      "th": thData as CategoryNode[],
-       "id": idData as CategoryNode[],
-    };
 
-    // 2. 取得對應語系的原始資料 (若無匹配則預設繁中)
-    const categories = allData[language] || allData["zh-TW"];
+export function useFilteredCategories(language: string, query: string): CategoryNode[] {
+  const filtered = useMemo(() => {
+    // 強制轉型 (Type Assertion)，告訴 TS 這是 CategoryNode 陣列
+    // 這樣它就不會覺得 enData 只是一個字串
+    const allData = (language === "en" ? enData : zhTWData) as CategoryNode[];
 
-    // 3. 執行搜尋過濾邏輯
-    const q = query.trim().toLowerCase();
-    if (!q) return categories;
+    if (!query) return allData;
 
-    return categories.filter((s) => 
-      s.name.toLowerCase().includes(q)
-    );
-  }, [language, query]); // 當語言或搜尋字串改變時，才重新計算
+    const lowerQuery = query.toLowerCase();
+
+    // 現在 .filter 絕對會存在了
+    return allData.filter((parent) => {
+      const matchParent = parent.name.toLowerCase().includes(lowerQuery);
+      
+      const matchChild = parent.children?.some((child) =>
+        child.name.toLowerCase().includes(lowerQuery)
+      );
+
+      return matchParent || matchChild;
+    });
+  }, [language, query]);
+
+  return filtered;
 }

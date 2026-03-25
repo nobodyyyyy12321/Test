@@ -12,6 +12,7 @@ import MusicTip from "./components/MusicTip";
 import type { CategoryNode } from "./components/CategoryNode";
 import { useFilteredCategories } from "./components/useFilteredCategories";
 import { CategoryButton } from "./components/CategoryButton";
+import { HomeContent } from "./components/HomeContent";
 
 import zhCNData from "../public/locale/zh-CN.json";
 import esData from "../public/locale/es.json";
@@ -55,12 +56,11 @@ type SearchArticle = {
 type HomeContentProps = {
   categories: string[];
   siteTitle: string;
-  isSimplified: boolean;
   language: string;
 };
 
 // 這是 Server Component，不需要加 "use client"
-import { HomeContent } from "./components/HomeContent";
+
 
 interface PageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -73,29 +73,27 @@ export function Page({ searchParams }: PageProps) {
   // 2. 定義標題 (也可以根據語言變換)
   const siteTitle = language === "en" ? "Sapiens.camp" : "智人學園";
   
-  // 3. 判斷是否為簡體 (用於 CSS class 判斷)
-  const isSimplified = language === "zh-CN";
+  // 3. (已移除 isSimplified 判斷)
 
   return (
     // 這裡直接呼叫你寫好的 HomeContent
     <HomeContent 
       language={language} 
       siteTitle={siteTitle} 
-      isSimplified={isSimplified} 
     />
   );
 }
 
 export default function Home() {
   const [language, setLanguage] = useState("zh-TW");
-  const [isSimplified, setIsSimplified] = useState(false);
+
 
   // 1. 統一管理語系同步邏輯
   useEffect(() => {
     const syncSettings = () => {
       const lang = localStorage.getItem("siteLanguage") || "zh-TW";
       setLanguage(lang);
-      setIsSimplified(lang === "zh-CN");
+
     };
 
     syncSettings();
@@ -111,23 +109,22 @@ export default function Home() {
   const siteTitle = "Test"; 
 
   return (
-    <Suspense fallback={<LoadingState title={siteTitle} isSimplified={isSimplified} />}>
+    <Suspense fallback={<LoadingState title={siteTitle}  />}>
       {/* 實際內容 */}
       <HomeContent 
         language={language} 
         siteTitle={siteTitle} 
-        isSimplified={isSimplified} 
       />
     </Suspense>
   );
 }
 
 // 3. 將 Loading 狀態抽離，避免主組件太臃腫
-function LoadingState({ title, isSimplified }: { title: string; isSimplified: boolean }) {
+function LoadingState({ title }: { title: string}) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black font-sans">
       <main className="flex w-full max-w-3xl flex-col items-center py-20 px-16">
-        <h1 className={`text-4xl font-bold ${isSimplified ? "zen-title-sc" : "zen-title"}`}>
+        <h1 className={`text-4xl font-bold `}>
           {title}
         </h1>
         <div className="mt-20 animate-pulse text-zinc-300">Loading...</div>

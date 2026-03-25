@@ -38,9 +38,10 @@ export function CategoryButton({
       )}
 
       {/* 子選單渲染：當 isOpen 為 true 時顯示 */}
+      {/* 只展開第一層 children，不遞迴展開 */}
       {isOpen && hasSub && (
         <div className="sub-category-container">
-          {subCategories.map((sub) => (
+          {subCategories && subCategories.map((sub) => (
             <Link
               key={sub.href}
               href={sub.href}

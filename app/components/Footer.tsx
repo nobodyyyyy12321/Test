@@ -1,8 +1,50 @@
 import React from "react";
 import Link from "next/link";
+import MusicTip from "./MusicTip";
+import { useEffect, useMemo, useState, Suspense, useRef } from "react";
+
 
 interface FooterProps {
   language: string;
+}
+
+
+// --- 新增 SpeakerWithTip 元件 ---
+function SpeakerWithTip() {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  return (
+    <div
+      className="speaker-icon relative"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onMouseMove={e => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }}
+      style={{ display: "inline-block" }}
+    >
+      <img
+        src="/speaker.png"
+        alt="Speaker Icon"
+        className="w-5 h-5 opacity-50 hover:opacity-100 transition-opacity"
+      />
+      {show && (
+        <div
+          style={{
+            position: "absolute",
+            left: pos.x,
+            top: pos.y,
+            pointerEvents: "none",
+            zIndex: 50,
+            whiteSpace: "nowrap"
+          }}
+        >
+          <MusicTip />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function Footer({ language }: FooterProps) {
@@ -27,21 +69,13 @@ export function Footer({ language }: FooterProps) {
 
       <div className="flex items-center justify-center gap-6">
         {/* 音樂圖示區塊 */}
-        <div className="speaker-icon group relative cursor-help">
-          <img 
-            src="/speaker.png" 
-            alt="Speaker Icon" 
-            className="w-5 h-5 opacity-50 hover:opacity-100 transition-opacity"
-          />
-          {/* 如果你有 MusicTip 組件，放這裡 */}
-          {/* <MusicTip /> */}
-        </div>
+        <SpeakerWithTip />
+
 
         {/* 意見回饋連結 */}
         <Link
           href="/feedback"
-          className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 text-sm transition-colors border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800"
-        >
+          className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 text-sm transition-colors border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800">
           {label}
         </Link>
       </div>

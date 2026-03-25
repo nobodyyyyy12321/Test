@@ -270,3 +270,26 @@ main a.rounded-full.border,
   font-size: 1rem !important;
   line-height: 1.5 !important;
 }
+
+/* 基礎樣式（母子通用） */
+.book-link.bookshelf-btn {
+  /* 這裡保留你原本 .book-link 的禪意風格樣式 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  /* ... */
+}
+
+/* 子按鈕的微調（可選，讓它稍微透明一點點或加個小符號） */
+.sub-book {
+  opacity: 0.85;
+  font-size: 0.9em;
+}
+
+/* 展開狀態母按鈕的視覺反饋 */
+.bookshelf-btn.active {
+  border-color: var(--zen-ink);
+  font-weight: bold;
+}
