@@ -12,29 +12,25 @@ interface FooterProps {
 // --- 新增 SpeakerWithTip 元件 ---
 function SpeakerWithTip() {
   const [show, setShow] = useState(false);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
   return (
     <div
       className="speaker-icon relative"
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
-      onMouseMove={e => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-      }}
       style={{ display: "inline-block" }}
     >
       <img
         src="/speaker.png"
         alt="Speaker Icon"
-        className="w-5 h-5 opacity-50 hover:opacity-100 transition-opacity"
+        className=" opacity-50 hover:opacity-100 transition-opacity"
       />
       {show && (
         <div
           style={{
             position: "absolute",
-            left: pos.x,
-            top: pos.y,
+            left: "100%",
+            top: 0,
+            marginLeft: "2px",
             pointerEvents: "none",
             zIndex: 50,
             whiteSpace: "nowrap"
@@ -70,8 +66,6 @@ export function Footer({ language }: FooterProps) {
       <div className="flex items-center justify-center gap-6">
         {/* 音樂圖示區塊 */}
         <SpeakerWithTip />
-
-
         {/* 意見回饋連結 */}
         <Link
           href="/feedback"
