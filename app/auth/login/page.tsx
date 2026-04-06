@@ -24,6 +24,7 @@ function LoginInner() {
     }
 
     router.push(callbackUrl);
+    router.refresh();
   }
 
   async function resendVerification() {
