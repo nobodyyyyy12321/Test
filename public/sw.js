@@ -1,4 +1,4 @@
-const CACHE_NAME = "sapiens-camp-v1";
+const CACHE_NAME = "sapiens-camp-v2";
 const APP_SHELL = [
   "/",
   "/icons/favicon.png",
@@ -25,6 +25,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+
+  // API 路由永遠不快取（尤其是 /api/auth/session）
+  if (url.pathname.startsWith("/api/")) return;
 
   const isDocument = event.request.mode === "navigate";
 
