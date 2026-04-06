@@ -43,9 +43,9 @@ export function HomeContent({ language }: { language: string }) {
 
           <div className="mt-10 w-full overflow-visible">
             <div className="bookshelf-grid home-bookshelf-grid">
-              {subjects.map((subject) => {
+              {subjects.map((subject, subjectIdx) => {
                 const catKey = subject.href?.replace(/^\//, "") || subject.name;
-                const langCatKey = `${language}-${catKey}`;
+                const langCatKey = `${language}-${subjectIdx}-${catKey}`;
                 const isOpen = openCategory === langCatKey;
                 // 簡化判斷式
                 const hasSub = Array.isArray(subject.children) && subject.children.length > 0;
@@ -70,7 +70,7 @@ export function HomeContent({ language }: { language: string }) {
                       <div className="flex flex-row items-center ml-2 gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
                         {subject.children!.map((sub, idx) => (
                           <Link 
-                            key={`${language}-${sub.href || idx}`} 
+                            key={`${language}-${idx}-${sub.href || ""}`}
                             href={sub.href || "#"} 
                             className="book-link bookshelf-btn sub-item"
                           >
