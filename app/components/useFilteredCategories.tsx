@@ -1,57 +1,32 @@
 import { useMemo } from "react";
-import { CategoryNode } from "@/app/components/CategoryNode";
-// 匯入你的各語言 JSON 或 TS 資料
-import zhTWData from "../../public/locale/zh-TW.json";
-import enData from "../../public/locale/en.json";
-import koData from "../../public/locale/ko.json";
-import zhCNData from "../../public/locale/zh-CN.json";
-import esData from "../../public/locale/es.json";
-import thData from "../../public/locale/th.json";
-import idData from "../../public/locale/id.json";
+import { CategoryNode } from "./CategoryNode";
+import zhTW from "../../public/locale/zh-TW.json";
+import en from "../../public/locale/en.json";
+import ko from "../../public/locale/ko.json";
+import zhCN from "../../public/locale/zh-CN.json";
+import es from "../../public/locale/es.json";
+import th from "../../public/locale/th.json";
+import id from "../../public/locale/id.json";
 
-
+const localeMap: Record<string, CategoryNode[]> = {
+  "zh-TW": zhTW as CategoryNode[],
+  en: en as CategoryNode[],
+  "zh-CN": zhCN as CategoryNode[],
+  ko: ko as CategoryNode[],
+  es: es as CategoryNode[],
+  th: th as CategoryNode[],
+  id: id as CategoryNode[],
+};
 
 export function useFilteredCategories(language: string, query: string): CategoryNode[] {
-  const filtered = useMemo(() => {
-    let allData: CategoryNode[];
-    switch (language) {
-      case "en":
-        allData = enData as CategoryNode[];
-        break;
-      case "zh-TW":
-        allData = zhTWData as CategoryNode[];
-        break;
-      case "zh-CN":
-        allData = zhCNData as CategoryNode[];
-        break;
-      case "ko":
-        allData = koData as CategoryNode[];
-        break;
-      case "es":
-        allData = esData as CategoryNode[];
-        break;
-      case "th":
-        allData = thData as CategoryNode[];
-        break;
-      case "id":
-        allData = idData as CategoryNode[];
-        break;
-      default:
-        allData = zhTWData as CategoryNode[];
-    }
-
-    if (!query) return allData;
-
-    const lowerQuery = query.toLowerCase();
-
-    return allData.filter((parent) => {
-      const matchParent = parent.name.toLowerCase().includes(lowerQuery);
-      const matchChild = parent.children?.some((child) =>
-        child.name.toLowerCase().includes(lowerQuery)
-      );
-      return matchParent || matchChild;
-    });
+  return useMemo(() => {
+    const data = localeMap[language] ?? localeMap["zh-TW"];
+    if (!query) return data;
+    const q = query.toLowerCase();
+    return data.filter(
+      (node) =>
+        node.name.toLowerCase().includes(q) ||
+        node.children?.some((c) => c.name.toLowerCase().includes(q))
+    );
   }, [language, query]);
-
-  return filtered;
 }
