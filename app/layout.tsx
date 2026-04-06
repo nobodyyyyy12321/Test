@@ -8,7 +8,6 @@ import VisitPing from "./components/VisitPing";
 import LanguageGate from "./components/LanguageGate";
 import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
 import PWARegister from "./components/PWARegister";
-import BookshelfContextMenu from "./components/BookshelfContextMenu";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
@@ -83,7 +82,6 @@ export default function RootLayout({
             </header>
 
           <PWARegister />
-          <BookshelfContextMenu />
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
