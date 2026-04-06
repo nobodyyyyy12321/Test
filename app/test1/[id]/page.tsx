@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 
 type Option = {
   label: string;
@@ -20,14 +20,11 @@ type Question = {
 export default function QuotePage() {
   const { data: session } = useSession();
   const params = useParams();
-  const searchParams = useSearchParams();
   const id = params.id as string;
-  const randomMode = searchParams?.get("random") === "1";
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const [firstLoaded, setFirstLoaded] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -45,16 +42,14 @@ export default function QuotePage() {
       .then(res => res.json())
       .then(data => {
         if (data.questions) {
-          let loadedQuestions: Question[] = randomMode ? shuffleQuestions(data.questions) : data.questions;
+          const loadedQuestions: Question[] = shuffleQuestions(data.questions);
           setQuestions(loadedQuestions);
           setUserAnswers(new Array(loadedQuestions.length).fill(null));
-          // 一開始 currentIndex 一律設為 0
           setCurrentIndex(0);
-          setFirstLoaded(true);
         }
       })
       .catch(err => console.error("Failed to load questions:", err));
-  }, [id, randomMode]);
+  }, [id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,7 +66,7 @@ export default function QuotePage() {
         checkAnswers();
       }
       if (k === "ARROWLEFT") {
-        if (!firstLoaded && currentIndex > 0) {
+        if (currentIndex > 0) {
           setCurrentIndex(currentIndex - 1);
         }
       }
@@ -94,22 +89,19 @@ export default function QuotePage() {
       if (currentIndex < questions.length - 1) {
         setTimeout(() => {
           setCurrentIndex(currentIndex + 1);
-          setFirstLoaded(false);
         }, 200);
-      } else {
-        setFirstLoaded(false);
       }
     }
   };
 
   const checkAnswers = () => {
     setShowResults(true);
-    
+
     // Save record if user is logged in
     if (session?.user?.email) {
       const answeredCount = userAnswers.filter(a => a !== null).length;
       const correctCount = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
-      
+
       fetch("/api/user/english/record", {
         method: "POST",
         headers: {
@@ -128,7 +120,6 @@ export default function QuotePage() {
     setShowResults(false);
     setCurrentIndex(0);
     setUserAnswers(new Array(questions.length).fill(null));
-    setFirstLoaded(true);
   };
 
   const speakQuestion = (text: string) => {
@@ -163,12 +154,9 @@ export default function QuotePage() {
           {!showResults && (
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setCurrentIndex(Math.max(0, currentIndex - 1));
-                  setFirstLoaded(false);
-                }}
-                disabled={currentIndex === 0 || firstLoaded}
-                className={`px-4 py-2 border rounded-full bg-white text-black text-sm transition-opacity ${(currentIndex === 0 || firstLoaded) ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                disabled={currentIndex === 0}
+                className={`px-4 py-2 border rounded-full bg-white text-black text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
               >
                 ←
               </button>
@@ -221,7 +209,7 @@ export default function QuotePage() {
                 </button>
               )}
             </div>
-                
+
             <div className="flex flex-col gap-3">
               {currentQuestion.options.map((option) => (
                 <button
@@ -261,7 +249,7 @@ export default function QuotePage() {
                 const isCorrect = userAns === question.answer;
                 const userOption = question.options.find(opt => opt.label === userAns);
                 const correctOption = question.options.find(opt => opt.label === question.answer);
-                
+
                 return (
                   <div
                     key={idx}
