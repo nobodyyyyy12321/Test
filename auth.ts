@@ -35,6 +35,7 @@ export const authOptions = {
       },
     }),
   ],
+  trustHost: true,
   session: { strategy: "jwt" as const },
   callbacks: {
     async signIn({ user, account, profile }: any) {
