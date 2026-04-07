@@ -1,5 +1,18 @@
 import { getFirestoreDB } from "./firebase-admin";
 
+const cache = new Map<string, { data: Article[]; ts: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1 小時
+
+function getCached(key: string): Article[] | null {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+  return null;
+}
+
+function setCached(key: string, data: Article[]) {
+  cache.set(key, { data, ts: Date.now() });
+}
+
 export type Article = {
   id: string;
   title: string;
@@ -37,15 +50,22 @@ export async function getArticles(filters?: { type?: string; category?: string }
 }
 
 export async function getArticlesByCategory(category: string): Promise<Article[]> {
+  const key = `category:${category}`;
+  const cached = getCached(key);
+  if (cached) return cached;
+
   try {
     const db = getFirestoreDB();
-    // try category field first
     let snapshot = await db.collection(COLLECTION_NAME).where("category", "==", category).get();
-    if (!snapshot.empty) return snapshot.docs.map((d: any) => docToArticle(d));
-    // fallback to type field
+    if (!snapshot.empty) {
+      const data = snapshot.docs.map((d: any) => docToArticle(d));
+      setCached(key, data);
+      return data;
+    }
     snapshot = await db.collection(COLLECTION_NAME).where("type", "==", category).get();
-    if (!snapshot.empty) return snapshot.docs.map((d: any) => docToArticle(d));
-    return [];
+    const data = snapshot.docs.map((d: any) => docToArticle(d));
+    setCached(key, data);
+    return data;
   } catch (err) {
     console.error("Error getting articles by category:", err);
     return [];
@@ -53,11 +73,17 @@ export async function getArticlesByCategory(category: string): Promise<Article[]
 }
 
 export async function getArticleByNumber(number: number): Promise<Article | undefined> {
+  const key = `number:${number}`;
+  const cached = getCached(key);
+  if (cached) return cached[0];
+
   try {
     const db = getFirestoreDB();
     const snapshot = await db.collection(COLLECTION_NAME).where("number", "==", number).limit(1).get();
     if (snapshot.empty) return undefined;
-    return docToArticle(snapshot.docs[0]);
+    const data = [docToArticle(snapshot.docs[0])];
+    setCached(key, data);
+    return data[0];
   } catch (err) {
     console.error("Error getting article by number:", err);
     return undefined;
@@ -65,11 +91,17 @@ export async function getArticleByNumber(number: number): Promise<Article | unde
 }
 
 export async function getArticleByTitle(title: string): Promise<Article | undefined> {
+  const key = `title:${title}`;
+  const cached = getCached(key);
+  if (cached) return cached[0];
+
   try {
     const db = getFirestoreDB();
     const snapshot = await db.collection(COLLECTION_NAME).where("title", "==", title).limit(1).get();
     if (snapshot.empty) return undefined;
-    return docToArticle(snapshot.docs[0]);
+    const data = [docToArticle(snapshot.docs[0])];
+    setCached(key, data);
+    return data[0];
   } catch (err) {
     console.error("Error getting article by title:", err);
     return undefined;
