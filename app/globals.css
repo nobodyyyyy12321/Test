@@ -290,12 +290,12 @@ main a.rounded-full.border,
 
 /* 子分類按鈕：框比母按鈕更貼近文字 */
 .book-link.bookshelf-btn.sub-item {
-  color: #adadff;
-  border-color: #adadff;
+  color: #adceff;
+  border-color: #adceff;
 }
 
 .book-link.bookshelf-btn.sub-item:hover {
-  border-color: #adadff;
+  border-color: #adceff;
   box-shadow:
     inset 0 -3px 0 rgba(173, 173, 255, 0.12),
     0 0 0 1px rgba(173, 173, 255, 0.28),
