@@ -231,11 +231,10 @@ main button.rounded-full.border {
 
 .book-link:hover {
   transform: none;
-  border-color: rgba(55, 55, 58, 0.72);
   box-shadow:
-    inset 0 -3px 0 rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(60, 60, 63, 0.28),
-    0 0 18px rgba(40, 40, 43, 0.24);
+    inset 0 -3px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.28),
+    0 0 18px rgba(255, 255, 255, 0.24);
   filter: none;
 }
 
@@ -287,6 +286,20 @@ main a.rounded-full.border,
 .sub-book {
   opacity: 0.85;
   font-size: 0.9em;
+}
+
+/* 子分類按鈕：框比母按鈕更貼近文字 */
+.book-link.bookshelf-btn.sub-item {
+  color: #adadff;
+  border-color: #adadff;
+}
+
+.book-link.bookshelf-btn.sub-item:hover {
+  border-color: #adadff;
+  box-shadow:
+    inset 0 -3px 0 rgba(173, 173, 255, 0.12),
+    0 0 0 1px rgba(173, 173, 255, 0.28),
+    0 0 18px rgba(173, 173, 255, 0.24);
 }
 
 /* 展開狀態母按鈕的視覺反饋 */

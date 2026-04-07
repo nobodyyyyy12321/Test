@@ -54,7 +54,7 @@ export function HomeContent({ language }: { language: string }) {
                     )}
 
                     {isOpen && (
-                      <div className="flex flex-row items-center ml-2 gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                      <div className="flex flex-row items-center animate-in fade-in slide-in-from-left-2 duration-300" style={{ gap: "0.875rem", marginLeft: "0.875rem" }}>
                         {subject.children!.map((sub, j) => (
                           <Link key={`${j}-${sub.href}`} href={sub.href || "#"} className="book-link bookshelf-btn sub-item">
                             {sub.name}
