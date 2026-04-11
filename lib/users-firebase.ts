@@ -50,12 +50,33 @@ export type User = {
 
 const COLLECTION_NAME = "users";
 const USER_CACHE_TTL = 5 * 60 * 1000; // 5 分鐘
+const QUOTA_BACKOFF_TTL = 10 * 60 * 1000; // quota 超限時暫停 10 分鐘
 const userCacheByEmail = new Map<string, { data: User; ts: number }>();
+const userCacheByName = new Map<string, { data: User; ts: number }>();
 const userCacheById = new Map<string, { data: User; ts: number }>();
+let quotaExhaustedAt: number | null = null;
+
+function isQuotaExhausted(): boolean {
+  if (quotaExhaustedAt === null) return false;
+  if (Date.now() - quotaExhaustedAt > QUOTA_BACKOFF_TTL) {
+    quotaExhaustedAt = null;
+    return false;
+  }
+  return true;
+}
+
+function handleFirestoreError(error: unknown): undefined {
+  const code = (error as any)?.code;
+  if (code === 8 || (error as any)?.details?.includes?.("Quota")) {
+    quotaExhaustedAt = Date.now();
+  }
+  return undefined;
+}
 
 function cacheUser(user: User) {
   const now = Date.now();
   if (user.email) userCacheByEmail.set(user.email.toLowerCase(), { data: user, ts: now });
+  if (user.name) userCacheByName.set(user.name, { data: user, ts: now });
   userCacheById.set(user.id, { data: user, ts: now });
 }
 
@@ -83,6 +104,7 @@ export async function findUserByEmail(email: string): Promise<User | undefined> 
   const key = email.toLowerCase();
   const cached = userCacheByEmail.get(key);
   if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
+  if (isQuotaExhausted()) return undefined;
   try {
     const db = getFirestoreDB();
     const snapshot = await db
@@ -97,11 +119,14 @@ export async function findUserByEmail(email: string): Promise<User | undefined> 
     return user;
   } catch (error) {
     console.error("Error finding user by email:", error);
-    return undefined;
+    return handleFirestoreError(error);
   }
 }
 
 export async function findUserByName(name: string): Promise<User | undefined> {
+  const cached = userCacheByName.get(name);
+  if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
+  if (isQuotaExhausted()) return undefined;
   try {
     const db = getFirestoreDB();
     const snapshot = await db
@@ -111,10 +136,12 @@ export async function findUserByName(name: string): Promise<User | undefined> {
       .get();
 
     if (snapshot.empty) return undefined;
-    return docToUser(snapshot.docs[0]);
+    const user = docToUser(snapshot.docs[0]);
+    cacheUser(user);
+    return user;
   } catch (error) {
     console.error("Error finding user by name:", error);
-    return undefined;
+    return handleFirestoreError(error);
   }
 }
 
@@ -140,6 +167,7 @@ export async function findUserByVerificationToken(
 export async function findUserById(id: string): Promise<User | undefined> {
   const cached = userCacheById.get(id);
   if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
+  if (isQuotaExhausted()) return undefined;
   try {
     const db = getFirestoreDB();
     const doc = await db.collection(COLLECTION_NAME).doc(id).get();
@@ -149,7 +177,7 @@ export async function findUserById(id: string): Promise<User | undefined> {
     return user;
   } catch (error) {
     console.error("Error finding user by id:", error);
-    return undefined;
+    return handleFirestoreError(error);
   }
 }
 
