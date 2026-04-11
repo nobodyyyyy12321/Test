@@ -8,10 +8,14 @@ import { Footer } from "./Footer";
 export function HomeContent({ language }: { language: string }) {
   const [query, setQuery] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openDropKey, setOpenDropKey] = useState<string | null>(null);
+  const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const subjects = useFilteredCategories(language, query);
 
   useEffect(() => {
     setOpenKey(null);
+    setOpenDropKey(null);
+    setOpenYearKey(null);
     setQuery("");
   }, [language]);
 
@@ -38,30 +42,76 @@ export function HomeContent({ language }: { language: string }) {
                 const hasSub = !!subject.children?.length;
 
                 return (
-                  <div key={key} className="flex flex-row items-center relative">
-                    {hasSub ? (
-                      <button
-                        type="button"
-                        className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`}
-                        onClick={() => setOpenKey(isOpen ? null : key)}
-                      >
-                        {subject.name}
-                      </button>
-                    ) : (
-                      <Link href={subject.href || "#"} className="book-link bookshelf-btn">
-                        {subject.name}
-                      </Link>
-                    )}
+                  <div key={key} className="contents">
+                    <div>
+                      {hasSub ? (
+                        <button
+                          type="button"
+                          className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`}
+                          onClick={() => setOpenKey(isOpen ? null : key)}
+                        >
+                          {subject.name}
+                        </button>
+                      ) : (
+                        <Link href={subject.href || "#"} className="book-link bookshelf-btn">
+                          {subject.name}
+                        </Link>
+                      )}
+                    </div>
 
-                    {isOpen && (
-                      <div className="flex flex-row items-center animate-in fade-in slide-in-from-left-2 duration-300" style={{ gap: "0.875rem", marginLeft: "0.875rem" }}>
-                        {subject.children!.map((sub, j) => (
-                          <Link key={`${j}-${sub.href}`} href={sub.href || "#"} className="book-link bookshelf-btn sub-item">
+                    {isOpen && subject.children!.map((sub, j) => {
+                      const subKey = `${key}-${j}`;
+                      if (sub.dropdown?.length) {
+                        const isDropOpen = openDropKey === subKey;
+                        return (
+                          <div key={subKey} className="contents">
+                            <div>
+                              <button
+                                type="button"
+                                className={`book-link bookshelf-btn sub-item ${isDropOpen ? "active-category" : ""}`}
+                                onClick={() => setOpenDropKey(isDropOpen ? null : subKey)}
+                              >
+                                {sub.name}
+                              </button>
+                            </div>
+                            {isDropOpen && (
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  className="book-link bookshelf-btn sub-sub-item flex items-center gap-1"
+                                  onClick={() => setOpenYearKey(openYearKey === subKey ? null : subKey)}
+                                >
+                                  年份
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                </button>
+                                {openYearKey === subKey && (
+                                <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border border-[#a8f0c6] bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem" }}>
+                                  {sub.dropdown.map((opt) => (
+                                    <Link
+                                      key={opt.href + opt.name}
+                                      href={opt.href}
+                                      className="block px-4 py-2 text-sm text-left"
+                                      style={{ color: "#a8f0c6" }}
+                                      onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
+                                    >
+                                      {opt.name}
+                                    </Link>
+                                  ))}
+                                </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={subKey}>
+                          <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item">
                             {sub.name}
                           </Link>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}

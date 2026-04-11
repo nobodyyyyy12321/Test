@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import ShareIcon from "../../../components/ShareIcon";
 
 type RecitationClientProps = {
   articleId: string;
@@ -190,16 +189,6 @@ export default function RecitationClient({ articleId, articleNumber, title, cont
             開始背誦
           </button>
         </div>
-
-        {/* 選擇題區塊右下角白框分享按鈕 */}
-        <button
-          type="button"
-          aria-label="分享"
-          style={{ position: "absolute", right: 16, bottom: 16, background: "#fff", border: "2px solid #fff", borderRadius: "50%", padding: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", cursor: "pointer", transition: "transform 0.15s, box-shadow 0.15s" }}
-          onClick={() => {}}
-        >
-          <ShareIcon size={28} />
-        </button>
       </div>
     );
   }

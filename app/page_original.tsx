@@ -9,7 +9,6 @@ import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import Link from "next/link";
 // 自訂元件
 
-import ShareIcon from "./components/ShareIcon";
 
 
 import "./speaker-icon.css";

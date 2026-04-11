@@ -14,16 +14,16 @@ type RecitationRecord = {
   category?: string;
 };
 
-
 type QuizRecord = {
   answered: number;
   correct: number;
   set: string;
   timestamp: string;
-  category: "英文" | "Learn Chinese";
 };
 
-type Subject = "詩文背誦" | "英文";
+type CombinedRecord =
+  | { kind: "recitation"; data: RecitationRecord }
+  | { kind: "quiz"; data: QuizRecord };
 
 const englishSetNames: Record<string, string> = {
   "englishWords:1,2": "2000單",
@@ -43,7 +43,6 @@ export default function RecordsPage() {
   const [recitationsPublic, setRecitationsPublic] = useState(false);
   const [userName, setUserName] = useState("");
   const [isOwner, setIsOwner] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState<Subject>("詩文背誦");
 
   useEffect(() => {
     const nameParam = params?.name;
@@ -55,23 +54,17 @@ export default function RecordsPage() {
     const decodedName = decodeURIComponent(nameParam);
     setUserName(decodedName);
 
-    // Fetch the user's profile
     fetch(`/api/user/profile?name=${encodeURIComponent(decodedName)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.user) {
-          // Consider owner true if server marked isOwner, or session email matches profile email,
-          // or session name matches the decoded name (fallback)
           const owner = Boolean(data.user.isOwner) || (session?.user?.email && session.user.email === data.user.email) || session?.user?.name === decodedName;
           setIsOwner(owner);
           setRecitationsPublic(data.user.recitationsPublic ?? false);
 
-          // Show records if owner or if public
           if (owner || data.user.recitationsPublic) {
             setRecitations(data.user.recitations || []);
-
             setEnglishRecords(data.user.englishRecords || []);
-
           }
         }
         setLoading(false);
@@ -92,14 +85,13 @@ export default function RecordsPage() {
     );
   }
 
-  const subjects: Subject[] = ["詩文背誦", "英文"];
-
-
-  const filterRecitations = (records: RecitationRecord[]): RecitationRecord[] => {
-    return records.filter(r => (r.category || "詩文背誦") === selectedSubject);
-  };
-
-  const filteredRecitations = filterRecitations(recitations);
+  const combined: CombinedRecord[] = [
+    ...recitations.map((r) => ({ kind: "recitation" as const, data: r })),
+    ...englishRecords.map((r) => ({ kind: "quiz" as const, data: r })),
+  ]
+    .sort((a, b) => new Date(a.data.timestamp).getTime() - new Date(b.data.timestamp).getTime())
+    .slice(-10)
+    .reverse();
 
   function handleShare() {
     const url = window.location.href;
@@ -138,93 +130,40 @@ export default function RecordsPage() {
           <div className="w-full max-w-md text-center py-12 mx-auto">
             <p className="text-gray-500">此用戶的背誦紀錄為不公開</p>
           </div>
+        ) : combined.length === 0 ? (
+          <div className="w-full max-w-md text-center py-12 mx-auto">
+            <p className="text-gray-500">尚無紀錄</p>
+          </div>
         ) : (
-          <div className="w-full max-w-md space-y-6 mx-auto">
-            {/* Subject Dropdown */}
-            <div className="flex items-center justify-center gap-2">
-              <label className="text-sm font-medium text-gray-400">選擇分類：</label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value as Subject)}
-                className="record-select px-4 py-2 rounded border text-sm font-medium cursor-pointer transition-colors"
-              >
-                {subjects.map((subject) => (
-                  <option key={subject} value={subject}>
-                    {subject}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedSubject === "詩文背誦" && (
-              <>
-                <div className="mt-8">
-                  {filteredRecitations.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">尚無背誦紀錄</p>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRecitations.slice(-10).reverse().map((record, index) => (
-                  <div
-                    key={index}
-                    className="border border-white rounded-lg p-4 bg-transparent transition-colors"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-white">{record.title}</span>
-                        <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
-                          {record.success ? "✓ 成功" : "✗ 失敗"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        {new Date(record.timestamp).toLocaleDateString("zh-TW", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                        })}
-                      </p>
+          <div className="w-full max-w-md space-y-3 mx-auto">
+            {combined.map((item, index) => (
+              <div key={index} className="border border-white rounded-lg p-4 bg-transparent transition-colors">
+                <div className="flex justify-between items-center">
+                  {item.kind === "recitation" ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white">{item.data.title}</span>
+                      <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
+                        {item.data.success ? "✓ 成功" : "✗ 失敗"}
+                      </span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
-            </>
-            )}
-            {selectedSubject === "英文" && (
-              <>
-                <div className="mt-8">
-                  {englishRecords.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">尚無練習紀錄</p>
                   ) : (
-                    <div className="space-y-3">
-                      {englishRecords.slice(-10).reverse().map((record, index) => (
-                        <div
-                          key={index}
-                          className="border border-white rounded-lg p-4 bg-transparent transition-colors"
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-white">{englishSetNames[record.set] ?? record.set}</span>
-                              <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
-                                {record.correct}/{record.answered}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-400">
-                              {new Date(record.timestamp).toLocaleDateString("zh-TW", {
-                                year: "numeric",
-                                month: "2-digit",
-                                day: "2-digit",
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white">{englishSetNames[item.data.set] ?? item.data.set}</span>
+                      <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
+                        {item.data.correct}/{item.data.answered}
+                      </span>
                     </div>
                   )}
+                  <p className="text-xs text-gray-400">
+                    {new Date(item.data.timestamp).toLocaleDateString("zh-TW", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </p>
                 </div>
-              </>
-            )}
-
+              </div>
+            ))}
           </div>
         )}
       </main>
