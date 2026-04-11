@@ -79,6 +79,7 @@ export function HomeContent({ language }: { language: string }) {
                                 <button
                                   type="button"
                                   className="book-link bookshelf-btn sub-sub-item flex items-center gap-1"
+                                  style={{ color: "#a8f0c6", borderColor: "#a8f0c6" }}
                                   onClick={() => setOpenYearKey(openYearKey === subKey ? null : subKey)}
                                 >
                                   年份
