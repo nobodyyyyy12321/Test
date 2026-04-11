@@ -102,7 +102,7 @@ export default function QuotePage() {
       const answeredCount = userAnswers.filter(a => a !== null).length;
       const correctCount = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
 
-      const recordEndpoint = id === "quoteQuestions" ? "/api/user/quote/record" : "/api/user/english/record";
+      const recordEndpoint = id === "quoteChinese" ? "/api/user/quote/record" : "/api/user/english/record";
       fetch(recordEndpoint, {
         method: "POST",
         headers: {

@@ -30,7 +30,7 @@ type QuizRecord = {
   category: "英文" | "Learn Chinese";
 };
 
-type Subject = "綜合紀錄" | "詩文背誦" | "英文" | "Learn Chinese" | "名言佳句" | "數學";
+type Subject = "綜合紀錄" | "詩文背誦" | "英文" | "名言佳句";
 
 export default function RecordsPage() {
   const { data: session, status } = useSession();
@@ -94,7 +94,7 @@ export default function RecordsPage() {
     );
   }
 
-  const subjects: Subject[] = ["綜合紀錄", "詩文背誦", "英文", "Learn Chinese", "名言佳句", "數學"];
+  const subjects: Subject[] = ["綜合紀錄", "詩文背誦", "英文", "名言佳句"];
 
   const filterRecitations = (records: RecitationRecord[]): RecitationRecord[] => {
     return records.filter(r => (r.category || "詩文背誦") === selectedSubject);
@@ -394,42 +394,6 @@ export default function RecordsPage() {
               </>
             )}
 
-            {selectedSubject === "Learn Chinese" && (
-              <>
-                <div className="mt-8">
-                  {studyChineseRecords.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">尚無練習紀錄</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {studyChineseRecords.slice().reverse().map((record, index) => (
-                        <div
-                          key={index}
-                          className="border border-white rounded-lg p-4 bg-transparent transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium text-white">學中文 {record.set}</p>
-                              <p className="text-sm mt-1">
-                                <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
-                                  {record.correct}/{record.answered}
-                                </span>
-                              </p>
-                            </div>
-                            <p className="text-xs text-gray-400">
-                              {new Date(record.timestamp).toLocaleDateString("zh-TW", {
-                                year: "numeric",
-                                month: "2-digit",
-                                day: "2-digit",
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
           </div>
         )}
       </main>
