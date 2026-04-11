@@ -23,10 +23,9 @@ export async function GET(request: Request) {
       const data = doc.data();
       // Convert options object to array format
       const optionsArray = data.options && typeof data.options === 'object'
-        ? Object.entries(data.options).map(([label, text]) => ({
-            label,
-            text: text as string
-          }))
+        ? Object.entries(data.options)
+            .map(([label, text]) => ({ label, text: text as string }))
+            .sort((a, b) => a.label.localeCompare(b.label))
         : [];
 
       return {
