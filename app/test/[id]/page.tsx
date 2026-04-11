@@ -13,9 +13,24 @@ type Question = {
   id: string;
   number: number;
   title: string;
+  type?: "single" | "multiple" | "fill";
   options: Option[];
-  answer: string;
+  answer: string | string[];
 };
+
+function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
+  if (userAns === null) return false;
+  const qtype = question.type ?? "single";
+  if (qtype === "fill") {
+    return (userAns as string).trim() === (question.answer as string).trim();
+  }
+  if (qtype === "multiple") {
+    const correct = [...(question.answer as string[])].sort();
+    const user = [...(userAns as string[])].sort();
+    return correct.length === user.length && correct.every((v, i) => v === user[i]);
+  }
+  return userAns === question.answer;
+}
 
 export default function QuotePage() {
   const { data: session } = useSession();
@@ -24,7 +39,7 @@ export default function QuotePage() {
   const id = params.id as string;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
+  const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
@@ -60,57 +75,56 @@ export default function QuotePage() {
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (showResults) return;
 
-      const keyToOption: Record<string, string> = { "1": "A", "2": "B", "3": "C", "4": "D" };
-      const k = keyToOption[e.key] ?? e.key.toUpperCase();
-      if (["A", "B", "C", "D"].includes(k)) {
-        handleAnswer(k);
+      const qtype = questions[currentIndex]?.type ?? "single";
+      if (qtype === "single") {
+        const keyToOption: Record<string, string> = { "1": "A", "2": "B", "3": "C", "4": "D" };
+        const k = keyToOption[e.key] ?? e.key.toUpperCase();
+        if (["A", "B", "C", "D"].includes(k)) handleSingleAnswer(k);
       }
-      if (k === "ENTER") {
-        checkAnswers();
-      }
-      if (k === "ARROWLEFT") {
-        if (currentIndex > 0) {
-          setCurrentIndex(currentIndex - 1);
-        }
-      }
-      if (k === "ARROWRIGHT") {
-        setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1));
-      }
+      if (e.key === "Enter") checkAnswers();
+      if (e.key === "ArrowLeft" && currentIndex > 0) setCurrentIndex(currentIndex - 1);
+      if (e.key === "ArrowRight") setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1));
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showResults, userAnswers, currentIndex, questions.length]);
+  }, [showResults, userAnswers, currentIndex, questions]);
 
-  const handleAnswer = (answer: string) => {
-    if (currentIndex < questions.length) {
-      const newAnswers = [...userAnswers];
-      newAnswers[currentIndex] = answer;
-      setUserAnswers(newAnswers);
-
-      // 單選題延遲 200ms 再跳下一題
-      if (currentIndex < questions.length - 1) {
-        setTimeout(() => {
-          setCurrentIndex(currentIndex + 1);
-        }, 200);
-      }
+  const handleSingleAnswer = (answer: string) => {
+    if (currentIndex >= questions.length) return;
+    const newAnswers = [...userAnswers];
+    newAnswers[currentIndex] = answer;
+    setUserAnswers(newAnswers);
+    if (currentIndex < questions.length - 1) {
+      setTimeout(() => setCurrentIndex(currentIndex + 1), 200);
     }
+  };
+
+  const handleMultipleToggle = (label: string) => {
+    const current = (userAnswers[currentIndex] as string[] | null) ?? [];
+    const next = current.includes(label)
+      ? current.filter(l => l !== label)
+      : [...current, label];
+    const newAnswers = [...userAnswers];
+    newAnswers[currentIndex] = next.length > 0 ? next : null;
+    setUserAnswers(newAnswers);
+  };
+
+  const handleFillChange = (value: string) => {
+    const newAnswers = [...userAnswers];
+    newAnswers[currentIndex] = value || null;
+    setUserAnswers(newAnswers);
   };
 
   const checkAnswers = () => {
     setShowResults(true);
-
-    // Save record if user is logged in
     if (session?.user?.email) {
       const answeredCount = userAnswers.filter(a => a !== null).length;
-      const correctCount = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
-
+      const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
       const recordEndpoint = id === "quoteChinese" ? "/api/user/quote/record" : "/api/user/english/record";
       fetch(recordEndpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answered: answeredCount,
           correct: correctCount,
@@ -128,7 +142,6 @@ export default function QuotePage() {
 
   const speakQuestion = (text: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-US";
@@ -147,8 +160,10 @@ export default function QuotePage() {
   }
 
   const currentQuestion = questions[currentIndex];
+  const qtype = currentQuestion.type ?? "single";
   const answeredCount = userAnswers.filter(a => a !== null).length;
-  const correctCount = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
+  const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
+  const currentAnswer = userAnswers[currentIndex];
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
@@ -183,8 +198,10 @@ export default function QuotePage() {
 
         {!showResults ? (
           <div className="mt-6 space-y-4 w-full">
-            <div className="text-sm text-zinc-400">
-              題號{currentQuestion.number}
+            <div className="flex items-center gap-3 text-sm text-zinc-400">
+              <span>題號{currentQuestion.number}</span>
+              {qtype === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
+              {qtype === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
             </div>
 
             <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
@@ -197,16 +214,7 @@ export default function QuotePage() {
                   aria-label="朗讀英文"
                   title="朗讀英文"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                     <path d="M11 5 6 9H3v6h3l5 4V5z" />
                     <path d="M15 9a5 5 0 0 1 0 6" />
                   </svg>
@@ -214,22 +222,37 @@ export default function QuotePage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-3">
-              {currentQuestion.options.map((option) => (
-                <button
-                  key={option.label}
-                  onClick={() => handleAnswer(option.label)}
-                  className={`flex-1 px-6 py-3 border border-[1px] rounded text-left transition-colors ${
-                    userAnswers[currentIndex] === option.label
-                      ? "border-black dark:border-zinc-200"
-                      : "border-zinc-400 dark:border-zinc-600"
-                  }`}
-                  style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                >
-                  <span className="font-semibold">{option.label}</span> {typeof option.text === "string" ? option.text : JSON.stringify(option.text)}
-                </button>
-              ))}
-            </div>
+            {qtype === "fill" ? (
+              <input
+                type="text"
+                autoFocus
+                value={(currentAnswer as string) ?? ""}
+                onChange={e => handleFillChange(e.target.value)}
+                placeholder="輸入答案"
+                className="w-full px-4 py-3 border border-zinc-400 dark:border-zinc-600 rounded text-base outline-none focus:border-black dark:focus:border-zinc-200"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+            ) : (
+              <div className="flex flex-col gap-3">
+                {currentQuestion.options.map((option) => {
+                  const isSelected = qtype === "multiple"
+                    ? ((currentAnswer as string[] | null) ?? []).includes(option.label)
+                    : currentAnswer === option.label;
+                  return (
+                    <button
+                      key={option.label}
+                      onClick={() => qtype === "multiple" ? handleMultipleToggle(option.label) : handleSingleAnswer(option.label)}
+                      className={`flex-1 px-6 py-3 border border-[1px] rounded text-left transition-colors ${
+                        isSelected ? "border-black dark:border-zinc-200" : "border-zinc-400 dark:border-zinc-600"
+                      }`}
+                      style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                    >
+                      <span className="font-semibold">{option.label}</span> {typeof option.text === "string" ? option.text : JSON.stringify(option.text)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-6 space-y-4 w-full">
@@ -249,10 +272,32 @@ export default function QuotePage() {
               {questions.map((question, idx) => {
                 const userAns = userAnswers[idx];
                 if (userAns === null) return null;
+                const isCorrect = gradeAnswer(question, userAns);
+                const qt = question.type ?? "single";
 
-                const isCorrect = userAns === question.answer;
-                const userOption = question.options.find(opt => opt.label === userAns);
-                const correctOption = question.options.find(opt => opt.label === question.answer);
+                const renderUserAns = () => {
+                  if (qt === "fill") return <span>{userAns as string}</span>;
+                  if (qt === "multiple") {
+                    return (userAns as string[]).map(l => {
+                      const opt = question.options.find(o => o.label === l);
+                      return <span key={l} className="mr-1">{l} {opt?.text}</span>;
+                    });
+                  }
+                  const opt = question.options.find(o => o.label === userAns);
+                  return <span>{userAns as string} {opt?.text}</span>;
+                };
+
+                const renderCorrectAns = () => {
+                  if (qt === "fill") return <span>{question.answer as string}</span>;
+                  if (qt === "multiple") {
+                    return (question.answer as string[]).map(l => {
+                      const opt = question.options.find(o => o.label === l);
+                      return <span key={l} className="mr-1">{l} {opt?.text}</span>;
+                    });
+                  }
+                  const opt = question.options.find(o => o.label === question.answer);
+                  return <span>{question.answer as string} {opt?.text}</span>;
+                };
 
                 return (
                   <div
@@ -266,10 +311,10 @@ export default function QuotePage() {
                     <p className="font-medium mb-2">題號{question.number}：{question.title}</p>
                     <div className="text-sm space-y-1">
                       <p>你的答案：<span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${isCorrect ? "bg-green-200 text-green-700 dark:bg-green-900/50 dark:text-green-400" : "bg-red-200 text-red-700 dark:bg-red-900/50 dark:text-red-400"}`}>
-                        {userAns} {userOption?.text}
+                        {renderUserAns()}
                       </span></p>
                       {!isCorrect && (
-                        <p>正確答案：<span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-200 text-green-700 dark:bg-green-900/50 dark:text-green-400">{question.answer} {correctOption?.text}</span></p>
+                        <p>正確答案：<span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-200 text-green-700 dark:bg-green-900/50 dark:text-green-400">{renderCorrectAns()}</span></p>
                       )}
                     </div>
                   </div>
