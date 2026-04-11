@@ -98,12 +98,13 @@ export async function POST(request: Request) {
               };
 
               recitationsFresh.push(newRec);
+              const trimmedRecitations = recitationsFresh.slice(-10);
 
               const attemptCountUser = (freshData.attemptCount || 0) + 1;
               const successCountUser = (freshData.successCount || 0) + (success && !hadSuccessBefore ? 1 : 0);
 
               tx.update(userRef, {
-                recitations: recitationsFresh,
+                recitations: trimmedRecitations,
                 attemptCount: attemptCountUser,
                 successCount: successCountUser,
                 updatedAt: new Date().toISOString(),

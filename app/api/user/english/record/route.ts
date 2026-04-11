@@ -1,6 +1,5 @@
 import { auth } from "@/auth";
 import { getFirestoreDB } from "@/lib/firebase-admin";
-import * as admin from "firebase-admin";
 
 type EnglishRecord = {
   answered: number;
@@ -55,11 +54,11 @@ export async function POST(request: Request) {
     }
 
     const userRef = userSnapshot.docs[0].ref;
+    const userDoc = await userRef.get();
+    const existing: EnglishRecord[] = userDoc.data()?.englishRecords || [];
+    const trimmed = [...existing, record].slice(-10);
 
-    // Add to englishRecords array
-    await userRef.update({
-      englishRecords: admin.firestore.FieldValue.arrayUnion(record)
-    });
+    await userRef.update({ englishRecords: trimmed });
 
     return Response.json({ success: true });
 
