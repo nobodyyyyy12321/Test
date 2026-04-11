@@ -25,6 +25,13 @@ type QuizRecord = {
 
 type Subject = "詩文背誦" | "英文";
 
+const englishSetNames: Record<string, string> = {
+  "englishWords:1,2": "2000單",
+  "englishWords:3,4": "4000單",
+  "englishWords:5,6": "6000單",
+  englishWords: "英文",
+};
+
 export default function RecordsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -87,9 +94,6 @@ export default function RecordsPage() {
 
   const subjects: Subject[] = ["詩文背誦", "英文"];
 
-  const englishSetNames: Record<string, string> = {
-    englishQuestions: "2000單",
-  };
 
   const filterRecitations = (records: RecitationRecord[]): RecitationRecord[] => {
     return records.filter(r => (r.category || "詩文背誦") === selectedSubject);

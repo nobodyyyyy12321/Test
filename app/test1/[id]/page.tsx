@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 type Option = {
   label: string;
@@ -20,6 +20,7 @@ type Question = {
 export default function QuotePage() {
   const { data: session } = useSession();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -38,7 +39,9 @@ export default function QuotePage() {
       return shuffled;
     };
 
-    fetch(`/api/questions?id=${id}`)
+    const levels = searchParams.get("levels");
+    const url = levels ? `/api/questions?id=${id}&levels=${levels}` : `/api/questions?id=${id}`;
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         if (data.questions) {
@@ -49,7 +52,7 @@ export default function QuotePage() {
         }
       })
       .catch(err => console.error("Failed to load questions:", err));
-  }, [id]);
+  }, [id, searchParams]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,7 +114,7 @@ export default function QuotePage() {
         body: JSON.stringify({
           answered: answeredCount,
           correct: correctCount,
-          set: id,
+          set: searchParams.get("levels") ? `${id}:${searchParams.get("levels")}` : id,
         }),
       }).catch(err => console.error("Failed to save record:", err));
     }
@@ -186,7 +189,7 @@ export default function QuotePage() {
 
             <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
               <span>{currentQuestion.title}</span>
-              {id === "englishQuestions" && (
+              {id === "englishWords" && (
                 <button
                   type="button"
                   onClick={() => speakQuestion(currentQuestion.title)}

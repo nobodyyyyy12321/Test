@@ -1,35 +1,55 @@
+/**
+ * 刪除 Firestore collection
+ * 用法：npx tsx scripts/delete-collection.ts <collectionName>
+ * 例如：npx tsx scripts/delete-collection.ts quoteQuestions
+ */
 
-import fs from 'fs';
-import path from 'path';
-import { getFirestoreDB } from '../lib/firebase-admin';
+import fs from "fs";
+import path from "path";
+import { getFirestoreDB } from "../lib/firebase-admin";
 
-const envPath = path.join(process.cwd(), '.env.local');
+const envPath = path.join(process.cwd(), ".env.local");
 if (fs.existsSync(envPath)) {
-  const raw = fs.readFileSync(envPath, 'utf8');
-  raw.split(/\r?\n/).forEach((line) => {
-    const m = line.match(/^\s*([^#][^=\s]*)\s*=\s*(.*)\s*$/);
-    if (m) {
-      const key = m[1];
-      let val = m[2] || '';
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+  fs.readFileSync(envPath, "utf8")
+    .split(/\r?\n/)
+    .forEach((line) => {
+      const m = line.match(/^\s*([^#][^=\s]*)\s*=\s*(.*)\s*$/);
+      if (!m) return;
+      let val = m[2] || "";
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
         val = val.slice(1, -1);
       }
-      process.env[key] = val;
-    }
-  });
+      process.env[m[1]] = val;
+    });
 }
 
-async function deleteCollection(collectionName: string) {
+const collectionName = process.argv[2];
+if (!collectionName) {
+  console.error("請提供 collection 名稱");
+  console.error("用法：npx tsx scripts/delete-collection.ts <collectionName>");
+  process.exit(1);
+}
+
+async function deleteCollection(name: string) {
   const db = getFirestoreDB();
-  const snapshot = await db.collection(collectionName).get();
+  const snapshot = await db.collection(name).get();
+
   if (snapshot.empty) {
-    console.log(`Collection ${collectionName} is empty or does not exist`);
+    console.log(`Collection "${name}" 不存在或已是空的`);
     return;
   }
-  const batch = db.batch();
-  snapshot.docs.forEach(doc => batch.delete(doc.ref));
-  await batch.commit();
-  console.log(`Deleted ${snapshot.size} docs from ${collectionName}`);
+
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    snapshot.docs.slice(i, i + BATCH_SIZE).forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+
+  console.log(`已刪除 "${name}" 共 ${snapshot.size} 筆`);
 }
 
-deleteCollection('quoteQuestions').catch(console.error);
+deleteCollection(collectionName).catch(console.error);
