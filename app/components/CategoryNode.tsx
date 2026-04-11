@@ -3,4 +3,5 @@ export type CategoryNode = {
   name: string;
   href?: string;
   children?: CategoryNode[];
+  dropdown?: { name: string; href: string }[];
 };

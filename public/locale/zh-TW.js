@@ -1,5 +1,5 @@
-[
-  { "name": "背東西", 
+const zhTW = [
+  { "name": "背東西",
     "children":[
       { "name": "漢", "href": "/recitation/漢" },
       { "name": "唐", "href": "/recitation/唐" },
@@ -7,9 +7,11 @@
       { "name": "明", "href": "/recitation/明" },
       { "name": "清", "href": "/recitation/清" },
       { "name": "民", "href": "/recitation/民" }
-     ] 
+     ]
   },
-  { "name": "國文", "children":[ { "name": "學測", "href": "/under-construction" } ] },
+  { "name": "國文", "children": [
+    { "name": "學測", "dropdown": Array.from({ length: 115 - 83 + 1 }, (_, i) => ({ name: String(115 - i), href: "/under-construction" })) }
+  ] },
   {
     "name": "英文",
     "children": [
@@ -38,4 +40,6 @@
   { "name": "哲學", "href": "/under-construction" },
   { "name": "自然", "href": "/under-construction" },
   { "name": "社會", "href": "/under-construction" }
-]
+];
+
+export default zhTW;

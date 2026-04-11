@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { CategoryNode } from "./CategoryNode";
-import zhTW from "../../public/locale/zh-TW.json";
+import zhTW from "../../public/locale/zh-TW.js";
 import en from "../../public/locale/en.json";
 import ko from "../../public/locale/ko.json";
 import zhCN from "../../public/locale/zh-CN.json";
