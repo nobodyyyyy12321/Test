@@ -25,19 +25,12 @@ export type User = {
   }>;
   recitationsPublic?: boolean;
   emailPublic?: boolean;
-  quoteRecords?: Array<{
+  records?: Array<{
     answered: number;
     correct: number;
     set: string;
     timestamp: string;
-    category: "名言佳句";
-  }>;
-  englishRecords?: Array<{
-    answered: number;
-    correct: number;
-    set: string;
-    timestamp: string;
-    category: "英文";
+    category: string;
   }>;
   studyChineseRecords?: Array<{
     answered: number;

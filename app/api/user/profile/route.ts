@@ -29,17 +29,14 @@ export async function GET(request: Request) {
       }
 
       // Return data: include recitations only if owner or public
-      const { id, name, email, bio, avatarUrl, socialLinks, recitations, recitationsPublic, emailPublic, quoteRecords, englishRecords, studyChineseRecords } = user;
+      const { id, name, email, bio, avatarUrl, socialLinks, recitations, recitationsPublic, emailPublic, records, studyChineseRecords } = user;
       const outRecitations = isOwner ? recitations : (recitationsPublic ? recitations : []);
-      const outQuoteRecords = isOwner ? quoteRecords : (recitationsPublic ? quoteRecords : []);
-      const outEnglishRecords = isOwner ? englishRecords : (recitationsPublic ? englishRecords : []);
+      const outRecords = isOwner ? records : (recitationsPublic ? records : []);
       const outStudyChineseRecords = isOwner ? studyChineseRecords : (recitationsPublic ? studyChineseRecords : []);
-      // Decide whether the profile is publicly visible. Currently treat profile as public
-      // if either recitations or email are marked public. This can be adjusted later.
       const profilePublic = Boolean(recitationsPublic || emailPublic);
-      return NextResponse.json({ 
-        ok: true, 
-        user: { id, name, email, bio, avatarUrl, socialLinks, recitations: outRecitations, recitationsPublic, emailPublic, isOwner, profilePublic, quoteRecords: outQuoteRecords, englishRecords: outEnglishRecords, studyChineseRecords: outStudyChineseRecords } 
+      return NextResponse.json({
+        ok: true,
+        user: { id, name, email, bio, avatarUrl, socialLinks, recitations: outRecitations, recitationsPublic, emailPublic, isOwner, profilePublic, records: outRecords, studyChineseRecords: outStudyChineseRecords }
       });
     }
 
@@ -59,8 +56,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const { id, name, email, bio, avatarUrl, socialLinks, recitations, recitationsPublic, emailPublic, quoteRecords, englishRecords, studyChineseRecords } = user;
-    return NextResponse.json({ ok: true, user: { id, name, email, bio, avatarUrl, socialLinks, recitations, recitationsPublic, emailPublic, quoteRecords, englishRecords, studyChineseRecords } });
+    const { id, name, email, bio, avatarUrl, socialLinks, recitations, recitationsPublic, emailPublic, records, studyChineseRecords } = user;
+    return NextResponse.json({ ok: true, user: { id, name, email, bio, avatarUrl, socialLinks, recitations, recitationsPublic, emailPublic, records, studyChineseRecords } });
   } catch (e) {
     console.error("GET User Error:", e);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

@@ -90,20 +90,24 @@ export async function GET(request: Request) {
         const userName = userData.name || "匿名";
         const userId = userDoc.id;
 
-        // English records
-        if (Array.isArray(userData.englishRecords)) {
-          userData.englishRecords.forEach((rec: any) => {
+        // 統一 records（向下相容舊欄位）
+        const userRecords = userData.records ?? [
+          ...(userData.englishRecords ?? []),
+          ...(userData.quoteRecords ?? []),
+        ];
+        if (Array.isArray(userRecords)) {
+          userRecords.forEach((rec: any) => {
             records.push({
-              id: `${userId}-english-${rec.timestamp}`,
+              id: `${userId}-${rec.category}-${rec.timestamp}`,
               type: 'quiz',
-              category: '英文',
+              category: rec.category,
               userName,
               userId,
               answered: rec.answered,
               correct: rec.correct,
               set: rec.set,
               timestamp: rec.timestamp,
-              title: `英文 ${rec.set}`,
+              title: `${rec.category} ${rec.set}`,
             });
           });
         }
@@ -126,23 +130,6 @@ export async function GET(request: Request) {
           });
         }
 
-        // Quote records
-        if (Array.isArray(userData.quoteRecords)) {
-          userData.quoteRecords.forEach((rec: any) => {
-            records.push({
-              id: `${userId}-quote-${rec.timestamp}`,
-              type: 'quiz',
-              category: '名言佳句',
-              userName,
-              userId,
-              answered: rec.answered,
-              correct: rec.correct,
-              set: rec.set,
-              timestamp: rec.timestamp,
-              title: `名言佳句 ${rec.set}`,
-            });
-          });
-        }
       }
 
       // Sort all records by timestamp (most recent first)

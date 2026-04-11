@@ -37,7 +37,7 @@ export default function RecordsPage() {
   const router = useRouter();
   const params = useParams();
   const [recitations, setRecitations] = useState<RecitationRecord[]>([]);
-  const [englishRecords, setEnglishRecords] = useState<QuizRecord[]>([]);
+  const [quizRecords, setQuizRecords] = useState<QuizRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [shareCopied, setShareCopied] = useState(false);
   const [recitationsPublic, setRecitationsPublic] = useState(false);
@@ -64,7 +64,7 @@ export default function RecordsPage() {
 
           if (owner || data.user.recitationsPublic) {
             setRecitations(data.user.recitations || []);
-            setEnglishRecords(data.user.englishRecords || []);
+            setQuizRecords(data.user.records || []);
           }
         }
         setLoading(false);
@@ -87,7 +87,7 @@ export default function RecordsPage() {
 
   const combined: CombinedRecord[] = [
     ...recitations.map((r) => ({ kind: "recitation" as const, data: r })),
-    ...englishRecords.map((r) => ({ kind: "quiz" as const, data: r })),
+    ...quizRecords.map((r: QuizRecord) => ({ kind: "quiz" as const, data: r })),
   ]
     .sort((a, b) => new Date(a.data.timestamp).getTime() - new Date(b.data.timestamp).getTime())
     .slice(-10)
