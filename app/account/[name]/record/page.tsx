@@ -145,7 +145,7 @@ export default function RecordsPage() {
           <div className="w-full max-w-md space-y-6 mx-auto">
             {/* Subject Dropdown */}
             <div className="flex items-center justify-center gap-2">
-              <label className="text-sm font-medium text-gray-400">選擇科目：</label>
+              <label className="text-sm font-medium text-gray-400">選擇分類：</label>
               <select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value as Subject)}
