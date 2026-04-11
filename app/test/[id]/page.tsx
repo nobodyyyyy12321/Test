@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useSearchParams } from "next/navigation";
+import { AddToListButton, BulkAddToListButton } from "../../components/AddToListButton";
 
 type Option = {
   label: string;
@@ -16,6 +17,7 @@ type Question = {
   type?: "single" | "multiple" | "fill";
   options: Option[];
   answer: string | string[];
+  level?: number | null;
 };
 
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
@@ -41,6 +43,7 @@ export default function QuotePage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!id) return;
@@ -54,8 +57,11 @@ export default function QuotePage() {
       return shuffled;
     };
 
+    const listId = searchParams.get("listId");
     const levels = searchParams.get("levels");
-    const url = levels ? `/api/questions?id=${id}&levels=${levels}` : `/api/questions?id=${id}`;
+    const url = listId
+      ? `/api/questions?listId=${listId}`
+      : levels ? `/api/questions?id=${id}&levels=${levels}` : `/api/questions?id=${id}`;
     fetch(url)
       .then(res => res.json())
       .then(data => {
@@ -253,6 +259,15 @@ export default function QuotePage() {
                 })}
               </div>
             )}
+            <div className="flex justify-end">
+              <AddToListButton
+                questionId={currentQuestion.id}
+                collectionId={id}
+                title={currentQuestion.title}
+                number={currentQuestion.number}
+                level={currentQuestion.level}
+              />
+            </div>
           </div>
         ) : (
           <div className="mt-6 space-y-4 w-full">
@@ -299,6 +314,13 @@ export default function QuotePage() {
                   return <span>{question.answer as string} {opt?.text}</span>;
                 };
 
+                const isChecked = checkedIdxs.has(idx);
+                const toggleCheck = () => setCheckedIdxs(prev => {
+                  const next = new Set(prev);
+                  next.has(idx) ? next.delete(idx) : next.add(idx);
+                  return next;
+                });
+
                 return (
                   <div
                     key={idx}
@@ -308,8 +330,22 @@ export default function QuotePage() {
                         : "border-red-500 bg-red-50 dark:bg-red-900/10"
                     }`}
                   >
-                    <p className="font-medium mb-2">題號{question.number}：{question.title}</p>
-                    <div className="text-sm space-y-1">
+                    <div className="flex items-start gap-3 mb-2">
+                      <button
+                        type="button"
+                        onClick={toggleCheck}
+                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs transition-colors ${
+                          isChecked
+                            ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
+                            : "border-zinc-400 dark:border-zinc-500"
+                        }`}
+                        aria-label="勾選"
+                      >
+                        {isChecked && "✓"}
+                      </button>
+                      <p className="font-medium flex-1">題號{question.number}：{question.title}</p>
+                    </div>
+                    <div className="text-sm space-y-1 pl-7">
                       <p>你的答案：<span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${isCorrect ? "bg-green-200 text-green-700 dark:bg-green-900/50 dark:text-green-400" : "bg-red-200 text-red-700 dark:bg-red-900/50 dark:text-red-400"}`}>
                         {renderUserAns()}
                       </span></p>
@@ -320,6 +356,37 @@ export default function QuotePage() {
                   </div>
                 );
               })}
+            </div>
+            <div className="flex justify-end items-center gap-2 mt-4">
+              {(() => {
+                const wrongIdxs = questions
+                  .map((q, i) => ({ q, i }))
+                  .filter(({ q, i }) => userAnswers[i] !== null && !gradeAnswer(q, userAnswers[i]))
+                  .map(({ i }) => i);
+                const allWrongChecked = wrongIdxs.length > 0 && wrongIdxs.every(i => checkedIdxs.has(i));
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setCheckedIdxs(allWrongChecked ? new Set() : new Set(wrongIdxs))}
+                    className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}
+                  >
+                    {allWrongChecked ? "取消勾選" : "勾選答錯題"}
+                  </button>
+                );
+              })()}
+              <BulkAddToListButton
+                questions={questions
+                  .map((q, i) => ({ q, i }))
+                  .filter(({ i }) => checkedIdxs.has(i))
+                  .map(({ q }) => ({
+                    questionId: q.id,
+                    collectionId: id,
+                    title: q.title,
+                    number: q.number,
+                    level: q.level,
+                  }))}
+              />
             </div>
           </div>
         )}
