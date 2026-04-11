@@ -49,6 +49,15 @@ export type User = {
 };
 
 const COLLECTION_NAME = "users";
+const USER_CACHE_TTL = 5 * 60 * 1000; // 5 分鐘
+const userCacheByEmail = new Map<string, { data: User; ts: number }>();
+const userCacheById = new Map<string, { data: User; ts: number }>();
+
+function cacheUser(user: User) {
+  const now = Date.now();
+  if (user.email) userCacheByEmail.set(user.email.toLowerCase(), { data: user, ts: now });
+  userCacheById.set(user.id, { data: user, ts: now });
+}
 
 // 輔助函數：將 Firestore 文檔轉換為 User
 function docToUser(doc: any): User {
@@ -71,16 +80,21 @@ export async function getUsers(): Promise<User[]> {
 
 export async function findUserByEmail(email: string): Promise<User | undefined> {
   if (!email) return undefined;
+  const key = email.toLowerCase();
+  const cached = userCacheByEmail.get(key);
+  if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
   try {
     const db = getFirestoreDB();
     const snapshot = await db
       .collection(COLLECTION_NAME)
-      .where("email", "==", email.toLowerCase())
+      .where("email", "==", key)
       .limit(1)
       .get();
 
     if (snapshot.empty) return undefined;
-    return docToUser(snapshot.docs[0]);
+    const user = docToUser(snapshot.docs[0]);
+    cacheUser(user);
+    return user;
   } catch (error) {
     console.error("Error finding user by email:", error);
     return undefined;
@@ -124,11 +138,15 @@ export async function findUserByVerificationToken(
 }
 
 export async function findUserById(id: string): Promise<User | undefined> {
+  const cached = userCacheById.get(id);
+  if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
   try {
     const db = getFirestoreDB();
     const doc = await db.collection(COLLECTION_NAME).doc(id).get();
     if (!doc.exists) return undefined;
-    return docToUser(doc);
+    const user = docToUser(doc);
+    cacheUser(user);
+    return user;
   } catch (error) {
     console.error("Error finding user by id:", error);
     return undefined;
@@ -177,8 +195,9 @@ export async function updateUser(
     
     const updatedDoc = await db.collection(COLLECTION_NAME).doc(id).get();
     if (!updatedDoc.exists) return null;
-    
-    return docToUser(updatedDoc);
+    const user = docToUser(updatedDoc);
+    cacheUser(user);
+    return user;
   } catch (error) {
     console.error("Error updating user:", error);
     return null;

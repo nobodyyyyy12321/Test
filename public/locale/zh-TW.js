@@ -15,14 +15,14 @@ const zhTW = [
   {
     "name": "英文",
     "children": [
-      { "name": "2000單", "href": "/test1/englishWords?levels=1,2" },
-      { "name": "4000單", "href": "/test1/englishWords?levels=3,4" },
-      { "name": "6000單", "href": "/test1/englishWords?levels=5,6" },
+      { "name": "2000單", "href": "/test/englishWords?levels=1,2" },
+      { "name": "4000單", "href": "/test/englishWords?levels=3,4" },
+      { "name": "6000單", "href": "/test/englishWords?levels=5,6" },
       { "name": "學測", "href":"/under-construction"}
     ]
   },
   { "name": "公職考試", "href": "/under-construction" },
-  { "name": "名言佳句", "href": "/test1/quoteChinese" },
+  { "name": "名言佳句", "href": "/test/quoteChinese" },
   { "name": "綜合", "href": "/under-construction" },
   { "name": "比賽", "href": "/under-construction" },
   { "name": "八卦", "href": "/under-construction" },
