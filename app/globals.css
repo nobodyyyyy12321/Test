@@ -290,8 +290,8 @@ main a.rounded-full.border,
 
 /* 子分類按鈕：框比母按鈕更貼近文字 */
 .book-link.bookshelf-btn.sub-item {
-  color: #adceff;
-  border-color: #adceff;
+  color: #adceff !important;
+  border-color: #adceff !important;
 }
 
 .book-link.bookshelf-btn.sub-item:hover {
