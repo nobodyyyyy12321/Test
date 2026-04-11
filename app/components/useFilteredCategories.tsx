@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { CategoryNode } from "./CategoryNode";
 import zhTW from "../../public/locale/zh-TW.js";
-import en from "../../public/locale/en.json";
-import ko from "../../public/locale/ko.json";
-import zhCN from "../../public/locale/zh-CN.json";
-import es from "../../public/locale/es.json";
-import th from "../../public/locale/th.json";
-import id from "../../public/locale/id.json";
+import en from "../../public/locale/en.js";
+import ko from "../../public/locale/ko.js";
+import zhCN from "../../public/locale/zh-CN.js";
+import es from "../../public/locale/es.js";
+import th from "../../public/locale/th.js";
+import id from "../../public/locale/id.js";
 
 const localeMap: Record<string, CategoryNode[]> = {
   "zh-TW": zhTW as CategoryNode[],

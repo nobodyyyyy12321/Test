@@ -1,4 +1,4 @@
-[
+const zhCN = [
   { "name": "背东西", "href": "/under-construction" },
   { "name": "国文", "href": "/under-construction" },
   { "name": "英文", "href": "/under-construction" },
@@ -21,4 +21,6 @@
   { "name": "哲学", "href": "/under-construction" },
   { "name": "自然", "href": "/under-construction" },
   { "name": "社会", "href": "/under-construction" }
-]
+];
+
+export default zhCN;

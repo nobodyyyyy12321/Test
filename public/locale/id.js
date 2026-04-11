@@ -1,7 +1,9 @@
-[
+const id = [
   { "name": "Matematika", "href": "/under-construction" },
   { "name": "Fisika", "href": "/under-construction" },
   { "name": "Kimia", "href": "/under-construction" },
   { "name": "Kompetisi", "href": "/under-construction" },
   { "name": "Kutipan", "href": "/under-construction" }
-]
+];
+
+export default id;
