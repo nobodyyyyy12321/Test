@@ -728,18 +728,42 @@ export default function AccountPage() {
                             作答
                           </a>
                         )}
-                        <button type="button"
-                          onClick={async () => {
-                            const res = await fetch(`/api/lists/${list.id}/copy`, { method: "POST" });
-                            if (res.ok) {
-                              const d = await res.json();
-                              setLists(prev => [d.list, ...prev]);
-                            }
-                          }}
-                          className="text-xs px-2 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                          style={{ color: "var(--zen-ink)" }}>
-                          複製
-                        </button>
+                        <div className="relative" ref={menuOpenId === list.id ? menuRef : null}>
+                          <button type="button"
+                            onClick={() => setMenuOpenId(menuOpenId === list.id ? null : list.id)}
+                            className="flex items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
+                            style={{ width: "1.75rem", height: "1.75rem", minWidth: "1.75rem" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                            </svg>
+                          </button>
+                          {menuOpenId === list.id && (
+                            <div className="absolute right-0 top-full mt-1 z-30 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
+                              <button type="button"
+                                onClick={async () => {
+                                  setMenuOpenId(null);
+                                  const res = await fetch(`/api/lists/${list.id}/copy`, { method: "POST" });
+                                  if (res.ok) {
+                                    const d = await res.json();
+                                    setLists(prev => [d.list, ...prev]);
+                                  }
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                style={{ color: "var(--zen-ink)" }}>
+                                複製
+                              </button>
+                              <button type="button"
+                                onClick={async () => {
+                                  setMenuOpenId(null);
+                                  const res = await fetch(`/api/lists/${list.id}/unsubscribe`, { method: "DELETE" });
+                                  if (res.ok) setSharedLists(prev => prev.filter(l => l.id !== list.id));
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                刪除
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                           fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                           className={`shrink-0 text-zinc-400 transition-transform ${expandedId === list.id ? "rotate-180" : ""}`}>
