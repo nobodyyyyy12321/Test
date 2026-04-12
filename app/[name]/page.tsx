@@ -51,7 +51,7 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "settings";
+type Tab = "profile" | "lists" | "record";
 
 type SocialLinks = { x?: string; facebook?: string; instagram?: string; website?: string };
 
@@ -113,11 +113,6 @@ export default function AccountPage() {
   const [recordLoaded, setRecordLoaded] = useState(false);
   const [recordLoading, setRecordLoading] = useState(false);
   const [quizRecords, setQuizRecords] = useState<QuizRecord[]>([]);
-
-  // ── settings state ──
-  const [settingsLoading, setSavedLoading] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
-  const [settingsError, setSettingsError] = useState("");
 
   // ── load profile on mount ──────────────────────────────────────────────────
 
@@ -234,7 +229,7 @@ export default function AccountPage() {
     const res = await fetch("/api/user/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, bio, avatarUrl, socialLinks }),
+      body: JSON.stringify({ name, bio, avatarUrl, socialLinks, emailPublic }),
     });
     const j = await res.json();
     setSaving(false);
@@ -310,30 +305,12 @@ export default function AccountPage() {
     });
   };
 
-  // ── settings actions ──────────────────────────────────────────────────────
-
-  async function saveSettings() {
-    setSettingsError(""); setSettingsSaved(false); setSavedLoading(true);
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailPublic }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) { setSettingsError(data.error || "保存失敗"); }
-      else { setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2000); }
-    } catch { setSettingsError("保存失敗"); }
-    finally { setSavedLoading(false); }
-  }
-
   // ── tabs config ───────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
     { id: "profile", label: "個人檔案" },
     { id: "lists", label: "個人試卷" },
-    { id: "record", label: "紀錄" },
-    { id: "settings", label: "設定", ownerOnly: true },
+    { id: "record", label: "紀錄", ownerOnly: true },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || isOwner);
 
@@ -433,6 +410,14 @@ export default function AccountPage() {
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Email</label>
                   <p className="text-sm" style={{ color: "var(--zen-ink)" }}>{email || <span className="text-zinc-400">未設定</span>}</p>
+                  {isOwner && editing && (
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input type="checkbox" checked={emailPublic}
+                        onChange={e => setEmailPublic(e.target.checked)}
+                        className="w-4 h-4" />
+                      <span className="text-xs text-zinc-400">公開電子郵件</span>
+                    </label>
+                  )}
                 </div>
               )}
 
@@ -657,31 +642,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* ── settings tab (owner only) ────────────────────────────────────── */}
-        {activeTab === "settings" && isOwner && (
-          <div className="max-w-md">
-            <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-6">
-              <h2 className="text-base font-semibold mb-4" style={{ color: "var(--zen-ink)" }}>隱私設定</h2>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={emailPublic}
-                  onChange={e => setEmailPublic(e.target.checked)}
-                  className="w-5 h-5 mt-0.5" />
-                <div>
-                  <div className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>公開電子郵件</div>
-                  <div className="text-xs text-zinc-400 mt-1">允許其他使用者在您的個人資料頁面查看您的電子郵件</div>
-                </div>
-              </label>
-              <div className="mt-6 flex items-center gap-3">
-                <button onClick={saveSettings} disabled={settingsLoading}
-                  className="px-5 py-2 text-sm rounded-full bg-white text-black border hover:opacity-90 transition-opacity disabled:opacity-50">
-                  {settingsLoading ? "保存中..." : "保存"}
-                </button>
-                {settingsSaved && <span className="text-sm text-green-600">已保存</span>}
-                {settingsError && <span className="text-sm text-red-500">{settingsError}</span>}
-              </div>
-            </div>
-          </div>
-        )}
 
       </main>
     </div>
