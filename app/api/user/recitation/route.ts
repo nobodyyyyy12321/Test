@@ -101,7 +101,7 @@ export async function POST(request: Request) {
                 answered: 1,
                 correct: success ? 1 : 0,
               };
-              const trimmedRecords = [...existingRecords, recordEntry].slice(-50);
+              const trimmedRecords = [...existingRecords, recordEntry].slice(-10);
 
               const attemptCountUser = (freshData.attemptCount || 0) + 1;
               const successCountUser = (freshData.successCount || 0) + (success && !hadSuccessBefore ? 1 : 0);

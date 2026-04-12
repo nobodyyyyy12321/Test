@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
     const d = userDoc.data() ?? {};
     const existing = d.records ?? [...(d.englishRecords ?? []), ...(d.quoteRecords ?? [])];
-    const trimmed = [...existing, record].slice(-50);
+    const trimmed = [...existing, record].slice(-10);
 
     await userRef.update({ records: trimmed });
 

@@ -70,7 +70,7 @@ export default function RecordsPage() {
 
   const combined = [...quizRecords]
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    .slice(-50)
+    .slice(-10)
     .reverse();
 
   function handleShare() {
