@@ -37,51 +37,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, totalAttempts, totalSuccesses, visits });
     }
 
-    // Return recent records (recitation + quiz records). Limit to 10.
+    // Return recent records from all users. Limit to 10.
     try {
       const records: any[] = [];
 
-      // Fetch recitation records
-      const recCol = db.collection("recitationRecords");
-      const recSnap = await recCol.orderBy("createdAt", "desc").limit(50).get();
-
-      for (const d of recSnap.docs) {
-        const data = d.data() || {};
-        const record: any = { id: d.id, type: 'recitation', ...data };
-
-        try {
-          let articleUrl: string | null = null;
-
-          if (data.articleId) {
-            const artRef = articlesCol.doc(data.articleId);
-            const artSnap = await artRef.get();
-            if (artSnap.exists) {
-              const art = artSnap.data() || {};
-              const category = art.category || art.type || "all";
-              const number = art.number ?? data.articleNumber;
-              if (number !== undefined) articleUrl = `/${encodeURIComponent(category)}/${number}`;
-            }
-          }
-
-          if (!articleUrl && data.articleNumber !== undefined) {
-            const byNum = await articlesCol.where("number", "==", data.articleNumber).limit(1).get();
-            if (!byNum.empty) {
-              const art = byNum.docs[0].data() || {};
-              const category = art.category || art.type || "all";
-              const number = art.number ?? data.articleNumber;
-              if (number !== undefined) articleUrl = `/${encodeURIComponent(category)}/${number}`;
-            }
-          }
-
-          if (articleUrl) record.articleUrl = articleUrl;
-        } catch (e: any) {
-          console.error("Failed to attach article url for recitation record:", e);
-        }
-
-        records.push(record);
-      }
-
-      // Fetch quiz records from all users
+      // Fetch records from all users
       const usersCol = db.collection("users");
       const usersSnap = await usersCol.get();
 
