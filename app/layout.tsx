@@ -11,7 +11,7 @@ import PWARegister from "./components/PWARegister";
 import PWAInstallButton from "./components/PWAInstallButton";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import { Analytics } from "@vercel/analytics/next";
-import "./speaker-icon.css";
+import "speaker-icon.css";
 // ...existing code...
 
 const geistSans = Geist({
