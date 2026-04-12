@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import type { QuestionList } from "../../../../lib/lists-firebase";
+import type { QuestionList, ListQuestion } from "../../../lib/lists-firebase";
 import zhTW from "../../../public/locale/zh-TW.js";
-import type { CategoryNode } from "../../../components/CategoryNode";
+import type { CategoryNode } from "../../components/CategoryNode";
 
 type LevelEntry = { name: string; levels: number[] };
 const SIMPLE_LABELS: Record<string, string> = {};
@@ -114,7 +114,7 @@ export default function ListsPage() {
   const removeQuestion = async (listId: string, questionId: string, collectionId: string) => {
     setLists(prev => prev.map(l =>
       l.id === listId
-        ? { ...l, questions: l.questions.filter(q => !(q.questionId === questionId && q.collectionId === collectionId)) }
+        ? { ...l, questions: l.questions.filter((q: ListQuestion) => !(q.questionId === questionId && q.collectionId === collectionId)) }
         : l
     ));
     await fetch(`/api/lists/${listId}/questions`, {
@@ -234,7 +234,7 @@ export default function ListsPage() {
                       <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
                     ) : (
                       <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                        {list.questions.map((q, i) => (
+                        {list.questions.map((q: ListQuestion, i: number) => (
                           <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
                             <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
                             <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
