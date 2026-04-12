@@ -38,6 +38,15 @@ export async function getListsByOwner(ownerId: string): Promise<QuestionList[]> 
   return snap.docs.map(docToList).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+export async function getPublicListsByOwner(ownerId: string): Promise<QuestionList[]> {
+  const db = getFirestoreDB();
+  const snap = await db.collection(COL)
+    .where("ownerId", "==", ownerId)
+    .where("isPublic", "==", true)
+    .get();
+  return snap.docs.map(docToList).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export async function getListById(id: string): Promise<QuestionList | undefined> {
   const db = getFirestoreDB();
   const doc = await db.collection(COL).doc(id).get();
