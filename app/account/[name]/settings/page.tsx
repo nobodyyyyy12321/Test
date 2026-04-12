@@ -8,7 +8,6 @@ export default function SettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
-  const [recitationsPublic, setRecitationsPublic] = useState(false);
   const [emailPublic, setEmailPublic] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,7 +44,6 @@ export default function SettingsPage() {
 
         // If API indicates this requester is the owner, allow and load settings
         if (data.user.isOwner) {
-          setRecitationsPublic(data.user.recitationsPublic ?? false);
           setEmailPublic(data.user.emailPublic ?? false);
           setLoading(false);
           return;
@@ -69,7 +67,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recitationsPublic, emailPublic }),
+        body: JSON.stringify({ emailPublic }),
       });
 
       const data = await res.json();
@@ -108,22 +106,6 @@ export default function SettingsPage() {
             <h2 className="text-xl font-semibold mb-4">隱私設定</h2>
             
             <div className="space-y-4">
-              <div>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={recitationsPublic}
-                    onChange={(e) => setRecitationsPublic(e.target.checked)}
-                    className="w-5 h-5 mt-0.5"
-                  />
-                  <div>
-                    <div className="font-medium">公開背誦紀錄</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      允許其他使用者查看您的背誦紀錄和統計資料
-                    </div>
-                  </div>
-                </label>
-              </div>
               <div>
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input

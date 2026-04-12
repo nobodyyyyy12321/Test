@@ -91,9 +91,12 @@ export default function RecordsPage() {
     <div className="flex min-h-screen items-start justify-center pt-8 bg-transparent font-sans dark:bg-black">
       <main className="w-full max-w-2xl zen-card p-8 flex flex-col items-center text-center">
         <div className="mb-8 flex w-full max-w-md flex-wrap items-center justify-center gap-3 mx-auto">
-          <h1 className="text-3xl font-bold zen-title whitespace-nowrap">
-            {userName ? `${userName} 的紀錄` : "紀錄"}
-          </h1>
+          <div className="w-full text-center">
+            <h1 className="text-3xl font-bold zen-title whitespace-nowrap">
+              {userName ? `${userName} 的紀錄` : "紀錄"}
+            </h1>
+            <p className="text-xs text-gray-400 mt-1">保留最近十筆測驗紀錄</p>
+          </div>
           <div className="flex items-center gap-2 whitespace-nowrap">
             {userName && (
               <Link href={`/account/${encodeURIComponent(userName)}/profile`} className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity">個人檔案</Link>

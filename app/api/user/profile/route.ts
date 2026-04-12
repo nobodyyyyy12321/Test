@@ -88,13 +88,9 @@ export async function PATCH(req: Request) {
     if (typeof body.avatarUrl === "string") updates.avatarUrl = body.avatarUrl;
     // Enforce name-change cooldown: only allow changing display name once per 7 days
     if (typeof body.name === "string" && body.name !== user.name) {
-      const now = Date.now();
-      const lastNameChange = (user as any).nameUpdatedAt || (user as any).nameChangedAt || (user as any).updatedAt || null;
-      if (lastNameChange) {
-        const lastTs = Date.parse(String(lastNameChange));
-        if (!isNaN(lastTs) && now - lastTs < 7 * 24 * 60 * 60 * 1000) {
-          return NextResponse.json({ error: "顯示名稱一週只能修改一次" }, { status: 429 });
-        }
+      const existingWithName = await findUserByName(body.name);
+      if (existingWithName && existingWithName.id !== user.id) {
+        return NextResponse.json({ error: "此名稱已被使用" }, { status: 409 });
       }
       updates.name = body.name;
       updates.nameUpdatedAt = new Date().toISOString();
