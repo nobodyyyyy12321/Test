@@ -87,24 +87,27 @@ export async function POST(request: Request) {
               const freshData: any = fresh.exists ? fresh.data() : {};
               const recitationsFresh = freshData.recitations || [];
               const hadSuccessBefore = recitationsFresh.some((r: any) => r.articleId === articleId && r.success === true);
+              const ts = timestamp || new Date().toISOString();
 
-              const newRec = {
-                articleId,
-                articleNumber,
-                title,
-                success,
-                timestamp: timestamp || new Date().toISOString(),
+              const existingRecords: any[] = freshData.records ?? [
+                ...(freshData.englishRecords ?? []),
+                ...(freshData.quoteRecords ?? []),
+              ];
+              const recordEntry = {
+                set: title,
+                timestamp: ts,
                 category: "詩文背誦",
+                success,
+                answered: 1,
+                correct: success ? 1 : 0,
               };
-
-              recitationsFresh.push(newRec);
-              const trimmedRecitations = recitationsFresh.slice(-10);
+              const trimmedRecords = [...existingRecords, recordEntry].slice(-50);
 
               const attemptCountUser = (freshData.attemptCount || 0) + 1;
               const successCountUser = (freshData.successCount || 0) + (success && !hadSuccessBefore ? 1 : 0);
 
               tx.update(userRef, {
-                recitations: trimmedRecitations,
+                records: trimmedRecords,
                 attemptCount: attemptCountUser,
                 successCount: successCountUser,
                 updatedAt: new Date().toISOString(),

@@ -5,42 +5,30 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 
-type RecitationRecord = {
-  articleId: string;
-  articleNumber: number;
-  title: string;
-  success: boolean;
-  timestamp: string;
-  category?: string;
-};
-
 type QuizRecord = {
   answered: number;
   correct: number;
   set: string;
   timestamp: string;
+  category?: string;
+  success?: boolean;
 };
-
-type CombinedRecord =
-  | { kind: "recitation"; data: RecitationRecord }
-  | { kind: "quiz"; data: QuizRecord };
 
 const englishSetNames: Record<string, string> = {
   "englishWords:1,2": "2000單",
   "englishWords:3,4": "4000單",
   "englishWords:5,6": "6000單",
   englishWords: "英文",
+  quoteChinese: "名言佳句",
 };
 
 export default function RecordsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
-  const [recitations, setRecitations] = useState<RecitationRecord[]>([]);
   const [quizRecords, setQuizRecords] = useState<QuizRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [shareCopied, setShareCopied] = useState(false);
-  const [recitationsPublic, setRecitationsPublic] = useState(false);
   const [userName, setUserName] = useState("");
   const [isOwner, setIsOwner] = useState(false);
 
@@ -60,12 +48,7 @@ export default function RecordsPage() {
         if (data.user) {
           const owner = Boolean(data.user.isOwner) || (session?.user?.email && session.user.email === data.user.email) || session?.user?.name === decodedName;
           setIsOwner(owner);
-          setRecitationsPublic(data.user.recitationsPublic ?? false);
-
-          if (owner || data.user.recitationsPublic) {
-            setRecitations(data.user.recitations || []);
-            setQuizRecords(data.user.records || []);
-          }
+          setQuizRecords(data.user.records || []);
         }
         setLoading(false);
       })
@@ -85,12 +68,9 @@ export default function RecordsPage() {
     );
   }
 
-  const combined: CombinedRecord[] = [
-    ...recitations.map((r) => ({ kind: "recitation" as const, data: r })),
-    ...quizRecords.map((r: QuizRecord) => ({ kind: "quiz" as const, data: r })),
-  ]
-    .sort((a, b) => new Date(a.data.timestamp).getTime() - new Date(b.data.timestamp).getTime())
-    .slice(-10)
+  const combined = [...quizRecords]
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .slice(-50)
     .reverse();
 
   function handleShare() {
@@ -126,11 +106,7 @@ export default function RecordsPage() {
           </div>
         </div>
 
-        {!isOwner && !recitationsPublic ? (
-          <div className="w-full max-w-md text-center py-12 mx-auto">
-            <p className="text-gray-500">此用戶的背誦紀錄為不公開</p>
-          </div>
-        ) : combined.length === 0 ? (
+        {combined.length === 0 ? (
           <div className="w-full max-w-md text-center py-12 mx-auto">
             <p className="text-gray-500">尚無紀錄</p>
           </div>
@@ -139,23 +115,20 @@ export default function RecordsPage() {
             {combined.map((item, index) => (
               <div key={index} className="border border-white rounded-lg p-4 bg-transparent transition-colors">
                 <div className="flex justify-between items-center">
-                  {item.kind === "recitation" ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">{item.data.title}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white">{englishSetNames[item.set] ?? item.set}</span>
+                    {item.category === "詩文背誦" ? (
                       <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
-                        {item.data.success ? "✓ 成功" : "✗ 失敗"}
+                        {item.success ? "✓ 成功" : "✗ 失敗"}
                       </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">{englishSetNames[item.data.set] ?? item.data.set}</span>
+                    ) : (
                       <span className="inline-block px-2 py-0.5 rounded text-xs border border-white bg-transparent text-white">
-                        {item.data.correct}/{item.data.answered}
+                        {item.correct}/{item.answered}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400">
-                    {new Date(item.data.timestamp).toLocaleDateString("zh-TW", {
+                    {new Date(item.timestamp).toLocaleDateString("zh-TW", {
                       year: "numeric",
                       month: "2-digit",
                       day: "2-digit",
