@@ -55,10 +55,11 @@ export async function POST(request: Request) {
 
     const userRef = userSnapshot.docs[0].ref;
     const userDoc = await userRef.get();
-    const existing: EnglishRecord[] = userDoc.data()?.englishRecords || [];
-    const trimmed = [...existing, record].slice(-10);
+    const d = userDoc.data() ?? {};
+    const existing = d.records ?? [...(d.englishRecords ?? []), ...(d.quoteRecords ?? [])];
+    const trimmed = [...existing, record].slice(-50);
 
-    await userRef.update({ englishRecords: trimmed });
+    await userRef.update({ records: trimmed });
 
     return Response.json({ success: true });
 

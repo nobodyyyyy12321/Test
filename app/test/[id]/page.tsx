@@ -44,6 +44,7 @@ export default function QuotePage() {
   const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
+  const [listTitle, setListTitle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -59,6 +60,16 @@ export default function QuotePage() {
 
     const listId = searchParams.get("listId");
     const levels = searchParams.get("levels");
+
+    if (listId) {
+      fetch(`/api/lists/${listId}`)
+        .then(r => r.json())
+        .then(d => { if (d.list?.title) setListTitle(d.list.title); })
+        .catch(() => {});
+    } else {
+      setListTitle(null);
+    }
+
     const url = listId
       ? `/api/questions?listId=${listId}`
       : levels ? `/api/questions?id=${id}&levels=${levels}` : `/api/questions?id=${id}`;
@@ -134,7 +145,7 @@ export default function QuotePage() {
         body: JSON.stringify({
           answered: answeredCount,
           correct: correctCount,
-          set: searchParams.get("levels") ? `${id}:${searchParams.get("levels")}` : id,
+          set: listTitle ? `個人試卷${listTitle}` : searchParams.get("levels") ? `${id}:${searchParams.get("levels")}` : id,
         }),
       }).catch(err => console.error("Failed to save record:", err));
     }
