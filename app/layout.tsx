@@ -8,6 +8,7 @@ import VisitPing from "./components/VisitPing";
 import LanguageGate from "./components/LanguageGate";
 import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
 import PWARegister from "./components/PWARegister";
+import PWAInstallButton from "./components/PWAInstallButton";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
@@ -76,6 +77,7 @@ export default function RootLayout({
                 {/* 中間空白區或其他元件 */}
                 <div className="flex-1" />
                 <ShowLanguageSelectorOnHome />
+                <PWAInstallButton />
                 {/* 登入後顯示頭像與帳號名稱的元件 */}
                 <AuthNav />
               </div>
