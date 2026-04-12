@@ -99,7 +99,7 @@ export default function RecordsPage() {
           </div>
           <div className="flex items-center gap-2 whitespace-nowrap">
             {userName && (
-              <Link href={`/account/${encodeURIComponent(userName)}/profile`} className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity">個人檔案</Link>
+              <Link href={`/${encodeURIComponent(userName)}/profile`} className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity">個人檔案</Link>
             )}
             {isOwner && (
               <button className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity" onClick={handleShare}>

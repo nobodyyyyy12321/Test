@@ -218,7 +218,7 @@ export default function ProfilePage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl zen-title">個人檔案</h1>
           <div className="flex items-center gap-2">
-            <Link href={`/account/${encodeURIComponent(name)}/record`} className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity">紀錄</Link>
+            <Link href={`/${encodeURIComponent(name)}/record`} className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity">紀錄</Link>
             <button className="inline-flex items-center justify-center whitespace-nowrap px-3 py-2 border rounded-full bg-white text-black text-sm leading-none cursor-pointer hover:opacity-90 transition-opacity" onClick={handleShare}>
               {shareCopied ? "已複製" : "分享連結"}
             </button>
