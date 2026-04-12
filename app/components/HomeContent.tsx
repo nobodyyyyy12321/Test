@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
+
+type UserResult = { id: string; name: string; avatarUrl?: string };
 
 export function HomeContent({ language }: { language: string }) {
   const [query, setQuery] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
+  const [userResults, setUserResults] = useState<UserResult[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subjects = useFilteredCategories(language, query);
 
   useEffect(() => {
@@ -17,7 +21,20 @@ export function HomeContent({ language }: { language: string }) {
     setOpenDropKey(null);
     setOpenYearKey(null);
     setQuery("");
+    setUserResults([]);
   }, [language]);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim()) { setUserResults([]); return; }
+    debounceRef.current = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`)
+        .then(r => r.json())
+        .then(d => setUserResults(d.users ?? []))
+        .catch(() => setUserResults([]));
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
@@ -29,7 +46,7 @@ export function HomeContent({ language }: { language: string }) {
           <input
             className="w-full max-w-sm mx-auto p-3 rounded-full border border-zinc-200 text-sm mt-4 outline-none transition-all focus:ring-2 focus:ring-zinc-100"
             style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-            placeholder={language === "en" ? "Search subjects" : "搜尋科目"}
+            placeholder={language === "en" ? "Search subjects or users" : "搜尋科目或帳號"}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
           />
@@ -118,12 +135,36 @@ export function HomeContent({ language }: { language: string }) {
               })}
             </div>
 
-            {subjects.length === 0 && (
+            {subjects.length === 0 && userResults.length === 0 && query && (
               <p className="text-sm zen-subtle text-center mt-10 opacity-50">
-                {language === "en" ? "No matching subjects" : "沒有符合的科目"}
+                {language === "en" ? "No matching results" : "沒有符合的結果"}
               </p>
             )}
           </div>
+          {userResults.length > 0 && (
+            <div className="mt-8 w-full max-w-sm mx-auto">
+              <p className="text-xs text-zinc-400 mb-3 text-left">
+                {language === "en" ? "Users" : "帳號"}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {userResults.map(u => (
+                  <li key={u.id}>
+                    <Link
+                      href={`/${encodeURIComponent(u.name)}`}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <img
+                        src={u.avatarUrl || "/avatar-placeholder.svg"}
+                        alt={u.name}
+                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                      />
+                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         <Footer language={language} />
       </main>

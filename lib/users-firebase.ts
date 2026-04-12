@@ -81,6 +81,28 @@ function docToUser(doc: any): User {
   } as User;
 }
 
+export async function searchUsersByName(query: string, limit = 10): Promise<Pick<User, "id" | "name" | "avatarUrl">[]> {
+  if (!query) return [];
+  if (isQuotaExhausted()) return [];
+  try {
+    const db = getFirestoreDB();
+    const end = query + "\uf8ff";
+    const snapshot = await db
+      .collection(COLLECTION_NAME)
+      .where("name", ">=", query)
+      .where("name", "<=", end)
+      .limit(limit)
+      .get();
+    return snapshot.docs.map(doc => {
+      const d = doc.data();
+      return { id: doc.id, name: d.name ?? "", avatarUrl: d.avatarUrl };
+    });
+  } catch (error) {
+    console.error("Error searching users by name:", error);
+    return handleFirestoreError(error) ?? [];
+  }
+}
+
 export async function getUsers(): Promise<User[]> {
   try {
     const db = getFirestoreDB();

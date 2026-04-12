@@ -9,6 +9,12 @@ export type ListQuestion = {
   level?: number | null;
 };
 
+export type SharedResult = {
+  answered: number;
+  correct: number;
+  timestamp: string;
+};
+
 export type QuestionList = {
   id: string;
   title: string;
@@ -16,6 +22,9 @@ export type QuestionList = {
   isPublic: boolean;
   createdAt: string;
   questions: ListQuestion[];
+  sharedWith?: string[];   // array of usernames
+  sharedResults?: Record<string, SharedResult[]>; // userName → last 3 results
+  ownerName?: string;      // display-only, resolved at API layer
 };
 
 const COL = "lists";
@@ -29,6 +38,8 @@ function docToList(doc: any): QuestionList {
     isPublic: d.isPublic ?? false,
     createdAt: d.createdAt ?? "",
     questions: d.questions ?? [],
+    sharedWith: d.sharedWith ?? [],
+    sharedResults: d.sharedResults ?? {},
   };
 }
 
@@ -97,6 +108,63 @@ export async function addQuestionsToList(listId: string, incoming: ListQuestion[
   );
   if (toAdd.length === 0) return;
   await db.collection(COL).doc(listId).update({ questions: [...existing, ...toAdd] });
+}
+
+export async function getListsSharedWithUser(userName: string): Promise<QuestionList[]> {
+  const db = getFirestoreDB();
+  const snap = await db.collection(COL).where("sharedWith", "array-contains", userName).get();
+  return snap.docs.map(docToList).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function copyList(sourceListId: string, newOwnerId: string): Promise<QuestionList> {
+  const db = getFirestoreDB();
+  const source = await db.collection(COL).doc(sourceListId).get();
+  if (!source.exists) throw new Error("List not found");
+  const d = source.data()!;
+  const id = uuidv4();
+  const list: Omit<QuestionList, "id" | "ownerName"> = {
+    title: d.title ?? "",
+    ownerId: newOwnerId,
+    isPublic: false,
+    createdAt: new Date().toISOString(),
+    questions: d.questions ?? [],
+    sharedWith: [],
+  };
+  await db.collection(COL).doc(id).set(list);
+  return { id, ...list };
+}
+
+export async function addSharedResult(
+  listId: string,
+  userName: string,
+  result: SharedResult
+): Promise<void> {
+  const db = getFirestoreDB();
+  const doc = await db.collection(COL).doc(listId).get();
+  if (!doc.exists) throw new Error("List not found");
+  const current: Record<string, SharedResult[]> = doc.data()?.sharedResults ?? {};
+  const prev = current[userName] ?? [];
+  const updated = [...prev, result].slice(-3); // keep last 3
+  await db.collection(COL).doc(listId).update({
+    [`sharedResults.${userName}`]: updated,
+  });
+}
+
+export async function shareListWithUser(listId: string, userName: string): Promise<void> {
+  const db = getFirestoreDB();
+  const doc = await db.collection(COL).doc(listId).get();
+  if (!doc.exists) throw new Error("List not found");
+  const current: string[] = doc.data()?.sharedWith ?? [];
+  if (current.includes(userName)) return;
+  await db.collection(COL).doc(listId).update({ sharedWith: [...current, userName] });
+}
+
+export async function unshareListWithUser(listId: string, userName: string): Promise<void> {
+  const db = getFirestoreDB();
+  const doc = await db.collection(COL).doc(listId).get();
+  if (!doc.exists) throw new Error("List not found");
+  const current: string[] = doc.data()?.sharedWith ?? [];
+  await db.collection(COL).doc(listId).update({ sharedWith: current.filter(n => n !== userName) });
 }
 
 export async function removeQuestionFromList(listId: string, questionId: string, collectionId: string): Promise<void> {

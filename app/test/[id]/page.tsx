@@ -135,9 +135,11 @@ export default function QuotePage() {
 
   const checkAnswers = () => {
     setShowResults(true);
+    const answeredCount = userAnswers.filter(a => a !== null).length;
+    const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
+    const listId = searchParams.get("listId");
+
     if (session?.user?.email) {
-      const answeredCount = userAnswers.filter(a => a !== null).length;
-      const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
       const recordEndpoint = id === "quoteChinese" ? "/api/user/quote/record" : "/api/user/english/record";
       fetch(recordEndpoint, {
         method: "POST",
@@ -148,6 +150,14 @@ export default function QuotePage() {
           set: listTitle ? `個人試卷${listTitle}` : searchParams.get("levels") ? `${id}:${searchParams.get("levels")}` : id,
         }),
       }).catch(err => console.error("Failed to save record:", err));
+
+      if (listId) {
+        fetch(`/api/lists/${listId}/result`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answered: answeredCount, correct: correctCount }),
+        }).catch(err => console.error("Failed to save shared result:", err));
+      }
     }
   };
 

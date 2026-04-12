@@ -103,11 +103,16 @@ export default function AccountPage() {
   const [listsLoaded, setListsLoaded] = useState(false);
   const [listsLoading, setListsLoading] = useState(false);
   const [lists, setLists] = useState<QuestionList[]>([]);
+  const [sharedLists, setSharedLists] = useState<QuestionList[]>([]);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [shareOpenId, setShareOpenId] = useState<string | null>(null);
+  const [shareInput, setShareInput] = useState("");
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
 
   // ── record state ──
   const [recordLoaded, setRecordLoaded] = useState(false);
@@ -154,11 +159,21 @@ export default function AccountPage() {
   useEffect(() => {
     if (activeTab !== "lists" || listsLoaded) return;
     setListsLoading(true);
-    const url = isOwner ? "/api/lists" : `/api/users/${encodeURIComponent(urlName)}/lists`;
-    fetch(url)
-      .then(r => r.json())
-      .then(d => { setLists(d.lists ?? []); setListsLoaded(true); })
-      .finally(() => setListsLoading(false));
+    if (isOwner) {
+      fetch("/api/lists")
+        .then(r => r.json())
+        .then(d => {
+          setLists(d.lists ?? []);
+          setSharedLists(d.sharedLists ?? []);
+          setListsLoaded(true);
+        })
+        .finally(() => setListsLoading(false));
+    } else {
+      fetch(`/api/users/${encodeURIComponent(urlName)}/lists`)
+        .then(r => r.json())
+        .then(d => { setLists(d.lists ?? []); setListsLoaded(true); })
+        .finally(() => setListsLoading(false));
+    }
   }, [activeTab, listsLoaded, isOwner, urlName]);
 
   // ── load records when tab activated ───────────────────────────────────────
@@ -303,6 +318,39 @@ export default function AccountPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ questionId, collectionId }),
     });
+  };
+
+  const addShare = async (listId: string) => {
+    const target = shareInput.trim();
+    if (!target) return;
+    setShareLoading(true);
+    setShareError(null);
+    const res = await fetch(`/api/lists/${listId}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetName: target }),
+    });
+    const j = await res.json();
+    if (!res.ok) {
+      setShareError(j.error ?? "失敗");
+    } else {
+      setLists(prev => prev.map(l =>
+        l.id === listId ? { ...l, sharedWith: [...(l.sharedWith ?? []), target] } : l
+      ));
+      setShareInput("");
+    }
+    setShareLoading(false);
+  };
+
+  const removeShare = async (listId: string, targetName: string) => {
+    await fetch(`/api/lists/${listId}/share`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetName }),
+    });
+    setLists(prev => prev.map(l =>
+      l.id === listId ? { ...l, sharedWith: (l.sharedWith ?? []).filter(n => n !== targetName) } : l
+    ));
   };
 
   // ── tabs config ───────────────────────────────────────────────────────────
@@ -556,6 +604,12 @@ export default function AccountPage() {
                                 改名
                               </button>
                               <button type="button"
+                                onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setMenuOpenId(null); }}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                style={{ color: "var(--zen-ink)" }}>
+                                分享
+                              </button>
+                              <button type="button"
                                 onClick={() => { deleteList(list.id); setMenuOpenId(null); }}
                                 className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                                 刪除
@@ -571,6 +625,59 @@ export default function AccountPage() {
                         <path d="m6 9 6 6 6-6"/>
                       </svg>
                     </div>
+
+                    {/* share panel */}
+                    {isOwner && shareOpenId === list.id && (
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3">
+                        <p className="text-xs text-zinc-400 mb-2">分享給帳號</p>
+                        <div className="flex gap-2 mb-2">
+                          <input
+                            value={shareInput}
+                            onChange={e => { setShareInput(e.target.value); setShareError(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") addShare(list.id); }}
+                            placeholder="輸入帳號名稱"
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none"
+                            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                          />
+                          <button type="button"
+                            onClick={() => addShare(list.id)}
+                            disabled={shareLoading || !shareInput.trim()}
+                            className="px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
+                            style={{ color: "var(--zen-ink)" }}>
+                            新增
+                          </button>
+                        </div>
+                        {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
+                        {(list.sharedWith ?? []).length > 0 && (
+                          <ul className="flex flex-col gap-2">
+                            {(list.sharedWith ?? []).map(n => {
+                              const results = (list.sharedResults ?? {})[n] ?? [];
+                              return (
+                                <li key={n} className="text-xs" style={{ color: "var(--zen-ink)" }}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{n}</span>
+                                    <button type="button" onClick={() => removeShare(list.id, n)}
+                                      className="text-red-400 hover:text-red-500 transition-colors">移除</button>
+                                  </div>
+                                  {results.length > 0 ? (
+                                    <ul className="mt-1 flex flex-col gap-0.5 pl-2 border-l border-zinc-200 dark:border-zinc-700">
+                                      {results.map((r, i) => (
+                                        <li key={i} className="flex items-center gap-2 text-zinc-400">
+                                          <span>{r.correct}/{r.answered}</span>
+                                          <span>{new Date(r.timestamp).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p className="mt-0.5 pl-2 text-zinc-400">尚未作答</p>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    )}
 
                     {expandedId === list.id && (
                       <div className="border-t border-zinc-100 dark:border-zinc-800 overflow-hidden rounded-b-xl">
@@ -599,6 +706,63 @@ export default function AccountPage() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* shared-with-me lists */}
+            {isOwner && sharedLists.length > 0 && (
+              <div className="mt-8">
+                <p className="text-xs text-zinc-400 mb-3">分享給我的試卷</p>
+                <ul className="space-y-3">
+                  {sharedLists.map(list => (
+                    <li key={list.id} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
+                      <div className="flex items-center gap-3 p-4">
+                        <button type="button" className="flex-1 min-w-0 text-left"
+                          onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}>
+                          <span className="font-medium" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
+                          <p className="text-xs text-zinc-400 mt-0.5">{list.ownerName} · {list.questions.length} 題</p>
+                        </button>
+                        {list.questions.length > 0 && (
+                          <a href={`/test/list?listId=${list.id}`}
+                            className="text-xs px-2 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            style={{ color: "var(--zen-ink)" }}>
+                            作答
+                          </a>
+                        )}
+                        <button type="button"
+                          onClick={async () => {
+                            const res = await fetch(`/api/lists/${list.id}/copy`, { method: "POST" });
+                            if (res.ok) {
+                              const d = await res.json();
+                              setLists(prev => [d.list, ...prev]);
+                            }
+                          }}
+                          className="text-xs px-2 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          style={{ color: "var(--zen-ink)" }}>
+                          複製
+                        </button>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                          className={`shrink-0 text-zinc-400 transition-transform ${expandedId === list.id ? "rotate-180" : ""}`}>
+                          <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                      </div>
+                      {expandedId === list.id && list.questions.length > 0 && (
+                        <div className="border-t border-zinc-100 dark:border-zinc-800 overflow-hidden rounded-b-xl">
+                          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {list.questions.map((q: ListQuestion, i: number) => (
+                              <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
+                                <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
+                                <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
+                                <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
