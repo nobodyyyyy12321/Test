@@ -5,7 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { findUserByEmail, saveUser } from "./lib/users";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-
+//test
 export const authOptions = {
   providers: [
     GoogleProvider({
