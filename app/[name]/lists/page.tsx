@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import type { QuestionList } from "../../../../lib/lists-firebase";
-import zhTW from "../../../../public/locale/zh-TW.js";
+import zhTW from "../../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../../../components/CategoryNode";
 
 type LevelEntry = { name: string; levels: number[] };

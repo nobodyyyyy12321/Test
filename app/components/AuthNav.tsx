@@ -142,11 +142,11 @@ export default function AuthNav() {
           <div className="absolute right-0 mt-2 w-44 rounded shadow-md z-20 border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
             <div className="py-1">
               <div className="px-4 py-3 text-sm truncate border-b border-zinc-200 dark:border-zinc-800" title={name}>{name}</div>
-              <Link href={`/account/${encodedName}/profile`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">檔案</Link>
-              <Link href={`/account/${encodedName}/record`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">紀錄</Link>
+              <Link href={`/${encodedName}/profile`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">檔案</Link>
+              <Link href={`/${encodedName}/record`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">紀錄</Link>
               <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">付費方案</Link>
-              <Link href={`/account/${encodedName}/lists`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人試卷</Link>
-              <Link href={`/account/${encodedName}/settings`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">設定</Link>
+              <Link href={`/${encodedName}/lists`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人試卷</Link>
+              <Link href={`/${encodedName}/settings`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">設定</Link>
               <button
                 onClick={handleSignOut}
                 className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
