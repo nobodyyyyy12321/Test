@@ -176,12 +176,7 @@ export default function RecitationClient({ articleId, articleNumber, title, cont
           ))}
         </article>
 
-        <div className="flex justify-center gap-6 mb-6">
-          <span className="text-white text-sm font-medium">嘗試：{attemptCountState}</span>
-          <span className="text-white text-sm font-medium">成功：{successCountState}</span>
-        </div>
-
-        <div className="mt-8 flex justify-center">
+<div className="mt-8 flex justify-center">
           <button
             onClick={startRecitation}
             className="px-6 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors font-medium"
