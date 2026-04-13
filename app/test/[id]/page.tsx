@@ -403,22 +403,26 @@ export default function QuotePage() {
                 const allWrongChecked = wrongIdxs.length > 0 && wrongIdxs.every(i => checkedIdxs.has(i));
                 return (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setCheckedIdxs(allChecked ? new Set() : new Set(answeredIdxs))}
-                      className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                      style={{ color: "var(--zen-ink)" }}
-                    >
-                      {allChecked ? "取消全選" : "全選"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCheckedIdxs(allWrongChecked ? new Set() : new Set(wrongIdxs))}
-                      className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                      style={{ color: "var(--zen-ink)" }}
-                    >
-                      {allWrongChecked ? "取消勾選" : "勾選答錯題"}
-                    </button>
+                    {session?.user && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setCheckedIdxs(allChecked ? new Set() : new Set(answeredIdxs))}
+                          className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          style={{ color: "var(--zen-ink)" }}
+                        >
+                          {allChecked ? "取消全選" : "全選"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCheckedIdxs(allWrongChecked ? new Set() : new Set(wrongIdxs))}
+                          className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          style={{ color: "var(--zen-ink)" }}
+                        >
+                          {allWrongChecked ? "取消勾選" : "勾選答錯題"}
+                        </button>
+                      </>
+                    )}
                   </>
                 );
               })()}
