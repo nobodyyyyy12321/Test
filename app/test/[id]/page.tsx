@@ -364,18 +364,20 @@ export default function QuotePage() {
                     }`}
                   >
                     <div className="flex items-start gap-3 mb-2">
-                      <button
-                        type="button"
-                        onClick={toggleCheck}
-                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs transition-colors ${
-                          isChecked
-                            ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
-                            : "border-zinc-400 dark:border-zinc-500"
-                        }`}
-                        aria-label="勾選"
-                      >
-                        {isChecked && "✓"}
-                      </button>
+                      {session?.user && (
+                        <button
+                          type="button"
+                          onClick={toggleCheck}
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs transition-colors ${
+                            isChecked
+                              ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black"
+                              : "border-zinc-400 dark:border-zinc-500"
+                          }`}
+                          aria-label="勾選"
+                        >
+                          {isChecked && "✓"}
+                        </button>
+                      )}
                       <p className="font-medium flex-1">題號{question.number}：{question.title}</p>
                     </div>
                     <div className="text-sm space-y-1 pl-7">
