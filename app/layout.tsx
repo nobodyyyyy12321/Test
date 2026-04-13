@@ -4,7 +4,6 @@ import Link from "next/link";
 import "./globals.css";
 import AuthNav from "./components/AuthNav";
 import Providers from "./providers/SessionProvider";
-import VisitPing from "./components/VisitPing";
 import LanguageGate from "./components/LanguageGate";
 import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
 import PWARegister from "./components/PWARegister";
@@ -60,7 +59,6 @@ export default function RootLayout({
               className="w-full py-5 sticky top-0 z-40"
               style={{ backgroundColor: "var(--zen-bg)", boxShadow: "none", borderBottom: "none" }}
             >
-              <VisitPing />
               <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '56px' }}>
                 {/* logo靠左 */}
                 <div className="flex-shrink-0 pl-5">
