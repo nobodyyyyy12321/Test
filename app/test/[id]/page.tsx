@@ -18,6 +18,7 @@ type Question = {
   options: Option[];
   answer: string | string[];
   level?: number | null;
+  groupContent?: string | null;
 };
 
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
@@ -70,14 +71,18 @@ export default function QuotePage() {
       setListTitle(null);
     }
 
+    const ordered = searchParams.get("ordered") === "true";
     const url = listId
       ? `/api/questions?listId=${listId}`
       : levels ? `/api/questions?id=${id}&levels=${levels}` : `/api/questions?id=${id}`;
+
     fetch(url)
       .then(res => res.json())
       .then(data => {
         if (data.questions) {
-          const loadedQuestions: Question[] = shuffleQuestions(data.questions);
+          const loadedQuestions: Question[] = ordered
+            ? [...data.questions].sort((a, b) => a.number - b.number)
+            : shuffleQuestions(data.questions);
           setQuestions(loadedQuestions);
           setUserAnswers(new Array(loadedQuestions.length).fill(null));
           setCurrentIndex(0);
@@ -230,6 +235,12 @@ export default function QuotePage() {
               {qtype === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
               {qtype === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
             </div>
+
+            {currentQuestion.groupContent && (
+              <div className="p-4 border border-zinc-300 dark:border-zinc-600 rounded bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7">
+                {currentQuestion.groupContent}
+              </div>
+            )}
 
             <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
               <span>{currentQuestion.title}</span>

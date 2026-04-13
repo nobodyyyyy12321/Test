@@ -1,6 +1,44 @@
 import { getFirestoreDB } from "@/lib/firebase-admin";
 import { getListById } from "@/lib/lists-firebase";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
+const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
+
+async function fetchGSATQuestions(examName: string) {
+  const [qRes, gRes] = await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/questions?exam_name=eq.${encodeURIComponent(examName)}&order=number.asc&select=number,title,type,options,answer`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      next: { revalidate: 3600 },
+    }),
+    fetch(`${SUPABASE_URL}/rest/v1/question_groups?exam_name=eq.${encodeURIComponent(examName)}&select=group_id,content`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      next: { revalidate: 3600 },
+    }),
+  ]);
+  if (!qRes.ok) throw new Error("Supabase fetch failed");
+
+  const rows: { number: number; title: string; type: string; options: Record<string, string>; answer: string | null }[] = await qRes.json();
+  const groupRows: { group_id: string; content: string }[] = gRes.ok ? await gRes.json() : [];
+
+  // group_id 如 "6-8"，取起始題號
+  const groups: Record<number, string> = {};
+  for (const g of groupRows) {
+    const start = parseInt(g.group_id.split("-")[0]);
+    if (!isNaN(start)) groups[start] = g.content;
+  }
+
+  const questions = rows.map((row) => {
+    const options = Object.entries(row.options)
+      .map(([label, text]) => ({ label, text }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const isMultiple = row.type === "multiple_choice";
+    const answer = isMultiple && row.answer ? row.answer.split("") : (row.answer ?? "");
+    return { id: String(row.number), number: row.number, title: row.title, type: isMultiple ? "multiple" : "single", options, answer, groupContent: groups[row.number] ?? null };
+  });
+
+  return questions;
+}
+
 // 記憶體快取，server restart 前有效
 const cache = new Map<string, { data: unknown[]; ts: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 小時
@@ -55,6 +93,12 @@ export async function GET(request: Request) {
     const id = searchParams.get("id") || "englishWords";
     const levelsParam = searchParams.get("levels"); // e.g. "1,2"
     const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
+
+    // 國文學測題目從 Supabase 載入
+    if (id.startsWith("國文學測")) {
+      const questions = await fetchGSATQuestions(id);
+      return Response.json({ questions });
+    }
 
     const cacheKey = levels ? `${id}:levels=${levelsParam}` : id;
     const cached = cache.get(cacheKey);
