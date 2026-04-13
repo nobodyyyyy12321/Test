@@ -64,7 +64,7 @@ export default function RootLayout({
                 <div className="flex-shrink-0 pl-5">
                   <Link href="/" className="cursor-pointer group" aria-label="回到首頁">
                     <img
-                      src="/logo-removebg-preview.png"
+                      src="/favicon.png"
                       alt="Test logo"
                       className="w-18 h-18 object-contain transition-transform duration-200 group-hover:scale-110 group-hover:opacity-80"
                       style={{ background: "transparent" }}
