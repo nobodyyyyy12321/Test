@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sapiens Camp",
-    short_name: "Sapiens",
+    name: "Test",
+    short_name: "Test",
     description: "多方位學習平台",
     start_url: "/",
     display: "standalone",
