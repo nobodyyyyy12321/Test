@@ -39,7 +39,7 @@ export default function QuotePage() {
   const { data: session } = useSession();
   const params = useParams();
   const searchParams = useSearchParams();
-  const id = params.id as string;
+  const id = decodeURIComponent(params.id as string);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
@@ -145,7 +145,11 @@ export default function QuotePage() {
     const listId = searchParams.get("listId");
 
     if (session?.user?.email) {
-      const recordEndpoint = id === "quoteChinese" ? "/api/user/quote/record" : "/api/user/english/record";
+      const recordEndpoint = ordered
+        ? "/api/user/gsat/record"
+        : id === "quoteChinese"
+        ? "/api/user/quote/record"
+        : "/api/user/english/record";
       fetch(recordEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
