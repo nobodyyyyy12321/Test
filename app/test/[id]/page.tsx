@@ -40,6 +40,7 @@ export default function QuotePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = decodeURIComponent(params.id as string);
+  const ordered = searchParams.get("ordered") === "true";
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
@@ -71,7 +72,6 @@ export default function QuotePage() {
       setListTitle(null);
     }
 
-    const ordered = searchParams.get("ordered") === "true";
     const url = listId
       ? `/api/questions?listId=${listId}`
       : levels ? `/api/questions?id=${id}&levels=${levels}` : `/api/questions?id=${id}`;
