@@ -56,10 +56,10 @@ export default function RootLayout({
         <Providers>
 
           <header
-              className="w-full py-5 sticky top-0 z-40"
+              className="w-full py-2 sticky top-0 z-40"
               style={{ backgroundColor: "var(--zen-bg)", boxShadow: "none", borderBottom: "none" }}
             >
-              <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '56px' }}>
+              <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '28px' }}>
                 {/* logo靠左，手機版隱藏 */}
                 <div className="hidden sm:block flex-shrink-0 pl-5">
                   <Link href="/" className="cursor-pointer group" aria-label="回到首頁">
