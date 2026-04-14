@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "多方位學習平台",
     start_url: "/",
     display: "standalone",
+    orientation: "portrait",
     background_color: "#1e1e1e",
     theme_color: "#1e1e1e",
     lang: "zh-TW",

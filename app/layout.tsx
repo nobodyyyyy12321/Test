@@ -60,8 +60,8 @@ export default function RootLayout({
               style={{ backgroundColor: "var(--zen-bg)", boxShadow: "none", borderBottom: "none" }}
             >
               <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '56px' }}>
-                {/* logo靠左 */}
-                <div className="flex-shrink-0 pl-5">
+                {/* logo靠左，手機版隱藏 */}
+                <div className="hidden sm:block flex-shrink-0 pl-5">
                   <Link href="/" className="cursor-pointer group" aria-label="回到首頁">
                     <img
                       src="/favicon.png"
@@ -100,6 +100,18 @@ export default function RootLayout({
 
           <LanguageGate>{children}</LanguageGate>
         </Providers>
+
+        {/* 手機版底部左下角 logo */}
+        <div className="block sm:hidden fixed bottom-5 left-5 z-50">
+          <Link href="/" aria-label="回到首頁">
+            <img
+              src="/favicon.png"
+              alt="Test logo"
+              className="w-10 h-10 object-contain opacity-70"
+              style={{ background: "transparent" }}
+            />
+          </Link>
+        </div>
         <Analytics />
       </body>
     </html>

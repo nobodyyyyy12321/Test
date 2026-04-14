@@ -6,6 +6,11 @@ export default function PWARegister() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // 鎖定直式（PWA standalone 模式下有效）
+    if ("orientation" in screen && (screen.orientation as any).lock) {
+      (screen.orientation as any).lock("portrait").catch(() => {});
+    }
+
     // Register service worker
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => {
