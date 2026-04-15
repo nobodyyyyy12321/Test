@@ -61,6 +61,9 @@ export function HomeContent({ language }: { language: string }) {
                 const key = `${language}-${i}-${subject.href || subject.name}`;
                 const isOpen = openKey === key;
                 const hasSub = !!subject.children?.length;
+                const colors = ["#f9a8d4", "#fed7aa", "#a7f3d0", "#bae6fd", "#ddd6fe", "#ffffff"];
+                const color = colors[i % colors.length];
+                const btnStyle = { color, borderColor: color };
 
                 return (
                   <div key={key} className="contents">
@@ -69,12 +72,13 @@ export function HomeContent({ language }: { language: string }) {
                         <button
                           type="button"
                           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`}
+                          style={btnStyle}
                           onClick={() => setOpenKey(isOpen ? null : key)}
                         >
                           {subject.name}
                         </button>
                       ) : (
-                        <Link href={subject.href || "#"} className="book-link bookshelf-btn">
+                        <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={btnStyle}>
                           {subject.name}
                         </Link>
                       )}
@@ -90,6 +94,7 @@ export function HomeContent({ language }: { language: string }) {
                               <button
                                 type="button"
                                 className={`book-link bookshelf-btn sub-item ${isDropOpen ? "active-category" : ""}`}
+                                style={btnStyle}
                                 onClick={() => setOpenDropKey(isDropOpen ? null : subKey)}
                               >
                                 {sub.name}
@@ -100,20 +105,20 @@ export function HomeContent({ language }: { language: string }) {
                                 <button
                                   type="button"
                                   className="book-link bookshelf-btn sub-sub-item flex items-center gap-1"
-                                  style={{ color: "#a8f0c6", borderColor: "#a8f0c6" }}
+                                  style={btnStyle}
                                   onClick={() => setOpenYearKey(openYearKey === subKey ? null : subKey)}
                                 >
                                   年份
                                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                 </button>
                                 {openYearKey === subKey && (
-                                <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border border-[#a8f0c6] bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem" }}>
+                                <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
                                   {sub.dropdown.map((opt) => (
                                     <Link
                                       key={opt.href + opt.name}
                                       href={opt.href}
                                       className="block px-4 py-2 text-sm text-left"
-                                      style={{ color: "#a8f0c6" }}
+                                      style={{ color }}
                                       onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
                                     >
                                       {opt.name}
@@ -128,7 +133,7 @@ export function HomeContent({ language }: { language: string }) {
                       }
                       return (
                         <div key={subKey}>
-                          <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item">
+                          <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
                             {sub.name}
                           </Link>
                         </div>
