@@ -117,8 +117,8 @@ export function HomeContent({ language }: { language: string }) {
                                     <Link
                                       key={opt.href + opt.name}
                                       href={opt.href}
-                                      className="block px-4 py-2 text-sm text-left"
-                                      style={{ color }}
+                                      className="block px-4 py-3 text-left"
+                                      style={{ color, fontSize: "inherit" }}
                                       onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
                                     >
                                       {opt.name}
