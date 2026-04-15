@@ -235,7 +235,7 @@ export default function QuotePage() {
         {!showResults ? (
           <div className="mt-6 space-y-4 w-full">
             <div className="flex items-center gap-3 text-sm text-zinc-400">
-              <span>題號{currentQuestion.number}</span>
+              <span className="text-lg">#{currentQuestion.number}</span>
               {qtype === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
               {qtype === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
             </div>
@@ -296,7 +296,7 @@ export default function QuotePage() {
                 })}
               </div>
             )}
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-8">
               <AddToListButton
                 questionId={currentQuestion.id}
                 collectionId={id}
@@ -396,7 +396,7 @@ export default function QuotePage() {
                 );
               })}
             </div>
-            <div className="flex justify-end items-center gap-2 mt-4">
+            <div className="flex justify-end items-center gap-2 mt-6">
               {(() => {
                 const answeredIdxs = questions
                   .map((_, i) => i)
