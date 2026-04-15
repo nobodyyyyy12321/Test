@@ -74,10 +74,55 @@ export default function AuthNav() {
 
   if (!session?.user) {
     return (
-      <div className="flex items-center gap-3">
-        <Link href="/auth/login" className="zen-ghost px-3 py-1 rounded ml-2">登入</Link>
-        <Link href="/auth/register" className="zen-ghost px-3 py-1 rounded">註冊</Link>
-      </div>
+      <>
+        {/* 桌機：直接顯示登入／註冊連結 */}
+        <div className="hidden sm:flex items-center gap-3">
+          <Link href="/auth/login" className="zen-ghost px-3 py-1 rounded ml-2">登入</Link>
+          <Link href="/auth/register" className="zen-ghost px-3 py-1 rounded">註冊</Link>
+        </div>
+
+        {/* 手機：人頭圖示，點擊開底部選單 */}
+        <button
+          className="sm:hidden flex items-center"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="開啟登入選單"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+          </svg>
+        </button>
+
+        {/* 手機遮罩 */}
+        <div
+          className={`sm:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setIsMenuOpen(false)}
+        />
+
+        {/* 手機底部上滑選單 */}
+        <div
+          className={`sm:hidden fixed bottom-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 rounded-t-2xl shadow-xl transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        >
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+          </div>
+          <Link
+            href="/auth/login"
+            className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            登入
+          </Link>
+          <Link
+            href="/auth/register"
+            className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            註冊
+          </Link>
+          <div className="pb-6" />
+        </div>
+      </>
     );
   }
 
