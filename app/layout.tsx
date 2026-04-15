@@ -63,8 +63,8 @@ export default function RootLayout({
               <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '28px' }}>
                 {/* 左上角 home 圖示，桌機版顯示 */}
                 <div className="hidden sm:block flex-shrink-0 pl-5">
-                  <Link href="/" aria-label="回到首頁">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                  <Link href="/" aria-label="回到首頁" className="inline-block transition-transform duration-200 hover:scale-[1.15]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
                       <path d="M9 21V12h6v9" />
                     </svg>

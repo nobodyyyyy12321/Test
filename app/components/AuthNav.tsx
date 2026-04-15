@@ -11,6 +11,7 @@ export default function AuthNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
     if (closeTimeoutRef.current) {
@@ -25,6 +26,16 @@ export default function AuthNav() {
       setIsMenuOpen(false);
     }, 300);
   };
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    if (isMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     let mounted = true;
@@ -42,31 +53,16 @@ export default function AuthNav() {
       }
     }
 
-    function onProfileUpdated() {
-      loadProfile();
-    }
+    function onProfileUpdated() { loadProfile(); }
 
     if (session?.user) loadProfile();
     window.addEventListener('profile:updated', onProfileUpdated);
     return () => {
       mounted = false;
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current);
-      }
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
       window.removeEventListener('profile:updated', onProfileUpdated);
     };
   }, [session]);
-
-  useEffect(() => {
-    if (isMenuOpen) {
-      document.body.classList.add('avatar-menu-open');
-    } else {
-      document.body.classList.remove('avatar-menu-open');
-    }
-    return () => {
-      document.body.classList.remove('avatar-menu-open');
-    };
-  }, [isMenuOpen]);
 
   if (status === "loading") {
     return <div className="text-sm zen-subtle">載入中…</div>;
@@ -81,7 +77,7 @@ export default function AuthNav() {
           <Link href="/auth/register" className="zen-ghost px-3 py-1 rounded">註冊</Link>
         </div>
 
-        {/* 手機：人頭圖示，點擊開底部選單 */}
+        {/* 手機：人頭圖示 */}
         <button
           className="sm:hidden flex items-center"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -99,16 +95,13 @@ export default function AuthNav() {
           onClick={() => setIsMenuOpen(false)}
         />
 
-        {/* 手機底部上滑選單 */}
+        {/* 手機頂部下滑選單 */}
         <div
-          className={`sm:hidden fixed bottom-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 rounded-t-2xl shadow-xl transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
         >
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-          </div>
           <Link
             href="/auth/login"
-            className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800"
             onClick={() => setIsMenuOpen(false)}
           >
             登入
@@ -120,7 +113,6 @@ export default function AuthNav() {
           >
             註冊
           </Link>
-          <div className="pb-6" />
         </div>
       </>
     );
@@ -132,13 +124,8 @@ export default function AuthNav() {
   const handleSignOut = async () => {
     try {
       setLogoutError(null);
-
-      const csrfRes = await fetch("/api/auth/csrf", {
-        method: "GET",
-        credentials: "include",
-      });
+      const csrfRes = await fetch("/api/auth/csrf", { method: "GET", credentials: "include" });
       if (!csrfRes.ok) throw new Error(`csrf_http_${csrfRes.status}`);
-
       const csrfJson = await csrfRes.json();
       const csrfToken = csrfJson?.csrfToken;
       if (!csrfToken) throw new Error("csrf_missing");
@@ -147,17 +134,14 @@ export default function AuthNav() {
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "/api/auth/signout";
-
       const csrfInput = document.createElement("input");
       csrfInput.type = "hidden";
       csrfInput.name = "csrfToken";
       csrfInput.value = csrfToken;
-
       const callbackInput = document.createElement("input");
       callbackInput.type = "hidden";
       callbackInput.name = "callbackUrl";
       callbackInput.value = "/";
-
       form.appendChild(csrfInput);
       form.appendChild(callbackInput);
       document.body.appendChild(form);
@@ -173,6 +157,7 @@ export default function AuthNav() {
     <div className="flex items-center">
       <div
         className="relative"
+        ref={menuRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -195,17 +180,12 @@ export default function AuthNav() {
 
         {/* 桌機下拉選單 */}
         {isMenuOpen && (
-          <div className="hidden md:block absolute right-0 mt-2 w-44 rounded shadow-md z-20 border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
+          <div className="hidden sm:block absolute right-0 mt-2 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
             <div className="py-1">
               <div className="px-4 py-3 text-sm truncate border-b border-zinc-200 dark:border-zinc-800" title={name}>{name}</div>
-              <Link href={`/${encodedName}`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">個人頁面</Link>
-              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">付費方案</Link>
-              <button
-                onClick={handleSignOut}
-                className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                登出
-              </button>
+              <Link href={`/${encodedName}`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
+              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setIsMenuOpen(false)}>付費方案</Link>
+              <button onClick={handleSignOut} className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800">登出</button>
               {logoutError && (
                 <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
                   <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
@@ -217,50 +197,26 @@ export default function AuthNav() {
         )}
       </div>
 
-      {/* 手機底部選單遮罩 */}
+      {/* 手機遮罩 */}
       <div
-        className={`md:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        className={`sm:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMenuOpen(false)}
       />
 
-      {/* 手機底部上滑選單 */}
+      {/* 手機頂部下滑選單 */}
       <div
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 rounded-t-2xl shadow-xl transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
       >
-        {/* 拖曳指示條 */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-        </div>
-        {/* 使用者名稱 */}
-        <div className="px-5 py-3 text-sm truncate border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400" title={name}>{name}</div>
-        <Link
-          href={`/${encodedName}`}
-          className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          onClick={() => setIsMenuOpen(false)}
-        >
-          個人頁面
-        </Link>
-        <Link
-          href="/under-construction"
-          className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          onClick={() => setIsMenuOpen(false)}
-        >
-          付費方案
-        </Link>
-        <button
-          onClick={handleSignOut}
-          className="w-full text-left px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        >
-          登出
-        </button>
+        <div className="px-5 py-4 text-sm truncate border-b border-zinc-100 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400" title={name}>{name}</div>
+        <Link href={`/${encodedName}`} className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
+        <Link href="/under-construction" className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" onClick={() => setIsMenuOpen(false)}>付費方案</Link>
+        <button onClick={handleSignOut} className="w-full text-left px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800">登出</button>
         {logoutError && (
           <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800">
             <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
             <a href="/api/auth/signout" className="mt-1 inline-block text-xs underline">改用預設登出頁</a>
           </div>
         )}
-        {/* 底部安全區 */}
-        <div className="h-safe-bottom pb-6" />
       </div>
     </div>
   );
