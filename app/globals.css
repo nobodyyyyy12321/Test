@@ -1,4 +1,5 @@
-body.avatar-menu-open .home-logo {
+body.avatar-menu-open .home-logo,
+body.lang-menu-open .home-logo {
   visibility: hidden;
 }
 
