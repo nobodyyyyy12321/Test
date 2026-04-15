@@ -203,7 +203,7 @@ export default function QuotePage() {
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
-      <main className="flex w-full max-w-3xl flex-col items-start justify-start py-8 px-16 bg-transparent dark:bg-black sm:items-start">
+      <main className="flex w-full max-w-3xl flex-col items-start justify-start pt-[12vh] pb-8 px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full">
           <h1 className="text-3xl font-bold zen-title"></h1>
           {!showResults && (
