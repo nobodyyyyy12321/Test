@@ -40,7 +40,11 @@ export function HomeContent({ language }: { language: string }) {
     <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-start py-20 px-16">
         <div className="flex flex-col items-center gap-6 text-center w-full">
-          <h1 className="max-w-xs text-4xl font-bold zen-title" >Test</h1>
+          <div className="flex items-center ">
+            <img src="/favicon.png" alt="icon" className="w-14 h-14 object-contain" />
+            <h1 className="text-4xl font-bold zen-title">Test</h1>
+            
+          </div>
           <p className="max-w-md text-lg leading-8 zen-subtle">testtttt.io</p>
 
           <input
