@@ -8,6 +8,7 @@ import LanguageGate from "./components/LanguageGate";
 import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
 import PWARegister from "./components/PWARegister";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
+import MobileBottomBar from "./components/MobileBottomBar";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
 // ...existing code...
@@ -70,9 +71,13 @@ export default function RootLayout({
                   </Link>
                 </div>
                 <div className="flex-1" />
-                <ShowLanguageSelectorOnHome />
-                {/* 登入後顯示頭像與帳號名稱的元件 */}
-                <AuthNav />
+                {/* 桌機才顯示 */}
+                <div className="hidden sm:block">
+                  <ShowLanguageSelectorOnHome />
+                </div>
+                <div className="hidden sm:block sm:mt-6 sm:mr-6">
+                  <AuthNav />
+                </div>
               </div>
             </header>
 
@@ -96,17 +101,9 @@ export default function RootLayout({
           ) ? null : <GlobalUpOneLevelButton />}
 
           <LanguageGate>{children}</LanguageGate>
+          {/* 手機版底部列 */}
+          <MobileBottomBar />
         </Providers>
-
-        {/* 手機版底部左下角房子圖示 */}
-        <div className="home-logo block sm:hidden fixed bottom-5 left-5 z-50">
-          <Link href="/" aria-label="回到首頁">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
-              <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-              <path d="M9 21V12h6v9" />
-            </svg>
-          </Link>
-        </div>
         <Analytics />
       </body>
     </html>
