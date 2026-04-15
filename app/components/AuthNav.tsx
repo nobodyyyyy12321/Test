@@ -57,13 +57,24 @@ export default function AuthNav() {
     };
   }, [session]);
 
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.classList.add('avatar-menu-open');
+    } else {
+      document.body.classList.remove('avatar-menu-open');
+    }
+    return () => {
+      document.body.classList.remove('avatar-menu-open');
+    };
+  }, [isMenuOpen]);
+
   if (status === "loading") {
     return <div className="text-sm zen-subtle">載入中…</div>;
   }
 
   if (!session?.user) {
     return (
-      <div className="flex items-center gap-3" style={{ marginTop: '1.5rem',marginRight:'1.5rem' }}>
+      <div className="flex items-center gap-3 mt-2 mr-3 sm:mt-6 sm:mr-6">
         <Link href="/auth/login" className="zen-ghost px-3 py-1 rounded ml-2">登入</Link>
         <Link href="/auth/register" className="zen-ghost px-3 py-1 rounded">註冊</Link>
       </div>
@@ -117,7 +128,7 @@ export default function AuthNav() {
     <div className="flex items-center">
       <div
         className="relative"
-        style={{ marginRight: '1.5rem', marginTop: '1.5rem' }}
+        className="sm:mt-6 sm:mr-6 mt-2 mr-3"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -128,11 +139,11 @@ export default function AuthNav() {
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           {avatarUrl ? (
-            <img src={avatarUrl} alt={`${name} avatar`} className="w-11 h-11 rounded-full object-cover" />
+            <img src={avatarUrl} alt={`${name} avatar`} className="w-8 h-8 sm:w-11 sm:h-11 rounded-full object-cover" />
           ) : session.user.image ? (
-            <img src={session.user.image} alt={`${name} avatar`} className="w-11 h-11 rounded-full object-cover" />
+            <img src={session.user.image} alt={`${name} avatar`} className="w-8 h-8 sm:w-11 sm:h-11 rounded-full object-cover" />
           ) : (
-            <span className="w-11 h-11 rounded-full bg-gray-600 text-white text-base font-semibold flex items-center justify-center">
+            <span className="w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-gray-600 text-white text-sm sm:text-base font-semibold flex items-center justify-center">
               {name.slice(0, 1).toUpperCase()}
             </span>
           )}
@@ -164,13 +175,13 @@ export default function AuthNav() {
 
       {/* 手機底部選單遮罩 */}
       <div
-        className={`md:hidden fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        className={`md:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMenuOpen(false)}
       />
 
       {/* 手機底部上滑選單 */}
       <div
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-zen-paper dark:bg-zinc-900 rounded-t-2xl shadow-xl transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 rounded-t-2xl shadow-xl transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
       >
         {/* 拖曳指示條 */}
         <div className="flex justify-center pt-3 pb-1">

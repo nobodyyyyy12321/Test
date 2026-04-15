@@ -56,7 +56,7 @@ export default function RootLayout({
         <Providers>
 
           <header
-              className="w-full py-2 sticky top-0 z-40"
+              className="w-full py-1 sm:py-2 sticky top-0 z-40"
               style={{ backgroundColor: "var(--zen-bg)", boxShadow: "none", borderBottom: "none" }}
             >
               <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '28px' }}>
@@ -99,7 +99,7 @@ export default function RootLayout({
         </Providers>
 
         {/* 手機版底部左下角房子圖示 */}
-        <div className="block sm:hidden fixed bottom-5 left-5 z-50">
+        <div className="home-logo block sm:hidden fixed bottom-5 left-5 z-50">
           <Link href="/" aria-label="回到首頁">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
               <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
