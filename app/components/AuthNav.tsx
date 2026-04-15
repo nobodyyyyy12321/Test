@@ -127,8 +127,7 @@ export default function AuthNav() {
   return (
     <div className="flex items-center">
       <div
-        className="relative"
-        className="sm:mt-6 sm:mr-6 mt-2 mr-3"
+        className="relative sm:mt-6 sm:mr-6 mt-2 mr-3"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
