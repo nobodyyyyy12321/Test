@@ -14,6 +14,8 @@ const LANGUAGES: { value: LanguageCode; label: string }[] = [
   { value: "ko", label: "한국어" },
 ];
 
+const COLORS = ["#7aa8cc", "#5fa870"];
+
 export default function LanguageSelector() {
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
   const [isOpen, setIsOpen] = useState(false);
@@ -42,32 +44,37 @@ export default function LanguageSelector() {
     setIsOpen(false);
   }
 
-  const currentLabel = LANGUAGES.find((l) => l.value === language)?.label ?? language;
+  const currentIndex = LANGUAGES.findIndex((l) => l.value === language);
+  const currentColor = COLORS[currentIndex % 2];
+  const currentLabel = LANGUAGES[currentIndex]?.label ?? language;
 
   return (
     <div className="relative" ref={menuRef}>
-      {/* 桌機：原生 select */}
-      <select
-        className="hidden sm:block p-2 rounded-md border border-zinc-200 dark:border-zinc-800 text-sm"
-        style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-        value={language}
-        onChange={(e) => handleLanguageChange(e.target.value as LanguageCode)}
-        aria-label="語言選擇"
-      >
-        {LANGUAGES.map((l) => (
-          <option key={l.value} value={l.value}>{l.label}</option>
-        ))}
-      </select>
-
-      {/* 手機：按鈕 */}
+      {/* 觸發按鈕（桌機＋手機共用） */}
       <button
-        className="sm:hidden p-2 rounded-md border border-zinc-200 dark:border-zinc-800 text-sm"
-        style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+        className="p-2 rounded-md border text-sm"
+        style={{ backgroundColor: "var(--zen-bg)", color: currentColor, borderColor: currentColor }}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="語言選擇"
       >
         {currentLabel}
       </button>
+
+      {/* 桌機：向下展開 */}
+      {isOpen && (
+        <div className="hidden sm:block absolute right-0 top-full mt-1 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
+          {LANGUAGES.map((l, i) => (
+            <button
+              key={l.value}
+              onClick={() => handleLanguageChange(l.value)}
+              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${i < LANGUAGES.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${language === l.value ? 'font-semibold' : 'font-normal'}`}
+              style={{ color: COLORS[i % 2] }}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 手機遮罩 */}
       <div
@@ -84,6 +91,7 @@ export default function LanguageSelector() {
             key={l.value}
             onClick={() => handleLanguageChange(l.value)}
             className={`w-full text-left px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 ${i < LANGUAGES.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${language === l.value ? 'font-semibold' : 'font-normal'}`}
+            style={{ color: COLORS[i % 2] }}
           >
             {l.label}
           </button>

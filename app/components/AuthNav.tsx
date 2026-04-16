@@ -71,23 +71,27 @@ export default function AuthNav() {
   if (!session?.user) {
     return (
       <>
-        {/* 桌機：直接顯示登入／註冊連結 */}
-        <div className="hidden sm:flex items-center gap-3">
-          <Link href="/auth/login" className="zen-ghost px-3 py-1 rounded ml-2">登入</Link>
-          <Link href="/auth/register" className="zen-ghost px-3 py-1 rounded">註冊</Link>
-        </div>
+        {/* 人頭圖示（桌機＋手機共用） */}
+        <div className="relative" ref={menuRef}>
+          <button
+            className="flex items-center"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="開啟登入選單"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+            </svg>
+          </button>
 
-        {/* 手機：人頭圖示 */}
-        <button
-          className="sm:hidden flex items-center"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="開啟登入選單"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-          </svg>
-        </button>
+          {/* 桌機下拉選單 */}
+          {isMenuOpen && (
+            <div className="hidden sm:block absolute right-0 mt-2 w-36 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
+              <Link href="/auth/login" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#7aa8cc" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
+              <Link href="/auth/register" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
+            </div>
+          )}
+        </div>
 
         {/* 手機遮罩 */}
         <div
@@ -99,20 +103,8 @@ export default function AuthNav() {
         <div
           className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
         >
-          <Link
-            href="/auth/login"
-            className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800"
-            onClick={() => setIsMenuOpen(false)}
-          >
-            登入
-          </Link>
-          <Link
-            href="/auth/register"
-            className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            onClick={() => setIsMenuOpen(false)}
-          >
-            註冊
-          </Link>
+          <Link href="/auth/login" className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#7aa8cc" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
+          <Link href="/auth/register" className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
         </div>
       </>
     );
@@ -183,9 +175,9 @@ export default function AuthNav() {
           <div className="hidden sm:block absolute right-0 mt-2 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
             <div className="py-1">
               <div className="px-4 py-3 text-sm truncate border-b border-zinc-200 dark:border-zinc-800" title={name}>{name}</div>
-              <Link href={`/${encodedName}`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
-              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setIsMenuOpen(false)}>付費方案</Link>
-              <button onClick={handleSignOut} className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800">登出</button>
+              <Link href={`/${encodedName}`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#7aa8cc" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
+              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>付費方案</Link>
+              <button onClick={handleSignOut} className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#7aa8cc" }}>登出</button>
               {logoutError && (
                 <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
                   <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
@@ -208,9 +200,9 @@ export default function AuthNav() {
         className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div className="px-5 py-4 text-sm truncate border-b border-zinc-100 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400" title={name}>{name}</div>
-        <Link href={`/${encodedName}`} className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
-        <Link href="/under-construction" className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" onClick={() => setIsMenuOpen(false)}>付費方案</Link>
-        <button onClick={handleSignOut} className="w-full text-left px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800">登出</button>
+        <Link href={`/${encodedName}`} className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#7aa8cc" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
+        <Link href="/under-construction" className="block px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>付費方案</Link>
+        <button onClick={handleSignOut} className="w-full text-left px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#7aa8cc" }}>登出</button>
         {logoutError && (
           <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800">
             <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
