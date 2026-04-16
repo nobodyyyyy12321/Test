@@ -26,13 +26,13 @@ const zhTW = [
       { "name": "學測", "href":"/under-construction"}
     ]
   },
-  { "name": "公職考試", "href": "/under-construction" },
+  // { "name": "公職考試", "href": "/under-construction" },
   { "name": "名言佳句", "href": "/test/quoteChinese" },
-  { "name": "綜合", "href": "/under-construction" },
-  { "name": "比賽", "href": "/under-construction" },
-  { "name": "八卦", "href": "/under-construction" },
-  { "name": "猜謎", "href": "/under-construction" },
-  { "name": "笑話", "href": "/under-construction" },
+  // { "name": "綜合", "href": "/under-construction" },
+  // { "name": "比賽", "href": "/under-construction" },
+  // { "name": "八卦", "href": "/under-construction" },
+  // { "name": "猜謎", "href": "/under-construction" },
+  // { "name": "笑話", "href": "/under-construction" },
   { "name": "數學", "children": [
     { "name": "學測", "dropdown": Array.from({ length: 115 - 83 + 1 }, (_, i) => {
         const year = 115 - i;
@@ -40,17 +40,17 @@ const zhTW = [
       })
     }
   ] },
-  { "name": "物理", "href": "/under-construction" },
-  { "name": "化學", "href": "/under-construction" },
-  { "name": "生物", "href": "/under-construction" },
-  { "name": "地理", "href": "/under-construction" },
-  { "name": "天文", "href": "/under-construction" },
-  { "name": "歷史", "href": "/under-construction" },
-  { "name": "公民", "href": "/under-construction" },
-  { "name": "心理", "href": "/under-construction" },
-  { "name": "哲學", "href": "/under-construction" },
-  { "name": "自然", "href": "/under-construction" },
-  { "name": "社會", "href": "/under-construction" }
+  // { "name": "物理", "href": "/under-construction" },
+  // { "name": "化學", "href": "/under-construction" },
+  // { "name": "生物", "href": "/under-construction" },
+  // { "name": "地理", "href": "/under-construction" },
+  // { "name": "天文", "href": "/under-construction" },
+  // { "name": "歷史", "href": "/under-construction" },
+  // { "name": "公民", "href": "/under-construction" },
+  // { "name": "心理", "href": "/under-construction" },
+  // { "name": "哲學", "href": "/under-construction" },
+  // { "name": "自然", "href": "/under-construction" },
+  // { "name": "社會", "href": "/under-construction" },
 ];
 
 export default zhTW;
