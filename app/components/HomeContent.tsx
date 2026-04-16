@@ -57,7 +57,7 @@ export function HomeContent({ language }: { language: string }) {
             <div className="bookshelf-grid home-bookshelf-grid">
               {subjects.map((subject, i) => {
                 const key = `${language}-${i}-${subject.href || subject.name}`;
-                const isOpen = openKey === key;
+                const isOpen = !!query || openKey === key;
                 const hasSub = !!subject.children?.length;
                 const colors = ["#7aa8cc", "#5fa870"];
                 const color = colors[i % colors.length];

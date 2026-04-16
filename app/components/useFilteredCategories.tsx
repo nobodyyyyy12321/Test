@@ -23,10 +23,18 @@ export function useFilteredCategories(language: string, query: string): Category
     const data = localeMap[language] ?? localeMap["zh-TW"];
     if (!query) return data;
     const q = query.toLowerCase();
-    return data.filter(
-      (node) =>
-        node.name.toLowerCase().includes(q) ||
-        node.children?.some((c) => c.name.toLowerCase().includes(q))
-    );
+    const result: CategoryNode[] = [];
+    for (const node of data) {
+      const parentMatch = node.name.toLowerCase().includes(q);
+      const matchingChildren = node.children?.filter((c) =>
+        c.name.toLowerCase().includes(q)
+      );
+      if (parentMatch) {
+        result.push(node);
+      } else if (matchingChildren?.length) {
+        result.push({ ...node, children: matchingChildren });
+      }
+    }
+    return result;
   }, [language, query]);
 }
