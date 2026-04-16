@@ -249,7 +249,8 @@ export function AddToListButton({ questionId, collectionId, title, number, level
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex h-9 w-9 aspect-square shrink-0 items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-xl leading-none hover:border-zinc-500 dark:hover:border-zinc-400 transition-colors"
+        className="flex h-9 w-9 aspect-square shrink-0 items-center justify-center rounded-full border text-xl leading-none transition-opacity hover:opacity-80"
+        style={{ background: "transparent", borderColor: "#bae6fd", color: "#bae6fd" }}
         title="加入清單"
         aria-label="加入清單"
       >
