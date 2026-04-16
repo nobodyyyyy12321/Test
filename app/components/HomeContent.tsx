@@ -61,7 +61,7 @@ export function HomeContent({ language }: { language: string }) {
                 const key = `${language}-${i}-${subject.href || subject.name}`;
                 const isOpen = openKey === key;
                 const hasSub = !!subject.children?.length;
-                const colors = ["#bae6fd", "#a7f3d0"];
+                const colors = ["#7aa8cc", "#5fa870"];
                 const color = colors[i % colors.length];
                 const btnStyle = { color, borderColor: color };
 

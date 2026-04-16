@@ -212,7 +212,7 @@ export default function QuotePage() {
                 onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                 disabled={currentIndex === 0}
                 className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "#a7f3d0", color: "#a7f3d0" }}
+                style={{ background: "transparent", borderColor: "#7aa8cc", color: "#7aa8cc" }}
               >
                 ←
               </button>
@@ -220,14 +220,14 @@ export default function QuotePage() {
                 onClick={() => setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1))}
                 disabled={currentIndex === questions.length - 1}
                 className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === questions.length - 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "#a7f3d0", color: "#a7f3d0" }}
+                style={{ background: "transparent", borderColor: "#7aa8cc", color: "#7aa8cc" }}
               >
                 →
               </button>
               <button
                 onClick={checkAnswers}
                 className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ background: "transparent", borderColor: "#a7f3d0", color: "#a7f3d0" }}
+                style={{ background: "transparent", borderColor: "#7aa8cc", color: "#7aa8cc" }}
               >
                 交卷
               </button>
@@ -238,7 +238,7 @@ export default function QuotePage() {
         {!showResults ? (
           <div className="mt-6 space-y-4 w-full">
             <div className="flex items-center gap-3 text-sm text-zinc-400">
-              <span className="text-lg">#{currentQuestion.number}</span>
+              <span className="text-lg" style={{ color: "#5fa870" }}>#{currentQuestion.number}</span>
               {qtype === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
               {qtype === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
             </div>
@@ -249,7 +249,7 @@ export default function QuotePage() {
               </div>
             )}
 
-            <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3">
+            <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3" style={{ borderColor: "#5fa870", color: "#5fa870" }}>
               <span>{currentQuestion.title}</span>
               {id === "englishWords" && (
                 <button
@@ -288,10 +288,14 @@ export default function QuotePage() {
                     <button
                       key={option.label}
                       onClick={() => qtype === "multiple" ? handleMultipleToggle(option.label) : handleSingleAnswer(option.label)}
-                      className={`flex-1 px-6 py-3 border border-[1px] rounded text-left transition-colors ${
-                        isSelected ? "border-black dark:border-zinc-200" : "border-zinc-400 dark:border-zinc-600"
-                      }`}
-                      style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(95,168,112,0.1)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#5fa870"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isSelected ? "rgba(95,168,112,0.1)" : "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#5fa870"; }}
+                      className="flex-1 px-6 py-3 border border-[1px] rounded text-left transition-all"
+                      style={{
+                        borderColor: "#5fa870",
+                        color: "#5fa870",
+                        background: isSelected ? "rgba(95,168,112,0.1)" : "transparent",
+                      }}
                     >
                       <span className="font-semibold">{option.label}</span> {typeof option.text === "string" ? option.text : JSON.stringify(option.text)}
                     </button>
