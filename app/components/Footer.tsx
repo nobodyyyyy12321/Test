@@ -18,7 +18,8 @@ export function Footer({ language }: { language: string }) {
       <div className="flex items-center justify-center gap-6">
         <Link
           href="/feedback"
-          className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 text-sm transition-colors border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800"
+          className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-transparent text-sm transition-colors border border-transparent hover:border-[#5fa870]"
+          style={{ color: "#5fa870" }}
         >
           {feedbackLabels[language] ?? feedbackLabels["zh-TW"]}
         </Link>
