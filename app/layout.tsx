@@ -55,31 +55,25 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${notoSerifSc.variable} antialiased`}
       >
         <Providers>
+          <aside
+            className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center py-6"
+            style={{ backgroundColor: "var(--zen-bg)", borderRight: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
+          >
+            <Link href="/" aria-label="回到首頁" className="inline-block transition-transform duration-200 hover:scale-[1.15]">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+                <path d="M9 21V12h6v9" />
+              </svg>
+            </Link>
 
-          <header
-              className="w-full py-1 sm:py-2 sticky top-0 z-40"
-              style={{ backgroundColor: "var(--zen-bg)", boxShadow: "none", borderBottom: "none" }}
-            >
-              <div className="w-full flex items-center flex-nowrap" style={{ minHeight: '28px' }}>
-                {/* 左上角 home 圖示，桌機版顯示 */}
-                <div className="hidden sm:block flex-shrink-0 pl-5">
-                  <Link href="/" aria-label="回到首頁" className="inline-block transition-transform duration-200 hover:scale-[1.15]">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-                      <path d="M9 21V12h6v9" />
-                    </svg>
-                  </Link>
-                </div>
-                <div className="flex-1" />
-                {/* 桌機才顯示 */}
-                <div className="hidden sm:block">
-                  <ShowLanguageSelectorOnHome />
-                </div>
-                <div className="hidden sm:block sm:mt-6 sm:mr-6">
-                  <AuthNav />
-                </div>
-              </div>
-            </header>
+            <div className="mt-8">
+              <ShowLanguageSelectorOnHome />
+            </div>
+
+            <div className="mt-6">
+              <AuthNav />
+            </div>
+          </aside>
 
           <PWARegister />
           <script
@@ -100,7 +94,9 @@ export default function RootLayout({
             (typeof window !== "undefined" && window.location.pathname.startsWith("/feedback"))
           ) ? null : <GlobalUpOneLevelButton />}
 
-          <LanguageGate>{children}</LanguageGate>
+          <div className="sm:pl-24">
+            <LanguageGate>{children}</LanguageGate>
+          </div>
           {/* 手機版底部列 */}
           <MobileBottomBar />
         </Providers>
