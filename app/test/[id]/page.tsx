@@ -211,23 +211,29 @@ export default function QuotePage() {
               <button
                 onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                 disabled={currentIndex === 0}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7aa8cc"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "#7aa8cc", color: "#7aa8cc" }}
+                style={{ background: "transparent", borderColor: "transparent", color: "#7aa8cc" }}
               >
-                ←
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <button
                 onClick={() => setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1))}
                 disabled={currentIndex === questions.length - 1}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7aa8cc"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === questions.length - 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "#7aa8cc", color: "#7aa8cc" }}
+                style={{ background: "transparent", borderColor: "transparent", color: "#7aa8cc" }}
               >
-                →
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
               </button>
               <button
                 onClick={checkAnswers}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7aa8cc"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ background: "transparent", borderColor: "#7aa8cc", color: "#7aa8cc" }}
+                style={{ background: "transparent", borderColor: "transparent", color: "#7aa8cc" }}
               >
                 交卷
               </button>
@@ -249,7 +255,12 @@ export default function QuotePage() {
               </div>
             )}
 
-            <div className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3" style={{ borderColor: "#5fa870", color: "#5fa870" }}>
+            <div
+              className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3 transition-colors"
+              style={{ borderColor: "transparent", color: "#5fa870" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#5fa870"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; }}
+            >
               <span>{currentQuestion.title}</span>
               {id === "englishWords" && (
                 <button
@@ -289,10 +300,10 @@ export default function QuotePage() {
                       key={option.label}
                       onClick={() => qtype === "multiple" ? handleMultipleToggle(option.label) : handleSingleAnswer(option.label)}
                       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(95,168,112,0.1)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#5fa870"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isSelected ? "rgba(95,168,112,0.1)" : "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#5fa870"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isSelected ? "rgba(95,168,112,0.1)" : "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = isSelected ? "#5fa870" : "transparent"; }}
                       className="flex-1 px-6 py-3 border border-[1px] rounded text-left transition-all"
                       style={{
-                        borderColor: "#5fa870",
+                        borderColor: isSelected ? "#5fa870" : "transparent",
                         color: "#5fa870",
                         background: isSelected ? "rgba(95,168,112,0.1)" : "transparent",
                       }}
