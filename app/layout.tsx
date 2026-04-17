@@ -56,7 +56,7 @@ export default function RootLayout({
       >
         <Providers>
           <aside
-            className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center justify-center gap-6"
+            className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center justify-between py-8"
             style={{ backgroundColor: "var(--zen-bg)", borderRight: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
           >
             <Link href="/" aria-label="回到首頁" className="inline-block transition-transform duration-200 hover:scale-[1.15]">
@@ -65,8 +65,8 @@ export default function RootLayout({
                 <path d="M9 21V12h6v9" />
               </svg>
             </Link>
-            <ShowLanguageSelectorOnHome />
             <AuthNav />
+            <ShowLanguageSelectorOnHome />
           </aside>
 
           <PWARegister />

@@ -10,7 +10,7 @@ export default function MobileBottomBar() {
 
   return (
     <div
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center pt-2 pb-4 gap-8"
+      className="sm:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between px-8 pt-2 pb-4"
       style={{ backgroundColor: "var(--zen-bg)", borderTop: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
     >
       <Link href="/" aria-label="回到首頁">
@@ -19,8 +19,8 @@ export default function MobileBottomBar() {
           <path d="M9 21V12h6v9" />
         </svg>
       </Link>
-      {showLang && <LanguageSelector />}
       <AuthNav />
+      {showLang && <LanguageSelector />}
     </div>
   );
 }
