@@ -34,11 +34,7 @@ const zhTW = [
   // { "name": "猜謎", "href": "/under-construction" },
   // { "name": "笑話", "href": "/under-construction" },
   { "name": "數學", "children": [
-    { "name": "學測", "dropdown": Array.from({ length: 115 - 83 + 1 }, (_, i) => {
-        const year = 115 - i;
-        return { name: String(year), href: "/under-construction" };
-      })
-    }
+    { "name": "算術", "href": "/under-construction" }
   ] },
   // { "name": "物理", "href": "/under-construction" },
   // { "name": "化學", "href": "/under-construction" },
