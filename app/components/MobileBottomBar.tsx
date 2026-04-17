@@ -1,16 +1,13 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import LanguageSelector from "./LanguageSelector";
 import AuthNav from "./AuthNav";
 
 export default function MobileBottomBar() {
-  const pathname = usePathname();
-  const showLang = pathname === "/";
 
   return (
     <div
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between px-8 pt-2 pb-4"
+      className="sm:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-8 pt-2 pb-4"
       style={{ backgroundColor: "var(--zen-bg)", borderTop: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
     >
       <Link href="/" aria-label="回到首頁">
@@ -20,7 +17,7 @@ export default function MobileBottomBar() {
         </svg>
       </Link>
       <AuthNav />
-      {showLang && <LanguageSelector />}
+      <LanguageSelector />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import "./globals.css";
 import AuthNav from "./components/AuthNav";
 import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
-import ShowLanguageSelectorOnHome from "./components/ShowLanguageSelectorOnHome";
+import LanguageSelector from "./components/LanguageSelector";
 import PWARegister from "./components/PWARegister";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
@@ -56,7 +56,7 @@ export default function RootLayout({
       >
         <Providers>
           <aside
-            className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center justify-between py-8"
+            className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center justify-center gap-8"
             style={{ backgroundColor: "var(--zen-bg)", borderRight: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
           >
             <Link href="/" aria-label="回到首頁" className="inline-block transition-transform duration-200 hover:scale-[1.15]">
@@ -66,7 +66,7 @@ export default function RootLayout({
               </svg>
             </Link>
             <AuthNav />
-            <ShowLanguageSelectorOnHome />
+            <LanguageSelector />
           </aside>
 
           <PWARegister />

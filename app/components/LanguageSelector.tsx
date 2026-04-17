@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type LanguageCode = "zh-TW" | "zh-CN" | "en" | "es" | "th" | "id" | "ko";
 
@@ -20,6 +21,7 @@ export default function LanguageSelector() {
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const stored = (localStorage.getItem("siteLanguage") as LanguageCode | null) ?? "zh-TW";
@@ -42,6 +44,7 @@ export default function LanguageSelector() {
     document.cookie = `siteLanguage=${value}; path=/; max-age=31536000`;
     window.dispatchEvent(new Event("site-language-change"));
     setIsOpen(false);
+    router.push("/");
   }
 
   const currentIndex = LANGUAGES.findIndex((l) => l.value === language);
