@@ -46,8 +46,8 @@ export function HomeContent({ language }: { language: string }) {
           <p className="max-w-md text-lg leading-8 zen-subtle" style={{ color: "#5fa870" }}>testtttt.io</p>
 
           <input
-            className="w-full max-w-sm mx-auto p-3 rounded-full border border-zinc-200 text-sm mt-4 outline-none transition-all focus:ring-2 focus:ring-zinc-100"
-            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+            className="home-search w-full max-w-sm mx-auto p-3 rounded-full border text-sm mt-4 outline-none transition-all"
+            style={{ backgroundColor: "var(--zen-bg)", color: "#7aa8cc", borderColor: "#7aa8cc" }}
             placeholder={language === "en" ? "Search subjects or users" : "搜尋科目或帳號"}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}

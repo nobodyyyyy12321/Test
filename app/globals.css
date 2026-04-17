@@ -1,3 +1,8 @@
+.home-search::placeholder {
+  color: #7aa8cc;
+  opacity: 0.6;
+}
+
 .subcategory-row-inner .book-link.bookshelf-btn:hover {
   box-shadow:
     0 0 0 2px var(--zen-accent, #6b705c),
