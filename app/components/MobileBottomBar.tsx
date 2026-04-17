@@ -20,7 +20,7 @@ export default function MobileBottomBar() {
         </svg>
       </Link>
       <div className="flex-1" />
-      {showLang && <LanguageSelector />}
+      {showLang && <div className="-ml-1"><LanguageSelector /></div>}
       <AuthNav />
     </div>
   );

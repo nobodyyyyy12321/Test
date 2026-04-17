@@ -65,7 +65,7 @@ export default function LanguageSelector() {
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-5 w-5"
+          className="h-7 w-7"
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="9" />
