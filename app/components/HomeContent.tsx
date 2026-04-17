@@ -41,9 +41,9 @@ export function HomeContent({ language }: { language: string }) {
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-start py-20 px-16">
         <div className="flex flex-col items-center gap-6 text-center w-full">
           <div className="flex items-center">
-            <h1 className="text-4xl font-bold zen-title">Test</h1>
+            <h1 className="text-4xl font-bold zen-title" style={{ color: "#7aa8cc" }}>Test</h1>
           </div>
-          <p className="max-w-md text-lg leading-8 zen-subtle">testtttt.io</p>
+          <p className="max-w-md text-lg leading-8 zen-subtle" style={{ color: "#5fa870" }}>testtttt.io</p>
 
           <input
             className="w-full max-w-sm mx-auto p-3 rounded-full border border-zinc-200 text-sm mt-4 outline-none transition-all focus:ring-2 focus:ring-zinc-100"
