@@ -48,7 +48,7 @@ export function HomeContent({ language }: { language: string }) {
           <input
             className="home-search w-full max-w-sm mx-auto p-3 rounded-full border text-sm mt-4 outline-none transition-all"
             style={{ backgroundColor: "var(--zen-bg)", color: "#7aa8cc", borderColor: "#7aa8cc" }}
-            placeholder={language === "en" ? "Search subjects or users" : "搜尋科目或帳號"}
+            placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
           />
