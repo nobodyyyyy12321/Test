@@ -146,7 +146,7 @@ export default function AuthNav() {
   };
 
   return (
-    <div className="flex items-center">
+    <>
       <div
         className="relative"
         ref={menuRef}
@@ -159,15 +159,10 @@ export default function AuthNav() {
           className="flex items-center"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
-          {avatarUrl ? (
-            <img src={avatarUrl} alt={`${name} avatar`} className="w-8 h-8 sm:w-11 sm:h-11 rounded-full object-cover" />
-          ) : session.user.image ? (
-            <img src={session.user.image} alt={`${name} avatar`} className="w-8 h-8 sm:w-11 sm:h-11 rounded-full object-cover" />
-          ) : (
-            <span className="w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-gray-600 text-white text-sm sm:text-base font-semibold flex items-center justify-center">
-              {name.slice(0, 1).toUpperCase()}
-            </span>
-          )}
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+          </svg>
         </button>
 
         {/* 桌機下拉選單 */}
@@ -210,6 +205,6 @@ export default function AuthNav() {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

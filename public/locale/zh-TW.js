@@ -20,10 +20,9 @@ const zhTW = [
   {
     "name": "英文",
     "children": [
-      { "name": "2000單", "href": "/test/englishWords?levels=1,2" },
-      { "name": "4000單", "href": "/test/englishWords?levels=3,4" },
-      { "name": "6000單", "href": "/test/englishWords?levels=5,6" },
-      { "name": "學測", "href":"/under-construction"}
+      { "name": "教育部2000單", "href": "/test/englishWords?levels=1,2" },
+      { "name": "教育部4000單", "href": "/test/englishWords?levels=3,4" },
+      { "name": "教育部6000單", "href": "/test/englishWords?levels=5,6" }
     ]
   },
   // { "name": "公職考試", "href": "/under-construction" },
