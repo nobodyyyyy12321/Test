@@ -109,7 +109,7 @@ export default function LanguageSelector() {
           <button
             key={l.value}
             onClick={() => handleLanguageChange(l.value)}
-            className={`w-full text-left px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 ${i < LANGUAGES.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${language === l.value ? 'font-semibold' : 'font-normal'}`}
+            className={`w-full text-center px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 ${i < LANGUAGES.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${language === l.value ? 'font-semibold' : 'font-normal'}`}
             style={{ color: COLORS[i % 2] }}
           >
             {l.label}
