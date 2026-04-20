@@ -211,29 +211,29 @@ export default function QuotePage() {
               <button
                 onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                 disabled={currentIndex === 0}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7aa8cc"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#9e8732"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "transparent", color: "#7aa8cc" }}
+                style={{ background: "transparent", borderColor: "transparent", color: "#9e8732" }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <button
                 onClick={() => setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1))}
                 disabled={currentIndex === questions.length - 1}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7aa8cc"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#9e8732"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === questions.length - 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "transparent", color: "#7aa8cc" }}
+                style={{ background: "transparent", borderColor: "transparent", color: "#9e8732" }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
               </button>
               <button
                 onClick={checkAnswers}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7aa8cc"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#9e8732"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
                 className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ background: "transparent", borderColor: "transparent", color: "#7aa8cc" }}
+                style={{ background: "transparent", borderColor: "transparent", color: "#9e8732" }}
               >
                 交卷
               </button>
