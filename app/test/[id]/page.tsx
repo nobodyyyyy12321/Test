@@ -210,8 +210,22 @@ export default function QuotePage() {
         <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
           <h1 className="text-3xl font-bold zen-title"></h1>
           {!showResults && (
-            <div className="flex gap-3">
-<button
+            <div className="flex items-center gap-3">
+              {session?.user && (
+                <BulkAddToListButton
+                  questions={questions
+                    .map((q, i) => ({ q, i }))
+                    .filter(({ i }) => checkedIdxs.has(i))
+                    .map(({ q }) => ({
+                      questionId: q.id,
+                      collectionId: id,
+                      title: q.title,
+                      number: q.number,
+                      level: q.level,
+                    }))}
+                />
+              )}
+              <button
                 onClick={checkAnswers}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
@@ -241,6 +255,16 @@ export default function QuotePage() {
                     )}
                     <div className="py-4">
                       <div className="flex items-center gap-2 text-sm mb-2">
+                        {session?.user && (
+                          <button
+                            type="button"
+                            onClick={() => setCheckedIdxs(prev => { const next = new Set(prev); next.has(idx) ? next.delete(idx) : next.add(idx); return next; })}
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs transition-colors ${checkedIdxs.has(idx) ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black" : "border-zinc-400 dark:border-zinc-500"}`}
+                            aria-label="勾選"
+                          >
+                            {checkedIdxs.has(idx) && "✓"}
+                          </button>
+                        )}
                         {id !== "englishWords" && <span style={{ color: "#5fa870" }}>#{q.number}</span>}
                         {qt === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
                         {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}

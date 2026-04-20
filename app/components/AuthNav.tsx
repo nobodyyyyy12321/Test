@@ -171,7 +171,7 @@ export default function AuthNav() {
             <div className="py-1">
               <div className="px-4 py-3 text-sm truncate border-b border-zinc-200 dark:border-zinc-800" title={name}>{name}</div>
               <Link href={`/${encodedName}`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
-              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>付費方案</Link>
+              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
               <button onClick={handleSignOut} className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }}>登出</button>
               {logoutError && (
                 <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
@@ -196,7 +196,7 @@ export default function AuthNav() {
       >
         <div className="px-5 py-4 text-sm text-center truncate border-b border-zinc-100 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400" title={name}>{name}</div>
         <Link href={`/${encodedName}`} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
-        <Link href="/under-construction" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>付費方案</Link>
+        <Link href="/under-construction" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
         <button onClick={handleSignOut} className="w-full text-center px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }}>登出</button>
         {logoutError && (
           <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800">
