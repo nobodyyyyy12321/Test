@@ -41,13 +41,13 @@ export function HomeContent({ language }: { language: string }) {
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-start pt-32 pb-10 px-16">
         <div className="flex flex-col items-center gap-6 text-center w-full">
           <div className="flex items-center">
-            <h1 className="text-4xl font-bold zen-title" style={{ color: "#9e8732" }}>Test</h1>
+            <h1 className="text-4xl font-bold zen-title" style={{ color: "#b19739" }}>Test</h1>
           </div>
           <p className="max-w-md text-lg leading-8 zen-subtle" style={{ color: "#5fa870" }}>testtttt.io</p>
 
           <input
             className="home-search w-full max-w-sm mx-auto p-3 rounded-full border text-sm mt-4 outline-none transition-all"
-            style={{ backgroundColor: "var(--zen-bg)", color: "#9e8732", borderColor: "#9e8732" }}
+            style={{ backgroundColor: "var(--zen-bg)", color: "#b19739", borderColor: "#b19739" }}
             placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
@@ -59,7 +59,7 @@ export function HomeContent({ language }: { language: string }) {
                 const key = `${language}-${i}-${subject.href || subject.name}`;
                 const isOpen = !!query || openKey === key;
                 const hasSub = !!subject.children?.length;
-                const colors = ["#9e8732", "#5fa870"];
+                const colors = ["#b19739", "#5fa870"];
                 const color = colors[i % colors.length];
                 const btnStyle = { color };
 

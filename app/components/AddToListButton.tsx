@@ -249,10 +249,10 @@ export function AddToListButton({ questionId, collectionId, title, number, level
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#9e8732"; }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
         className="flex h-9 w-9 aspect-square shrink-0 items-center justify-center rounded-full border text-xl leading-none transition-opacity hover:opacity-80"
-        style={{ background: "transparent", borderColor: "transparent", color: "#9e8732" }}
+        style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
         title="加入清單"
         aria-label="加入清單"
       >

@@ -15,7 +15,7 @@ const LANGUAGES: { value: LanguageCode; label: string }[] = [
   { value: "ko", label: "한국어" },
 ];
 
-const COLORS = ["#7aa8cc", "#5fa870"];
+const COLORS = ["#b19739", "#5fa870"];
 
 export default function LanguageSelector() {
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
