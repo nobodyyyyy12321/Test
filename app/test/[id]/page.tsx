@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useSearchParams } from "next/navigation";
 import { AddToListButton, BulkAddToListButton } from "../../components/AddToListButton";
@@ -47,7 +47,6 @@ export default function QuotePage() {
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
   const [listTitle, setListTitle] = useState<string | null>(null);
-  const touchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -123,6 +122,12 @@ export default function QuotePage() {
     }
   };
 
+  const handleSingleAnswerAt = (idx: number, answer: string) => {
+    const newAnswers = [...userAnswers];
+    newAnswers[idx] = answer;
+    setUserAnswers(newAnswers);
+  };
+
   const handleMultipleToggle = (label: string) => {
     const current = (userAnswers[currentIndex] as string[] | null) ?? [];
     const next = current.includes(label)
@@ -133,9 +138,25 @@ export default function QuotePage() {
     setUserAnswers(newAnswers);
   };
 
+  const handleMultipleToggleAt = (idx: number, label: string) => {
+    const current = (userAnswers[idx] as string[] | null) ?? [];
+    const next = current.includes(label)
+      ? current.filter(l => l !== label)
+      : [...current, label];
+    const newAnswers = [...userAnswers];
+    newAnswers[idx] = next.length > 0 ? next : null;
+    setUserAnswers(newAnswers);
+  };
+
   const handleFillChange = (value: string) => {
     const newAnswers = [...userAnswers];
     newAnswers[currentIndex] = value || null;
+    setUserAnswers(newAnswers);
+  };
+
+  const handleFillChangeAt = (idx: number, value: string) => {
+    const newAnswers = [...userAnswers];
+    newAnswers[idx] = value || null;
     setUserAnswers(newAnswers);
   };
 
@@ -203,19 +224,9 @@ export default function QuotePage() {
   const currentAnswer = userAnswers[currentIndex];
 
   return (
-    <div
-      className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black"
-      onTouchStart={e => { touchStartY.current = e.touches[0].clientY; }}
-      onTouchEnd={e => {
-        if (touchStartY.current === null || showResults) return;
-        const delta = touchStartY.current - e.changedTouches[0].clientY;
-        if (delta > 50) setCurrentIndex(i => Math.min(questions.length - 1, i + 1));
-        else if (delta < -50) setCurrentIndex(i => Math.max(0, i - 1));
-        touchStartY.current = null;
-      }}
-    >
-      <main className="flex w-full max-w-3xl flex-col items-start justify-start pt-[12vh] pb-8 px-16 bg-transparent dark:bg-black sm:items-start">
-        <div className="flex items-center justify-between w-full">
+    <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
+      <main className="flex w-full max-w-3xl flex-col items-start justify-start pt-[12vh] pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
+        <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
           <h1 className="text-3xl font-bold zen-title"></h1>
           {!showResults && (
             <div className="flex gap-3">
@@ -255,88 +266,145 @@ export default function QuotePage() {
         </div>
 
         {!showResults ? (
-          <div className="mt-6 space-y-4 w-full">
-            <div className="flex items-center gap-3 text-sm text-zinc-400">
-              <span className="text-lg" style={{ color: "#5fa870" }}>#{currentQuestion.number}</span>
-              {qtype === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
-              {qtype === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
+          <>
+            {/* 手機版：全題捲動列表 */}
+            <div className="sm:hidden mt-4 w-full flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
+              {questions.map((q, idx) => {
+                const qt = q.type ?? "single";
+                const ans = userAnswers[idx];
+                return (
+                  <div key={idx} className="py-4">
+                    <div className="flex items-center gap-2 text-sm mb-2">
+                      {id !== "englishWords" && <span style={{ color: "#5fa870" }}>#{q.number}</span>}
+                      {qt === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
+                      {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
+                    </div>
+                    {q.groupContent && (
+                      <div className="mb-2 p-3 border border-zinc-300 dark:border-zinc-600 rounded bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-6">
+                        {q.groupContent}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mb-3">
+                      <p className="text-base" style={{ color: "#5fa870" }}>{q.title}</p>
+                      {id === "englishWords" && (
+                        <button type="button" onClick={() => speakQuestion(q.title)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-white hover:bg-zinc-600" aria-label="朗讀英文">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                        </button>
+                      )}
+                    </div>
+                    {qt === "fill" ? (
+                      <input
+                        type="text"
+                        value={(ans as string) ?? ""}
+                        onChange={e => handleFillChangeAt(idx, e.target.value)}
+                        placeholder="輸入答案"
+                        className="w-full px-3 py-2 border border-zinc-400 dark:border-zinc-600 rounded text-sm outline-none"
+                        style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                      />
+                    ) : (
+                      <div className="flex flex-wrap">
+                        {q.options.map(option => {
+                          const isSel = qt === "multiple"
+                            ? ((ans as string[] | null) ?? []).includes(option.label)
+                            : ans === option.label;
+                          return (
+                            <button
+                              key={option.label}
+                              onClick={() => qt === "multiple" ? handleMultipleToggleAt(idx, option.label) : handleSingleAnswerAt(idx, option.label)}
+                              className="px-2 py-1.5 text-left text-sm bg-transparent border-none"
+                              style={{ color: "#5fa870", textDecoration: isSel ? "underline" : "none", textUnderlineOffset: "4px" }}
+                            >
+                              <span className="font-semibold">{option.label}</span> {option.text}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {currentQuestion.groupContent && (
-              <div className="p-4 border border-zinc-300 dark:border-zinc-600 rounded bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7">
-                {currentQuestion.groupContent}
+            {/* 桌機版：單題檢視 */}
+            <div className="hidden sm:block mt-6 space-y-4 w-full">
+              <div className="flex items-center gap-3 text-sm text-zinc-400">
+                {id !== "englishWords" && <span className="text-lg" style={{ color: "#5fa870" }}>#{currentQuestion.number}</span>}
+                {qtype === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
+                {qtype === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
               </div>
-            )}
 
-            <div
-              className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3 transition-colors"
-              style={{ borderColor: "transparent", color: "#5fa870" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#5fa870"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; }}
-            >
-              <span>{currentQuestion.title}</span>
-              {id === "englishWords" && (
-                <button
-                  type="button"
-                  onClick={() => speakQuestion(currentQuestion.title)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-700 text-white transition-colors hover:bg-zinc-600"
-                  aria-label="朗讀英文"
-                  title="朗讀英文"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                    <path d="M11 5 6 9H3v6h3l5 4V5z" />
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                  </svg>
-                </button>
+              {currentQuestion.groupContent && (
+                <div className="p-4 border border-zinc-300 dark:border-zinc-600 rounded bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7">
+                  {currentQuestion.groupContent}
+                </div>
               )}
-            </div>
 
-            {qtype === "fill" ? (
-              <input
-                type="text"
-                autoFocus
-                value={(currentAnswer as string) ?? ""}
-                onChange={e => handleFillChange(e.target.value)}
-                placeholder="輸入答案"
-                className="w-full px-4 py-3 border border-zinc-400 dark:border-zinc-600 rounded text-base outline-none focus:border-black dark:focus:border-zinc-200"
-                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-              />
-            ) : (
-              <div className="flex flex-col gap-3">
-                {currentQuestion.options.map((option) => {
-                  const isSelected = qtype === "multiple"
-                    ? ((currentAnswer as string[] | null) ?? []).includes(option.label)
-                    : currentAnswer === option.label;
-                  return (
-                    <button
-                      key={option.label}
-                      onClick={() => qtype === "multiple" ? handleMultipleToggle(option.label) : handleSingleAnswer(option.label)}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(95,168,112,0.1)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#5fa870"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isSelected ? "rgba(95,168,112,0.1)" : "transparent"; (e.currentTarget as HTMLButtonElement).style.borderColor = isSelected ? "#5fa870" : "transparent"; }}
-                      className="flex-1 px-6 py-3 border border-[1px] rounded text-left transition-all"
-                      style={{
-                        borderColor: isSelected ? "#5fa870" : "transparent",
-                        color: "#5fa870",
-                        background: isSelected ? "rgba(95,168,112,0.1)" : "transparent",
-                      }}
-                    >
-                      <span className="font-semibold">{option.label}</span> {typeof option.text === "string" ? option.text : JSON.stringify(option.text)}
-                    </button>
-                  );
-                })}
+              <div
+                className="p-6 border border-[1px] rounded text-lg flex items-center justify-between gap-3 transition-colors"
+                style={{ borderColor: "transparent", color: "#5fa870" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#5fa870"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; }}
+              >
+                <span>{currentQuestion.title}</span>
+                {id === "englishWords" && (
+                  <button
+                    type="button"
+                    onClick={() => speakQuestion(currentQuestion.title)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-700 text-white transition-colors hover:bg-zinc-600"
+                    aria-label="朗讀英文"
+                    title="朗讀英文"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                      <path d="M11 5 6 9H3v6h3l5 4V5z" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                  </button>
+                )}
               </div>
-            )}
-            <div className="flex justify-end mt-8">
-              <AddToListButton
-                questionId={currentQuestion.id}
-                collectionId={id}
-                title={currentQuestion.title}
-                number={currentQuestion.number}
-                level={currentQuestion.level}
-              />
+
+              {qtype === "fill" ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={(currentAnswer as string) ?? ""}
+                  onChange={e => handleFillChange(e.target.value)}
+                  placeholder="輸入答案"
+                  className="w-full px-4 py-3 border border-zinc-400 dark:border-zinc-600 rounded text-base outline-none focus:border-black dark:focus:border-zinc-200"
+                  style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {currentQuestion.options.map((option) => {
+                    const isSelected = qtype === "multiple"
+                      ? ((currentAnswer as string[] | null) ?? []).includes(option.label)
+                      : currentAnswer === option.label;
+                    return (
+                      <button
+                        key={option.label}
+                        onClick={() => qtype === "multiple" ? handleMultipleToggle(option.label) : handleSingleAnswer(option.label)}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.textDecoration = "underline"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.textDecoration = isSelected ? "underline" : "none"; }}
+                        className="flex-1 px-6 py-3 text-left transition-all bg-transparent border-none"
+                        style={{ color: "#5fa870", textDecoration: isSelected ? "underline" : "none", textUnderlineOffset: "4px" }}
+                      >
+                        <span className="font-semibold">{option.label}</span> {typeof option.text === "string" ? option.text : JSON.stringify(option.text)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex justify-end mt-8">
+                <AddToListButton
+                  questionId={currentQuestion.id}
+                  collectionId={id}
+                  title={currentQuestion.title}
+                  number={currentQuestion.number}
+                  level={currentQuestion.level}
+                />
+              </div>
             </div>
-          </div>
+          </>
         ) : (
           <div className="mt-6 space-y-4 w-full">
             <div className="flex items-center justify-between">
