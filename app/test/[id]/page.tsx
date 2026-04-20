@@ -473,8 +473,14 @@ export default function QuotePage() {
       {/* 分享 Modal */}
       {showShare && (() => {
         const isLink = checkedIdxs.size === 0;
+        const levels = searchParams.get("levels");
+        const englishLevelMap: Record<string, string> = {
+          "1,2": "教育部2000單",
+          "3,4": "教育部4000單",
+          "5,6": "教育部6000單",
+        };
         const idDisplayMap: Record<string, string> = {
-          englishWords: "英文單字",
+          englishWords: levels ? (englishLevelMap[levels] ?? "英文單字") : "英文單字",
           quoteChinese: "名言佳句",
         };
         const categoryName = idDisplayMap[id] || id;
