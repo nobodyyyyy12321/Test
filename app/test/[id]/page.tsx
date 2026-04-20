@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useSearchParams } from "next/navigation";
 import { AddToListButton, BulkAddToListButton } from "../../components/AddToListButton";
@@ -47,6 +47,7 @@ export default function QuotePage() {
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
   const [listTitle, setListTitle] = useState<string | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -202,32 +203,44 @@ export default function QuotePage() {
   const currentAnswer = userAnswers[currentIndex];
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
+    <div
+      className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black"
+      onTouchStart={e => { touchStartY.current = e.touches[0].clientY; }}
+      onTouchEnd={e => {
+        if (touchStartY.current === null || showResults) return;
+        const delta = touchStartY.current - e.changedTouches[0].clientY;
+        if (delta > 50) setCurrentIndex(i => Math.min(questions.length - 1, i + 1));
+        else if (delta < -50) setCurrentIndex(i => Math.max(0, i - 1));
+        touchStartY.current = null;
+      }}
+    >
       <main className="flex w-full max-w-3xl flex-col items-start justify-start pt-[12vh] pb-8 px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full">
           <h1 className="text-3xl font-bold zen-title"></h1>
           {!showResults && (
             <div className="flex gap-3">
-              <button
-                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                disabled={currentIndex === 0}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
-                className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <button
-                onClick={() => setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1))}
-                disabled={currentIndex === questions.length - 1}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
-                className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === questions.length - 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
-                style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
+              <div className="hidden sm:contents">
+                <button
+                  onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                  disabled={currentIndex === 0}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+                  className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                  style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <button
+                  onClick={() => setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1))}
+                  disabled={currentIndex === questions.length - 1}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+                  className={`px-4 py-2 border rounded-full text-sm transition-opacity ${currentIndex === questions.length - 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                  style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+              </div>
               <button
                 onClick={checkAnswers}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
