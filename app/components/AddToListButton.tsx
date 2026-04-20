@@ -108,7 +108,10 @@ export function BulkAddToListButton({ questions }: BulkProps) {
         type="button"
         onClick={() => setOpen(o => !o)}
         disabled={questions.length === 0}
-        className="flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-lg leading-none hover:border-zinc-500 dark:hover:border-zinc-400 transition-colors disabled:opacity-30"
+        className="flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border text-lg leading-none transition-colors disabled:opacity-30"
+        style={{ borderColor: "transparent", color: "#b19739", background: "transparent" }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
         title={questions.length === 0 ? "請先勾選題目" : `加入 ${questions.length} 題至清單`}
         aria-label="加入清單"
       >
