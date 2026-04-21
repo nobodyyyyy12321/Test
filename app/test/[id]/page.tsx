@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useSearchParams } from "next/navigation";
 import { BulkAddToListButton } from "../../components/AddToListButton";
+import { useShare } from "../../providers/ShareProvider";
 
 type Option = {
   label: string;
@@ -47,8 +48,7 @@ export default function QuotePage() {
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
   const [listTitle, setListTitle] = useState<string | null>(null);
-  const [showShare, setShowShare] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { setShareText } = useShare();
 
   useEffect(() => {
     if (!id) return;
@@ -178,6 +178,26 @@ export default function QuotePage() {
     }
   };
 
+  useEffect(() => {
+    if (checkedIdxs.size === 0) {
+      setShareText(null);
+      return;
+    }
+    const text = questions
+      .filter((_, i) => checkedIdxs.has(i))
+      .map(q => {
+        const numLine = id !== "englishWords" ? `#${q.number}\n` : "";
+        const opts = q.options.length ? "\n" + q.options.map(o => `${o.label}. ${o.text}`).join("  ") : "";
+        return `${numLine}${q.title}${opts}`;
+      })
+      .join("\n\n");
+    setShareText(text + "\n\nfrom testtttt.io");
+  }, [checkedIdxs, questions, id, setShareText]);
+
+  useEffect(() => {
+    return () => setShareText(null);
+  }, [setShareText]);
+
   const resetQuiz = () => {
     setShowResults(false);
     setCurrentIndex(0);
@@ -237,20 +257,7 @@ export default function QuotePage() {
                     }))}
                 />
               )}
-              <button
-                onClick={() => setShowShare(true)}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
-                className="flex items-center justify-center h-8 px-3 border rounded-full cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
-                aria-label="分享"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                </svg>
-              </button>
-              <button
+<button
                 onClick={checkAnswers}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
@@ -497,74 +504,6 @@ export default function QuotePage() {
         )}
       </main>
 
-      {/* 分享 Modal */}
-      {showShare && (() => {
-        const isLink = checkedIdxs.size === 0;
-        const levels = searchParams.get("levels");
-        const englishLevelMap: Record<string, string> = {
-          "1,2": "教育部2000單",
-          "3,4": "教育部4000單",
-          "5,6": "教育部6000單",
-        };
-        const idDisplayMap: Record<string, string> = {
-          englishWords: levels ? (englishLevelMap[levels] ?? "英文單字") : "英文單字",
-          quoteChinese: "名言佳句",
-        };
-        const categoryName = idDisplayMap[id] || id;
-        const pageUrl = window.location.href;
-        const textContent = questions.filter((_, i) => checkedIdxs.has(i)).map(q => {
-          const opts = q.options.map(o => `${o.label}. ${o.text}`).join("  ");
-          const numLine = id !== "englishWords" ? `#${q.number}\n` : "";
-          return `${numLine}${q.title}${opts ? "\n" + opts : ""}`;
-        }).join("\n\n") + "\nfrom testtttt.io";
-        const linkCopyText = `${categoryName}\n${pageUrl}\nfrom testtttt.io`;
-        const handleCopy = () => {
-          navigator.clipboard.writeText(isLink ? linkCopyText : textContent).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          });
-        };
-        return (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40" onClick={() => setShowShare(false)}>
-            <div className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl overflow-hidden" style={{ backgroundColor: "var(--zen-paper)" }} onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="text-sm font-medium" style={{ color: "#5fa870" }}>
-                  {isLink ? "分享分類" : `分享 ${checkedIdxs.size} 題`}
-                </span>
-                <button onClick={() => setShowShare(false)} className="text-lg leading-none" style={{ color: "#5fa870" }}>✕</button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                {isLink ? (
-                  <div className="text-sm space-y-1">
-                    <p style={{ color: "#5fa870" }}>{categoryName}</p>
-                    <p className="break-all" style={{ color: "#5fa870", opacity: 0.7 }}>{pageUrl}</p>
-                    <p style={{ color: "#5fa870", opacity: 0.7 }}>from testtttt.io</p>
-                  </div>
-                ) : (
-                  <>
-                    <textarea
-                      readOnly
-                      value={textContent}
-                      className="w-full h-52 text-sm resize-none outline-none"
-                      style={{ backgroundColor: "var(--zen-paper)", color: "#5fa870" }}
-                    />
-                    <p className="text-xs" style={{ color: "#5fa870", opacity: 0.7 }}>from testtttt.io</p>
-                  </>
-                )}
-              </div>
-              <div className="flex justify-end px-5 py-3 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  onClick={handleCopy}
-                  className="px-4 py-2 rounded-full text-sm border transition-opacity hover:opacity-80"
-                  style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
-                >
-                  {copied ? "已複製！" : "複製"}
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }

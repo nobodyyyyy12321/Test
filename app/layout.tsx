@@ -9,6 +9,7 @@ import LanguageSelector from "./components/LanguageSelector";
 import PWARegister from "./components/PWARegister";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
+import ShareButton from "./components/ShareButton";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
 // ...existing code...
@@ -66,6 +67,7 @@ export default function RootLayout({
               </svg>
             </Link>
             <AuthNav />
+            <ShareButton />
             <LanguageSelector />
           </aside>
 
