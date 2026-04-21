@@ -51,7 +51,9 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record";
+type Tab = "profile" | "lists" | "record" | "followers" | "following";
+
+type FollowUser = { id: string; name: string; avatarUrl?: string };
 
 type SocialLinks = { x?: string; facebook?: string; instagram?: string; website?: string };
 
@@ -118,6 +120,18 @@ export default function AccountPage() {
   const [recordLoaded, setRecordLoaded] = useState(false);
   const [recordLoading, setRecordLoading] = useState(false);
   const [quizRecords, setQuizRecords] = useState<QuizRecord[]>([]);
+
+  // ── follow state ──
+  const [followersLoaded, setFollowersLoaded] = useState(false);
+  const [followersLoading, setFollowersLoading] = useState(false);
+  const [followers, setFollowers] = useState<FollowUser[]>([]);
+  const [followingLoaded, setFollowingLoaded] = useState(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const [following, setFollowing] = useState<FollowUser[]>([]);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   // ── load profile on mount ──────────────────────────────────────────────────
 
@@ -186,6 +200,58 @@ export default function AccountPage() {
       .then(data => { setQuizRecords(data.user?.records || []); setRecordLoaded(true); })
       .finally(() => setRecordLoading(false));
   }, [activeTab, recordLoaded, urlName]);
+
+  // ── load follow counts & isFollowing on profile load ─────────────────────
+
+  useEffect(() => {
+    if (!urlName) return;
+    fetch(`/api/users/${encodeURIComponent(urlName)}/followers`)
+      .then(r => r.json())
+      .then(d => { setFollowersCount((d.followers ?? []).length); })
+      .catch(() => {});
+    fetch(`/api/users/${encodeURIComponent(urlName)}/following`)
+      .then(r => r.json())
+      .then(d => { setFollowingCount((d.following ?? []).length); })
+      .catch(() => {});
+    if (session?.user) {
+      fetch(`/api/users/${encodeURIComponent(urlName)}/follow`)
+        .then(r => r.json())
+        .then(d => setIsFollowing(Boolean(d.following)))
+        .catch(() => {});
+    }
+  }, [urlName, session]);
+
+  // ── load followers tab ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (activeTab !== "followers" || followersLoaded) return;
+    setFollowersLoading(true);
+    fetch(`/api/users/${encodeURIComponent(urlName)}/followers`)
+      .then(r => r.json())
+      .then(d => {
+        const list = (d.followers ?? []) as Array<{ followerName: string; followerAvatarUrl?: string; followerId: string }>;
+        setFollowers(list.map(f => ({ id: f.followerId, name: f.followerName, avatarUrl: f.followerAvatarUrl })));
+        setFollowersCount(list.length);
+        setFollowersLoaded(true);
+      })
+      .finally(() => setFollowersLoading(false));
+  }, [activeTab, followersLoaded, urlName]);
+
+  // ── load following tab ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (activeTab !== "following" || followingLoaded) return;
+    setFollowingLoading(true);
+    fetch(`/api/users/${encodeURIComponent(urlName)}/following`)
+      .then(r => r.json())
+      .then(d => {
+        const list = (d.following ?? []) as Array<{ followingName: string; followingAvatarUrl?: string; followingId: string }>;
+        setFollowing(list.map(f => ({ id: f.followingId, name: f.followingName, avatarUrl: f.followingAvatarUrl })));
+        setFollowingCount(list.length);
+        setFollowingLoaded(true);
+      })
+      .finally(() => setFollowingLoading(false));
+  }, [activeTab, followingLoaded, urlName]);
 
   // ── menu click-outside ─────────────────────────────────────────────────────
 
@@ -353,12 +419,29 @@ export default function AccountPage() {
     ));
   };
 
+  // ── follow action ─────────────────────────────────────────────────────────
+
+  const toggleFollow = async () => {
+    if (followLoading) return;
+    setFollowLoading(true);
+    const method = isFollowing ? "DELETE" : "POST";
+    await fetch(`/api/users/${encodeURIComponent(urlName)}/follow`, { method });
+    setIsFollowing(f => {
+      setFollowersCount(c => f ? c - 1 : c + 1);
+      return !f;
+    });
+    setFollowersLoaded(false);
+    setFollowLoading(false);
+  };
+
   // ── tabs config ───────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
     { id: "profile", label: "個人檔案" },
     { id: "lists", label: "個人試卷" },
     { id: "record", label: "紀錄", ownerOnly: true },
+    { id: "followers", label: `追蹤者 ${followersCount > 0 ? followersCount : ""}`.trim() },
+    { id: "following", label: `追蹤中 ${followingCount > 0 ? followingCount : ""}`.trim() },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || isOwner);
 
@@ -394,13 +477,28 @@ export default function AccountPage() {
             />
             <h1 className="text-2xl font-bold zen-title">{urlName}</h1>
           </div>
-          <button
-            onClick={handleShare}
-            className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-            style={{ color: "var(--zen-ink)" }}
-          >
-            {shareCopied ? "已複製" : "分享"}
-          </button>
+          <div className="flex items-center gap-2">
+            {!isOwner && session?.user && (
+              <button
+                onClick={toggleFollow}
+                disabled={followLoading}
+                className="text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50"
+                style={isFollowing
+                  ? { borderColor: "#5fa870", color: "#5fa870", background: "transparent" }
+                  : { borderColor: "#5fa870", color: "white", background: "#5fa870" }
+                }
+              >
+                {isFollowing ? "已追蹤" : "追蹤"}
+              </button>
+            )}
+            <button
+              onClick={handleShare}
+              className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}
+            >
+              {shareCopied ? "已複製" : "分享"}
+            </button>
+          </div>
         </div>
 
         {/* tab bar */}
@@ -830,6 +928,50 @@ export default function AccountPage() {
           </div>
         )}
 
+
+        {/* ── followers tab ───────────────────────────────────────────────── */}
+        {activeTab === "followers" && (
+          <div>
+            {followersLoading ? (
+              <p className="text-sm zen-subtle">載入中...</p>
+            ) : followers.length === 0 ? (
+              <p className="text-sm zen-subtle opacity-50">尚無追蹤者</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {followers.map(u => (
+                  <li key={u.id}>
+                    <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                      <img src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* ── following tab ───────────────────────────────────────────────── */}
+        {activeTab === "following" && (
+          <div>
+            {followingLoading ? (
+              <p className="text-sm zen-subtle">載入中...</p>
+            ) : following.length === 0 ? (
+              <p className="text-sm zen-subtle opacity-50">尚無追蹤中的使用者</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {following.map(u => (
+                  <li key={u.id}>
+                    <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                      <img src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
       </main>
     </div>
