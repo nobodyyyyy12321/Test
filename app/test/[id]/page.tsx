@@ -486,8 +486,9 @@ export default function QuotePage() {
         const categoryName = idDisplayMap[id] || id;
         const pageUrl = window.location.href;
         const textContent = questions.filter((_, i) => checkedIdxs.has(i)).map(q => {
-          const opts = q.options.map(o => `${o.label}. ${o.text}`).join("\n");
-          return `${id !== "englishWords" ? `#${q.number} ` : ""}${q.title}${opts ? "\n" + opts : ""}`;
+          const opts = q.options.map(o => `${o.label}. ${o.text}`).join("  ");
+          const numLine = id !== "englishWords" ? `#${q.number}\n` : "";
+          return `${numLine}${q.title}${opts ? "\n" + opts : ""}`;
         }).join("\n\n") + "\nfrom testtttt.io";
         const linkCopyText = `${categoryName}\n${pageUrl}\nfrom testtttt.io`;
         const handleCopy = () => {
@@ -500,17 +501,17 @@ export default function QuotePage() {
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40" onClick={() => setShowShare(false)}>
             <div className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl overflow-hidden" style={{ backgroundColor: "var(--zen-paper)" }} onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>
+                <span className="text-sm font-medium" style={{ color: "#5fa870" }}>
                   {isLink ? "分享分類" : `分享 ${checkedIdxs.size} 題`}
                 </span>
-                <button onClick={() => setShowShare(false)} className="text-zinc-400 hover:text-zinc-600 text-lg leading-none">✕</button>
+                <button onClick={() => setShowShare(false)} className="text-lg leading-none" style={{ color: "#5fa870" }}>✕</button>
               </div>
               <div className="px-5 py-4 space-y-3">
                 {isLink ? (
-                  <div className="text-sm space-y-1" style={{ color: "var(--zen-ink)" }}>
-                    <p>{categoryName}</p>
-                    <p className="break-all text-zinc-400">{pageUrl}</p>
-                    <p className="text-zinc-400">from testtttt.io</p>
+                  <div className="text-sm space-y-1">
+                    <p style={{ color: "#5fa870" }}>{categoryName}</p>
+                    <p className="break-all" style={{ color: "#5fa870", opacity: 0.7 }}>{pageUrl}</p>
+                    <p style={{ color: "#5fa870", opacity: 0.7 }}>from testtttt.io</p>
                   </div>
                 ) : (
                   <>
@@ -518,9 +519,9 @@ export default function QuotePage() {
                       readOnly
                       value={textContent}
                       className="w-full h-52 text-sm resize-none outline-none"
-                      style={{ backgroundColor: "var(--zen-paper)", color: "var(--zen-ink)" }}
+                      style={{ backgroundColor: "var(--zen-paper)", color: "#5fa870" }}
                     />
-                    <p className="text-xs text-zinc-400">from testtttt.io</p>
+                    <p className="text-xs" style={{ color: "#5fa870", opacity: 0.7 }}>from testtttt.io</p>
                   </>
                 )}
               </div>
