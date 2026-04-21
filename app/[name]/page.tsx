@@ -440,8 +440,8 @@ export default function AccountPage() {
     { id: "profile", label: "個人檔案" },
     { id: "lists", label: "個人試卷" },
     { id: "record", label: "紀錄", ownerOnly: true },
-    { id: "followers", label: `追蹤者 ${followersCount > 0 ? followersCount : ""}`.trim() },
-    { id: "following", label: `追蹤中 ${followingCount > 0 ? followingCount : ""}`.trim() },
+    { id: "followers", label: "追蹤者" },
+    { id: "following", label: "追蹤中" },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || isOwner);
 

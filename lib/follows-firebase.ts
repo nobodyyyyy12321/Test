@@ -16,7 +16,7 @@ const COLLECTION = "follows";
 export async function getFollowers(userId: string): Promise<Follow[]> {
   try {
     const db = getFirestoreDB();
-    const snap = await db.collection(COLLECTION).where("followingId", "==", userId).orderBy("createdAt", "desc").get();
+    const snap = await db.collection(COLLECTION).where("followingId", "==", userId).get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Follow));
   } catch {
     return [];
@@ -26,7 +26,7 @@ export async function getFollowers(userId: string): Promise<Follow[]> {
 export async function getFollowing(userId: string): Promise<Follow[]> {
   try {
     const db = getFirestoreDB();
-    const snap = await db.collection(COLLECTION).where("followerId", "==", userId).orderBy("createdAt", "desc").get();
+    const snap = await db.collection(COLLECTION).where("followerId", "==", userId).get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Follow));
   } catch {
     return [];

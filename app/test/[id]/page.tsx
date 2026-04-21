@@ -349,14 +349,16 @@ export default function QuotePage() {
                 寫 {correctCount}/{answeredCount}
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={retryWrong}
-                  disabled={questions.every((q, idx) => userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
-                  className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
-                  style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
-                >
-                  錯題重練
-                </button>
+                {session && (
+                  <button
+                    onClick={retryWrong}
+                    disabled={questions.every((q, idx) => userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
+                    className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
+                    style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
+                  >
+                    錯題重練
+                  </button>
+                )}
                 <button
                   onClick={resetQuiz}
                   className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
