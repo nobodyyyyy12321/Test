@@ -218,7 +218,7 @@ export default function QuotePage() {
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
-      <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
+      <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-24 sm:pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
           <h1 className="text-3xl font-bold zen-title"></h1>
           {!showResults && (
