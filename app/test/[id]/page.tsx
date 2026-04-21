@@ -184,6 +184,16 @@ export default function QuotePage() {
     setUserAnswers(new Array(questions.length).fill(null));
   };
 
+  const retryWrong = () => {
+    const wrongQuestions = questions.filter((q, idx) => userAnswers[idx] !== null && !gradeAnswer(q, userAnswers[idx]));
+    if (wrongQuestions.length === 0) return;
+    setQuestions(wrongQuestions);
+    setShowResults(false);
+    setCurrentIndex(0);
+    setUserAnswers(new Array(wrongQuestions.length).fill(null));
+    setCheckedIdxs(new Set());
+  };
+
   const speakQuestion = (text: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
@@ -311,8 +321,13 @@ export default function QuotePage() {
                               <button
                                 key={option.label}
                                 onClick={() => qt === "multiple" ? handleMultipleToggleAt(idx, option.label) : handleSingleAnswerAt(idx, option.label)}
-                                className="px-2 py-1.5 text-left text-sm bg-transparent border-none"
-                                style={{ color: "#5fa870", textDecoration: isSel ? "underline" : "none", textUnderlineOffset: "4px" }}
+                                className="px-2 py-1.5 text-left text-sm rounded transition-colors"
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(95,168,112,0.15)"; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ""; }}
+                                style={{
+                                  color: "#5fa870",
+                                  border: isSel ? "1.5px solid #5fa870" : "1.5px solid transparent",
+                                }}
                               >
                                 <span className="font-semibold">{option.label}</span> {option.text}
                               </button>
@@ -333,12 +348,22 @@ export default function QuotePage() {
               <div className="text-2xl font-bold">
                 寫 {correctCount}/{answeredCount}
               </div>
-              <button
-                onClick={resetQuiz}
-                className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
-              >
-                重新開始
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={retryWrong}
+                  disabled={questions.every((q, idx) => userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
+                  className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
+                  style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
+                >
+                  錯題重練
+                </button>
+                <button
+                  onClick={resetQuiz}
+                  className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
+                >
+                  重新開始
+                </button>
+              </div>
             </div>
             <h2 className="text-2xl font-bold mt-6">答題結果</h2>
             <div className="space-y-3">
