@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
@@ -31,7 +31,7 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
   return "Test";
 }
 
-export default function ShareButton() {
+function ShareButtonInner() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const pathname = usePathname();
@@ -129,5 +129,13 @@ export default function ShareButton() {
         </div>
       )}
     </>
+  );
+}
+
+export default function ShareButton() {
+  return (
+    <Suspense fallback={null}>
+      <ShareButtonInner />
+    </Suspense>
   );
 }
