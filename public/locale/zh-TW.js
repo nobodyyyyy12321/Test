@@ -26,7 +26,7 @@ const zhTW = [
     ]
   },
   // { "name": "公職考試", "href": "/under-construction" },
-  { "name": "名言佳句", "href": "/test/quoteChinese" },
+  { "name": "金句", "href": "/test/quoteChinese" },
   // { "name": "綜合", "href": "/under-construction" },
   // { "name": "比賽", "href": "/under-construction" },
   // { "name": "八卦", "href": "/under-construction" },
