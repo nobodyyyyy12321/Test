@@ -34,6 +34,7 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
 function ShareButtonInner() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editText, setEditText] = useState("");
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -49,25 +50,28 @@ function ShareButtonInner() {
       : `${window.location.origin}${pathname}${window.location.search}`;
   };
 
+  const handleOpen = () => {
+    setEditText(isTextMode ? shareText! : `${title}\n${getUrl()}`);
+    setOpen(true);
+  };
+
   const handleCopy = () => {
-    const content = isTextMode ? shareText! : `${title}\n${getUrl()}`;
     if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(content).then(() => {
+      navigator.clipboard.writeText(editText).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      }).catch(() => window.prompt("複製", content));
+      }).catch(() => window.prompt("複製", editText));
     } else {
-      window.prompt("複製", content);
+      window.prompt("複製", editText);
     }
   };
 
-  const url = typeof window !== "undefined" ? getUrl() : "";
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         aria-label="分享"
         title="分享"
         className="flex items-center justify-center transition-opacity hover:opacity-70"
@@ -84,7 +88,7 @@ function ShareButtonInner() {
       {open && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
-          onClick={() => { setOpen(false); setCopied(false); }}
+          onClick={() => { setOpen(false); setCopied(false); setEditText(""); }}
         >
           <div
             className="relative w-full max-w-sm mx-4 rounded-xl shadow-xl overflow-hidden"
@@ -94,27 +98,18 @@ function ShareButtonInner() {
             <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
               <span className="text-sm font-medium" style={{ color: "#5fa870" }}>分享</span>
               <button
-                onClick={() => { setOpen(false); setCopied(false); }}
+                onClick={() => { setOpen(false); setCopied(false); setEditText(""); }}
                 className="text-lg leading-none"
                 style={{ color: "#5fa870" }}
               >✕</button>
             </div>
-            <div className="px-5 py-4 space-y-2">
-              {isTextMode ? (
-                <>
-                  <textarea
-                    readOnly
-                    value={shareText!}
-                    className="w-full h-52 text-sm resize-none outline-none"
-                    style={{ backgroundColor: "var(--zen-paper)", color: "#5fa870" }}
-                  />
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-medium" style={{ color: "#5fa870" }}>{title}</p>
-                  <p className="text-sm break-all" style={{ color: "#5fa870", opacity: 0.7 }}>{url}</p>
-                </>
-              )}
+            <div className="px-5 py-4">
+              <textarea
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                className="w-full h-40 text-sm resize-none outline-none"
+                style={{ backgroundColor: "var(--zen-paper)", color: "#5fa870" }}
+              />
             </div>
             <div className="flex justify-end px-5 py-3 border-t border-zinc-100 dark:border-zinc-800">
               <button
