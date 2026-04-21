@@ -37,8 +37,9 @@ export default function ShareButton() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const { shareText } = useShare();
-  const title = getPageTitle(pathname, searchParams);
+  const { shareText, shareTitle } = useShare();
+  const urlTitle = getPageTitle(pathname, searchParams);
+  const title = shareTitle ?? urlTitle;
   const isTextMode = !!shareText;
 
   const getUrl = () => {
@@ -49,7 +50,7 @@ export default function ShareButton() {
   };
 
   const handleCopy = () => {
-    const content = isTextMode ? shareText! : getUrl();
+    const content = isTextMode ? shareText! : `${title}\n${getUrl()}`;
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(content).then(() => {
         setCopied(true);

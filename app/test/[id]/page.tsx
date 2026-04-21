@@ -48,7 +48,16 @@ export default function QuotePage() {
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
   const [listTitle, setListTitle] = useState<string | null>(null);
-  const { setShareText } = useShare();
+  const { setShareText, setShareTitle } = useShare();
+
+  const levels = searchParams.get("levels");
+  const ENGLISH_LEVEL_MAP: Record<string, string> = {
+    "1,2": "教育部2000單", "3,4": "教育部4000單", "5,6": "教育部6000單",
+  };
+  const ID_NAME_MAP: Record<string, string> = { quoteChinese: "名言佳句" };
+  const pageTitle = id === "englishWords"
+    ? (levels ? (ENGLISH_LEVEL_MAP[levels] ?? "英文單字") : "英文單字")
+    : (ID_NAME_MAP[id] ?? id);
 
   useEffect(() => {
     if (!id) return;
@@ -181,6 +190,7 @@ export default function QuotePage() {
   useEffect(() => {
     if (checkedIdxs.size === 0) {
       setShareText(null);
+      setShareTitle(null);
       return;
     }
     const text = questions
@@ -191,12 +201,13 @@ export default function QuotePage() {
         return `${numLine}${q.title}${opts}`;
       })
       .join("\n\n");
+    setShareTitle(pageTitle);
     setShareText(text + "\n\nfrom testtttt.io");
-  }, [checkedIdxs, questions, id, setShareText]);
+  }, [checkedIdxs, questions, id, setShareText, setShareTitle, pageTitle]);
 
   useEffect(() => {
-    return () => setShareText(null);
-  }, [setShareText]);
+    return () => { setShareText(null); setShareTitle(null); };
+  }, [setShareText, setShareTitle]);
 
   const resetQuiz = () => {
     setShowResults(false);
