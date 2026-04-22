@@ -54,7 +54,7 @@ export default function LanguageSelector() {
     <div className="relative" ref={menuRef}>
       {/* 觸發按鈕（桌機＋手機共用） */}
       <button
-        className="p-2 rounded-md text-sm inline-flex items-center justify-center transition-transform duration-200 hover:scale-[1.15]"
+        className="p-0 rounded-md text-sm inline-flex items-center justify-center"
         style={{ backgroundColor: "var(--zen-bg)", color: "#b19739" }}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="語言選擇"
@@ -68,7 +68,7 @@ export default function LanguageSelector() {
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-7 w-7"
+          className="h-5 w-5"
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="9" />
