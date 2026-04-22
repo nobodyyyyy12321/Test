@@ -39,7 +39,7 @@ export function HomeContent({ language }: { language: string }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-start pt-32 pb-10 px-16">
+      <main className="flex min-h-screen w-full max-w-[72rem] flex-col items-center justify-start pt-32 pb-10 px-16">
         <div className="flex flex-col items-center gap-6 text-center w-full">
           <div className="relative inline-flex justify-center">
             <h1 className="text-4xl font-bold zen-title" style={{ color: "#b19739" }}>Test</h1>
