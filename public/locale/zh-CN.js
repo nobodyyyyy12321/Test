@@ -3,7 +3,7 @@ const zhCN = [
   { "name": "国文", "href": "/under-construction" },
   { "name": "英文", "href": "/under-construction" },
   // { "name": "公职考试", "href": "/under-construction" },
-  { "name": "名言佳句", "href": "/under-construction" },
+  { "name": "金句", "href": "/under-construction" },
   // { "name": "综合", "href": "/under-construction" },
   // { "name": "比赛", "href": "/under-construction" },
   // { "name": "八卦", "href": "/under-construction" },
