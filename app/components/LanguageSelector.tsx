@@ -54,8 +54,8 @@ export default function LanguageSelector() {
     <div className="relative" ref={menuRef}>
       {/* 觸發按鈕（桌機＋手機共用） */}
       <button
-        className="p-2 rounded-md text-sm inline-flex items-center justify-center"
-        style={{ backgroundColor: "var(--zen-bg)", color: "#5fa870" }}
+        className="p-2 rounded-md text-sm inline-flex items-center justify-center transition-transform duration-200 hover:scale-[1.15]"
+        style={{ backgroundColor: "var(--zen-bg)", color: "#b19739" }}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="語言選擇"
         title={currentLabel}

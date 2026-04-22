@@ -5,7 +5,6 @@ import "./globals.css";
 import AuthNav from "./components/AuthNav";
 import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
-import LanguageSelector from "./components/LanguageSelector";
 import PWARegister from "./components/PWARegister";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
@@ -68,7 +67,6 @@ export default function RootLayout({
             </Link>
             <AuthNav />
             <ShareButton />
-            <LanguageSelector />
           </aside>
 
           <PWARegister />

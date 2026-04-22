@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import LanguageSelector from "./LanguageSelector";
 import AuthNav from "./AuthNav";
 import ShareButton from "./ShareButton";
 
@@ -24,9 +23,6 @@ export default function MobileBottomBar() {
       </div>
       <div className="flex items-center justify-center w-10">
         <ShareButton />
-      </div>
-      <div className="flex items-center justify-center w-10">
-        <LanguageSelector />
       </div>
     </div>
   );
