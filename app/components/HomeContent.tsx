@@ -199,7 +199,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             {/* Pinned bar — drop target */}
             <div
               data-drop="pinned"
-              className="flex flex-wrap items-start gap-2 min-h-[5.5rem] px-2 py-2 border-b transition-colors"
+              className="min-h-[5.5rem] px-2 py-2 border-b transition-colors"
               style={{
                 borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
                 background: loggedIn && overPinned ? "color-mix(in srgb, #5fa870 8%, transparent)" : "transparent",
@@ -219,45 +219,38 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   {language === "en" ? "Favorites" : "常用"}
                 </span>
               )}
-              {!loggedIn && null}
-              {loggedIn && pinnedNames.map(name => {
-                const found = findSubject(name);
-                if (!found) return null;
-                const { node: subject, color } = found;
-                const isExpanded = openPinnedKey === name;
-                return (
-                  <div key={name} className="flex flex-row items-start gap-1 flex-wrap">
-                    {/* pinned item row */}
-                    <div
-                      draggable
-                      onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
-                      onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
-                      onTouchStart={e => startTouchDrag(e, name, "pinned")}
-                      style={{ cursor: "grab" }}
-                    >
-                      {subject.children?.length ? (
-                        <button
-                          type="button"
-                          className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
-                          style={{ color }}
-                          onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+              {loggedIn && pinnedNames.length > 0 && (
+                <div className="bookshelf-grid home-bookshelf-grid">
+                  {pinnedNames.map(name => {
+                    const found = findSubject(name);
+                    if (!found) return null;
+                    const { node: subject, color } = found;
+                    const isExpanded = openPinnedKey === name;
+                    return (
+                      <div key={name} className="contents">
+                        <div
+                          draggable
+                          onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
+                          onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                          onTouchStart={e => startTouchDrag(e, name, "pinned")}
+                          style={{ cursor: "grab" }}
                         >
-                          {name}
-                        </button>
-                      ) : (
-                        <Link
-                          href={subject.href || "#"}
-                          className="book-link bookshelf-btn"
-                          style={{ color }}
-                        >
-                          {name}
-                        </Link>
-                      )}
-                    </div>
-                    {/* expanded children */}
-                    {isExpanded && subject.children && (
-                      <div className="bookshelf-grid home-bookshelf-grid">
-                        {subject.children.map(child => {
+                          {subject.children?.length ? (
+                            <button
+                              type="button"
+                              className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
+                              style={{ color }}
+                              onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                            >
+                              {name}
+                            </button>
+                          ) : (
+                            <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={{ color }}>
+                              {name}
+                            </Link>
+                          )}
+                        </div>
+                        {isExpanded && subject.children?.map(child => {
                           const childPinned = pinnedNames.includes(child.name);
                           return (
                             <div
@@ -269,19 +262,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               style={{ cursor: "grab", opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
-                                <Link
-                                  href={child.href}
-                                  className="book-link bookshelf-btn sub-item"
-                                  style={{ color }}
-                                >
+                                <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color }}>
                                   {child.name}
                                 </Link>
                               ) : (
-                                <button
-                                  type="button"
-                                  className="book-link bookshelf-btn sub-item"
-                                  style={{ color }}
-                                >
+                                <button type="button" className="book-link bookshelf-btn sub-item" style={{ color }}>
                                   {child.name}
                                 </button>
                               )}
@@ -289,10 +274,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
               {/* collapse toggle */}
               <button
                 type="button"
