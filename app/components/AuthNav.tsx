@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 export default function AuthNav() {
@@ -10,8 +12,18 @@ export default function AuthNav() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [domMounted, setDomMounted] = useState(false);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setDomMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   const handleMouseEnter = () => {
     if (closeTimeoutRef.current) {
@@ -93,19 +105,22 @@ export default function AuthNav() {
           )}
         </div>
 
-        {/* 手機遮罩 */}
-        <div
-          className={`sm:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          onClick={() => setIsMenuOpen(false)}
-        />
-
-        {/* 手機頂部下滑選單 */}
-        <div
-          className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
-        >
-          <Link href="/auth/login" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
-          <Link href="/auth/register" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
-        </div>
+        {/* 手機遮罩 + 頂部下滑選單（用 Portal 渲染到 body，避免被 MobileBottomBar stacking context 限制） */}
+        {domMounted && createPortal(
+          <>
+            <div
+              className={`sm:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+              onClick={() => setIsMenuOpen(false)}
+            />
+            <div
+              className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
+            >
+              <Link href="/auth/login" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
+              <Link href="/auth/register" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
+            </div>
+          </>,
+          document.body
+        )}
       </>
     );
   }
@@ -188,27 +203,30 @@ export default function AuthNav() {
         )}
       </div>
 
-      {/* 手機遮罩 */}
-      <div
-        className={`sm:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-        onClick={() => setIsMenuOpen(false)}
-      />
-
-      {/* 手機頂部下滑選單 */}
-      <div
-        className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
-      >
-        <div className="px-5 py-4 text-sm text-center truncate border-b border-zinc-100 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400" title={name}>{name}</div>
-        <Link href={`/${encodedName}`} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
-        <Link href="/under-construction" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
-        <button onClick={handleSignOut} className="w-full text-center px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }}>登出</button>
-        {logoutError && (
-          <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800">
-            <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
-            <a href="/api/auth/signout" className="mt-1 inline-block text-xs underline">改用預設登出頁</a>
+      {/* 手機遮罩 + 頂部下滑選單（用 Portal 渲染到 body，避免被 MobileBottomBar stacking context 限制） */}
+      {domMounted && createPortal(
+        <>
+          <div
+            className={`sm:hidden fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+            onClick={() => setIsMenuOpen(false)}
+          />
+          <div
+            className={`sm:hidden fixed top-0 left-0 right-0 z-[61] bg-zen-paper dark:bg-zinc-900 shadow-md transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}
+          >
+            <div className="px-5 py-4 text-sm text-center truncate border-b border-zinc-100 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400" title={name}>{name}</div>
+            <Link href={`/${encodedName}`} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
+            <Link href="/under-construction" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+            <button onClick={handleSignOut} className="w-full text-center px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }}>登出</button>
+            {logoutError && (
+              <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800">
+                <p className="text-xs text-red-600 dark:text-red-400 break-all">登出失敗：{logoutError}</p>
+                <a href="/api/auth/signout" className="mt-1 inline-block text-xs underline">改用預設登出頁</a>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>,
+        document.body
+      )}
     </>
   );
 }

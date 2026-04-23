@@ -405,7 +405,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
-      <main className="w-full max-w-2xl px-6 pt-10 pb-28 sm:pb-10">
+      <main className="w-full max-w-2xl px-6 pt-10 pb-36 sm:pb-10">
 
         {/* header */}
         <div className="flex items-center justify-between mb-6">
@@ -439,7 +439,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           {visibleTabs.map(t => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => { setActiveTab(t.id); window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }}
               className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === t.id
                   ? "border-current"
