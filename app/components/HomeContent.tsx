@@ -26,9 +26,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [overPinned, setOverPinned] = useState(false);
   const [overGrid, setOverGrid] = useState(false);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
+  const [ghostPos, setGhostPos] = useState<{ name: string; x: number; y: number } | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchDragRef = useRef<{ name: string; from: "pinned" | "grid" } | null>(null);
   const subjects = useFilteredCategories(categories, query);
 
   const colors = ["#b19739", "#5fa870"];
@@ -67,6 +69,48 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       localStorage.setItem("pinnedCats", JSON.stringify(next));
       return next;
     });
+  };
+
+  // stable refs for touch handlers
+  const pinRef = useRef(pin);
+  const unpinRef = useRef(unpin);
+  useEffect(() => { pinRef.current = pin; unpinRef.current = unpin; });
+
+  // touch drag global listeners
+  useEffect(() => {
+    const onMove = (e: TouchEvent) => {
+      if (!touchDragRef.current) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      setGhostPos({ name: touchDragRef.current.name, x: t.clientX, y: t.clientY });
+    };
+    const onEnd = (e: TouchEvent) => {
+      const drag = touchDragRef.current;
+      if (!drag) return;
+      const t = e.changedTouches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      if (el?.closest('[data-drop="pinned"]') && drag.from === "grid") pinRef.current(drag.name);
+      else if (el?.closest('[data-drop="grid"]') && drag.from === "pinned") unpinRef.current(drag.name);
+      touchDragRef.current = null;
+      setGhostPos(null);
+      setDragging(null);
+      setDraggingFrom(null);
+    };
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+    return () => {
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  const startTouchDrag = (e: React.TouchEvent, name: string, from: "pinned" | "grid") => {
+    if (!loggedIn) return;
+    const t = e.touches[0];
+    touchDragRef.current = { name, from };
+    setDragging(name);
+    setDraggingFrom(from);
+    setGhostPos({ name, x: t.clientX, y: t.clientY });
   };
 
   // sync language from localStorage
@@ -120,6 +164,15 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
   return (
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
+      {/* touch drag ghost */}
+      {ghostPos && (
+        <div
+          className="fixed pointer-events-none z-[200] book-link bookshelf-btn opacity-80"
+          style={{ left: ghostPos.x - 40, top: ghostPos.y - 20, color: "#b19739", transform: "scale(1.08)" }}
+        >
+          {ghostPos.name}
+        </div>
+      )}
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-40 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
@@ -145,6 +198,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
             {/* Pinned bar — drop target */}
             <div
+              data-drop="pinned"
               className="flex flex-wrap items-start gap-2 min-h-[5.5rem] px-2 py-2 border-b transition-colors"
               style={{
                 borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
@@ -176,12 +230,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     {/* pinned item row */}
                     <div
                       draggable
-                      onDragStart={e => {
-                        e.dataTransfer.effectAllowed = "move";
-                        setDragging(name);
-                        setDraggingFrom("pinned");
-                      }}
+                      onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
                       onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                      onTouchStart={e => startTouchDrag(e, name, "pinned")}
                       style={{ cursor: "grab" }}
                     >
                       {subject.children?.length ? (
@@ -212,12 +263,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             <div
                               key={child.name}
                               draggable
-                              onDragStart={e => {
-                                e.dataTransfer.effectAllowed = "move";
-                                setDragging(child.name);
-                                setDraggingFrom(childPinned ? "pinned" : "grid");
-                              }}
+                              onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(child.name); setDraggingFrom(childPinned ? "pinned" : "grid"); }}
                               onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                              onTouchStart={e => startTouchDrag(e, child.name, childPinned ? "pinned" : "grid")}
                               style={{ cursor: "grab", opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
@@ -268,6 +316,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
                   <div
+                    data-drop="grid"
                     className="bookshelf-grid home-bookshelf-grid"
                     onDragOver={e => { e.preventDefault(); if (draggingFrom === "pinned") setOverGrid(true); }}
                     onDragLeave={() => setOverGrid(false)}
@@ -291,12 +340,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         <div key={key} className="contents">
                           <div
                             draggable={loggedIn}
-                            onDragStart={loggedIn ? e => {
-                              e.dataTransfer.effectAllowed = "move";
-                              setDragging(subject.name);
-                              setDraggingFrom("grid");
-                            } : undefined}
+                            onDragStart={loggedIn ? e => { e.dataTransfer.effectAllowed = "move"; setDragging(subject.name); setDraggingFrom("grid"); } : undefined}
                             onDragEnd={loggedIn ? () => { setDragging(null); setDraggingFrom(null); } : undefined}
+                            onTouchStart={e => startTouchDrag(e, subject.name, "grid")}
                             style={{ cursor: loggedIn ? "grab" : undefined }}
                           >
                             {hasSub ? (
@@ -325,6 +371,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                     draggable
                                     onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(sub.name); setDraggingFrom("grid"); }}
                                     onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                                    onTouchStart={e => startTouchDrag(e, sub.name, "grid")}
                                     style={{ cursor: "grab", display: pinnedNames.includes(sub.name) ? "none" : undefined }}
                                   >
                                     <button
@@ -374,6 +421,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 draggable
                                 onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(sub.name); setDraggingFrom("grid"); }}
                                 onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                                onTouchStart={e => startTouchDrag(e, sub.name, "grid")}
                                 style={{ cursor: "grab" }}
                               >
                                 <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
