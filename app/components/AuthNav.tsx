@@ -159,10 +159,14 @@ export default function AuthNav() {
           className="flex items-center"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-          </svg>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+            </svg>
+          )}
         </button>
 
         {/* 桌機下拉選單 */}
