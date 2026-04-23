@@ -43,7 +43,7 @@ type Props = {
 
 export default function TestClient({ id, initialQuestions, ordered, listId, listTitle, levels, pageTitle }: Props) {
   const { data: session } = useSession();
-  const { enabled: timerEnabled, running: timerRunning, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
+  const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [questions, setQuestions] = useState<Question[]>(() =>
     [...initialQuestions].sort((a, b) => a.number - b.number)
   );
@@ -86,6 +86,10 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
   useEffect(() => {
     return () => { setShareText(null); setShareTitle(null); };
   }, [setShareText, setShareTitle]);
+
+  useEffect(() => {
+    if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
+  }, [timerFinished]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSingleAnswerAt = (idx: number, answer: string) => {
     setUserAnswers(prev => { const next = [...prev]; next[idx] = answer; return next; });
