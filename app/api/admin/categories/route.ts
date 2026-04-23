@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache";
 import { auth } from "@/auth";
-import { getCategoriesCached, upsertCategories } from "@/lib/categories";
+import { getCategoriesCached, replaceCategories } from "@/lib/categories";
 
 const SUPPORTED_LANGS = ["zh-TW", "zh-CN", "en", "ko", "es", "th", "id"];
 
@@ -39,7 +39,12 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Unsupported language" }, { status: 400 });
   }
 
-  await upsertCategories(body.language, body.data);
+  try {
+    await replaceCategories(body.language, body.data);
+  } catch (err: any) {
+    console.error("upsertCategories error:", err);
+    return Response.json({ error: err?.message ?? "儲存失敗" }, { status: 500 });
+  }
   revalidateTag("categories");
   return Response.json({ ok: true });
 }

@@ -14,7 +14,6 @@ export type QuizQuestionRow = {
   options: Record<string, string> | null;
   answer: string | string[];
   level: number | null;
-  category: string | null;
   group_content: string | null;
 };
 
@@ -64,7 +63,7 @@ async function createCollectionTable(collectionId: string): Promise<void> {
 async function doUpsert(collectionId: string, rows: object[]): Promise<void> {
   for (let i = 0; i < rows.length; i += 400) {
     const chunk = rows.slice(i, i + 400);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?on_conflict=number`, {
       method: "POST",
       headers: { ...HEADERS, Prefer: "resolution=merge-duplicates" },
       body: JSON.stringify(chunk),
@@ -87,7 +86,6 @@ export async function upsertQuizQuestions(
     options?: Record<string, string> | null;
     answer?: string | string[] | null;
     level?: number | null;
-    category?: string | null;
     groupContent?: string | null;
     group_content?: string | null;
     [key: string]: unknown;
@@ -95,16 +93,18 @@ export async function upsertQuizQuestions(
 ): Promise<{ upserted: number }> {
   const rows = questions
     .filter(q => q.number != null && q.title != null)
-    .map(q => ({
-      number: q.number,
-      title: q.title,
-      type: (q.type as string) ?? "single",
-      options: (q.options as Record<string, string>) ?? null,
-      answer: q.answer ?? null,
-      level: q.level ?? null,
-      category: (q.category as string) ?? null,
-      group_content: (q.groupContent ?? q.group_content) ?? null,
-    }));
+    .map(q => {
+      const row: Record<string, unknown> = {
+        number: q.number,
+        title: q.title,
+        type: (q.type as string) ?? "single",
+        options: (q.options as Record<string, string>) ?? null,
+        answer: q.answer ?? null,
+        level: q.level ?? null,
+        group_content: (q.groupContent ?? q.group_content) ?? null,
+      };
+      return row;
+    });
 
   try {
     await doUpsert(collectionId, rows);

@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const results: Record<string, unknown> = {};
 
   try {
-    if (Array.isArray(payload.categories) && payload.categories.length > 0 && typeof payload.categories[0] === "object") {
+    if (Array.isArray(payload.categories) && payload.categories.length > 0 && typeof payload.categories[0]?.name === "string") {
       const lang = payload.language ?? "zh-TW";
       await upsertCategories(lang, payload.categories);
       revalidateTag("categories");

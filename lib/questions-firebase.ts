@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { getListById } from "./lists-firebase";
 import { fetchQuizQuestions } from "./questions-supabase";
 
@@ -78,15 +77,11 @@ function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[numbe
   };
 }
 
-const fetchCollectionQuestions = unstable_cache(
-  async (collectionId: string, levelsParam: string | null): Promise<Question[]> => {
-    const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
-    const rows = await fetchQuizQuestions({ collectionId, levels, revalidate: false });
-    return rows.map(rowToQuestion);
-  },
-  ["quiz-questions"],
-  { revalidate: 3600 }
-);
+async function fetchCollectionQuestions(collectionId: string, levelsParam: string | null): Promise<Question[]> {
+  const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
+  const rows = await fetchQuizQuestions({ collectionId, levels, revalidate: 3600 });
+  return rows.map(rowToQuestion);
+}
 
 export async function fetchQuestions(opts: {
   id: string;

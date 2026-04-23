@@ -28,9 +28,65 @@ export const getCategoriesCached = unstable_cache(
   { revalidate: 60, tags: ["categories"] }
 );
 
-export async function upsertCategories(language: string, data: CategoryNode[]): Promise<void> {
+// Deep merge: incoming nodes are added or merged into existing by name
+function mergeNodes(existing: CategoryNode[], incoming: CategoryNode[]): CategoryNode[] {
+  const result = [...existing];
+  for (const node of incoming) {
+    const idx = result.findIndex(n => n.name === node.name);
+    if (idx === -1) {
+      result.push(node);
+    } else {
+      result[idx] = {
+        ...result[idx],
+        ...node,
+        children: mergeNodes(result[idx].children ?? [], node.children ?? []),
+        dropdown: mergeDropdown(result[idx].dropdown ?? [], node.dropdown ?? []),
+      };
+    }
+  }
+  return result;
+}
+
+function mergeDropdown(
+  existing: { name: string; href: string }[],
+  incoming: { name: string; href: string }[]
+): { name: string; href: string }[] {
+  const result = [...existing];
+  for (const item of incoming) {
+    const idx = result.findIndex(d => d.name === item.name);
+    if (idx === -1) result.push(item);
+    else result[idx] = item;
+  }
+  return result;
+}
+
+export async function upsertCategories(language: string, incoming: CategoryNode[]): Promise<void> {
+  const existing = await _fetchCategories(language);
+  const merged = mergeNodes(existing, incoming);
+
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories`,
+    `${SUPABASE_URL}/rest/v1/categories?on_conflict=language`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({ language, data: merged, updated_at: new Date().toISOString() }),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase upsert failed: ${text}`);
+  }
+}
+
+// Replace entire categories (used by admin direct-edit page)
+export async function replaceCategories(language: string, data: CategoryNode[]): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/categories?on_conflict=language`,
     {
       method: "POST",
       headers: {
