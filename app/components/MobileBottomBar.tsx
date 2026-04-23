@@ -19,10 +19,10 @@ export default function MobileBottomBar() {
         </Link>
       </div>
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-        <AuthNav />
+        <ShareButton />
       </div>
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-        <ShareButton />
+        <AuthNav />
       </div>
     </div>
   );

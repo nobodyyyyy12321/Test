@@ -137,8 +137,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [followingLoaded, setFollowingLoaded] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
   const [following, setFollowing] = useState<FollowUser[]>([]);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
+
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
@@ -188,21 +187,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   // ── load follow counts & isFollowing on mount ─────────────────────────────
 
   useEffect(() => {
-    if (!urlName) return;
-    fetch(`/api/users/${encodeURIComponent(urlName)}/followers`)
+    if (!urlName || !session?.user) return;
+    fetch(`/api/users/${encodeURIComponent(urlName)}/follow`)
       .then(r => r.json())
-      .then(d => { setFollowersCount((d.followers ?? []).length); })
+      .then(d => setIsFollowing(Boolean(d.following)))
       .catch(() => {});
-    fetch(`/api/users/${encodeURIComponent(urlName)}/following`)
-      .then(r => r.json())
-      .then(d => { setFollowingCount((d.following ?? []).length); })
-      .catch(() => {});
-    if (session?.user) {
-      fetch(`/api/users/${encodeURIComponent(urlName)}/follow`)
-        .then(r => r.json())
-        .then(d => setIsFollowing(Boolean(d.following)))
-        .catch(() => {});
-    }
   }, [urlName, session]);
 
   // ── load followers tab ────────────────────────────────────────────────────
@@ -215,7 +204,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       .then(d => {
         const list = (d.followers ?? []) as Array<{ followerName: string; followerAvatarUrl?: string; followerId: string }>;
         setFollowers(list.map(f => ({ id: f.followerId, name: f.followerName, avatarUrl: f.followerAvatarUrl })));
-        setFollowersCount(list.length);
         setFollowersLoaded(true);
       })
       .finally(() => setFollowersLoading(false));
@@ -231,7 +219,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       .then(d => {
         const list = (d.following ?? []) as Array<{ followingName: string; followingAvatarUrl?: string; followingId: string }>;
         setFollowing(list.map(f => ({ id: f.followingId, name: f.followingName, avatarUrl: f.followingAvatarUrl })));
-        setFollowingCount(list.length);
         setFollowingLoaded(true);
       })
       .finally(() => setFollowingLoading(false));
@@ -398,10 +385,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setFollowLoading(true);
     const method = isFollowing ? "DELETE" : "POST";
     await fetch(`/api/users/${encodeURIComponent(urlName)}/follow`, { method });
-    setIsFollowing(f => {
-      setFollowersCount(c => f ? c - 1 : c + 1);
-      return !f;
-    });
+    setIsFollowing(f => !f);
     setFollowersLoaded(false);
     setFollowLoading(false);
   };
@@ -421,7 +405,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
-      <main className="w-full max-w-2xl px-6 py-10">
+      <main className="w-full max-w-2xl px-6 py-10 pb-24 sm:pb-10">
 
         {/* header */}
         <div className="flex items-center justify-between mb-6">

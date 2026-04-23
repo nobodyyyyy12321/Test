@@ -66,10 +66,10 @@ export default function RootLayout({
               </svg>
             </Link>
             <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <AuthNav />
+              <ShareButton />
             </div>
             <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <ShareButton />
+              <AuthNav />
             </div>
           </aside>
 
