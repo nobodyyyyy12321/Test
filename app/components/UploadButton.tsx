@@ -19,7 +19,7 @@ export default function UploadButton() {
       onMouseLeave={() => setHover(false)}
     >
       {hover && (
-        <div className="absolute bottom-1/2 translate-y-1/2 left-full ml-3 whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-zinc-800 text-white dark:bg-zinc-100 dark:text-black pointer-events-none">
+        <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-zinc-800 text-white dark:bg-zinc-100 dark:text-black pointer-events-none">
           登入以使用上傳功能
         </div>
       )}
