@@ -1,14 +1,17 @@
-import { getFirestoreDB } from "@/lib/firebase-admin";
+import { fetchQuizQuestions } from "@/lib/questions-supabase";
 
 export async function GET() {
   try {
-    const db = getFirestoreDB();
-    const snapshot = await db.collection("studyChineseQuestions").orderBy("id").get();
-    const questions = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    const rows = await fetchQuizQuestions({ collectionId: "studyChineseQuestions", revalidate: 3600 });
+    const questions = rows.map(row => ({
+      id: String(row.number),
+      number: row.number,
+      title: row.title,
+      type: row.type,
+      options: row.options,
+      answer: row.answer,
+      level: row.level,
     }));
-
     return Response.json({ questions });
   } catch (error) {
     console.error("Error fetching study-chinese questions:", error);

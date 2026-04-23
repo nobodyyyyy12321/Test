@@ -2,6 +2,7 @@
 import Link from "next/link";
 import AuthNav from "./AuthNav";
 import ShareButton from "./ShareButton";
+import UploadButton from "./UploadButton";
 
 export default function MobileBottomBar() {
 
@@ -20,6 +21,9 @@ export default function MobileBottomBar() {
       </div>
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
         <ShareButton />
+      </div>
+      <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+        <UploadButton />
       </div>
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
         <AuthNav />

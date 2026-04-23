@@ -1,6 +1,5 @@
-import { unstable_cache } from "next/cache";
-import { getFirestoreDB } from "./firebase-admin";
 import { getListById } from "./lists-firebase";
+import { fetchQuizQuestions } from "./questions-supabase";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
@@ -15,6 +14,8 @@ export type Question = {
   level?: number | null;
   groupContent?: string | null;
 };
+
+// ── GSAT (學測) questions remain in Supabase questions table ────────────────
 
 async function fetchGSATQuestions(examName: string): Promise<Question[]> {
   const [qRes, gRes] = await Promise.all([
@@ -56,40 +57,31 @@ async function fetchGSATQuestions(examName: string): Promise<Question[]> {
   });
 }
 
-// Next.js data cache — 跨 request、跨 instance 有效，可用 revalidateTag 清除
-const fetchFirestoreQuestions = unstable_cache(
-  async (id: string, levelsParam: string | null): Promise<Question[]> => {
-    const db = getFirestoreDB();
-    const snapshot = await db.collection(id).orderBy("number").get();
-    const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
+// ── quiz_questions table (Supabase) ─────────────────────────────────────────
 
-    let questions: Question[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      const options = data.options && typeof data.options === "object"
-        ? Object.entries(data.options as Record<string, string>)
-            .map(([label, text]) => ({ label, text }))
-            .sort((a, b) => a.label.localeCompare(b.label))
-        : [];
-      return {
-        id: doc.id,
-        number: data.number,
-        title: data.title,
-        level: data.level ?? null,
-        type: data.type ?? "single",
-        options,
-        answer: data.answer,
-        groupContent: null,
-      };
-    });
+function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[number]): Question {
+  const options = row.options
+    ? Object.entries(row.options)
+        .map(([label, text]) => ({ label, text }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    : [];
+  return {
+    id: String(row.number),
+    number: row.number,
+    title: row.title,
+    type: (row.type as Question["type"]) ?? "single",
+    options,
+    answer: row.answer,
+    level: row.level ?? null,
+    groupContent: row.group_content ?? null,
+  };
+}
 
-    if (levels) {
-      questions = questions.filter(q => q.level !== null && levels.includes(q.level!));
-    }
-    return questions;
-  },
-  ["firestore-questions"],
-  { revalidate: 3600 }
-);
+async function fetchCollectionQuestions(collectionId: string, levelsParam: string | null): Promise<Question[]> {
+  const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
+  const rows = await fetchQuizQuestions({ collectionId, levels, revalidate: 3600 });
+  return rows.map(rowToQuestion);
+}
 
 export async function fetchQuestions(opts: {
   id: string;
@@ -98,47 +90,32 @@ export async function fetchQuestions(opts: {
 }): Promise<Question[]> {
   const { id, levels: levelsParam, listId } = opts;
 
+  // ── list mode ──────────────────────────────────────────────────────────────
   if (listId) {
     const list = await getListById(listId);
     if (!list) return [];
 
-    const db = getFirestoreDB();
-    const byCollection: Record<string, string[]> = {};
+    const byCollection: Record<string, number[]> = {};
     for (const q of list.questions) {
-      (byCollection[q.collectionId] = byCollection[q.collectionId] ?? []).push(q.questionId);
+      const num = parseInt(q.questionId);
+      if (!isNaN(num)) {
+        (byCollection[q.collectionId] = byCollection[q.collectionId] ?? []).push(num);
+      }
     }
 
     const allQuestions: Question[] = [];
-    for (const [collectionId, ids] of Object.entries(byCollection)) {
-      for (let i = 0; i < ids.length; i += 30) {
-        const batch = ids.slice(i, i + 30);
-        const snap = await db.collection(collectionId).where("__name__", "in", batch).get();
-        snap.docs.forEach(doc => {
-          const data = doc.data();
-          const options = data.options && typeof data.options === "object"
-            ? Object.entries(data.options as Record<string, string>)
-                .map(([label, text]) => ({ label, text }))
-                .sort((a, b) => a.label.localeCompare(b.label))
-            : [];
-          allQuestions.push({
-            id: doc.id,
-            number: data.number,
-            title: data.title,
-            level: data.level ?? null,
-            type: data.type ?? "single",
-            options,
-            answer: data.answer,
-            groupContent: null,
-          });
-        });
-      }
+    for (const [collectionId, numbers] of Object.entries(byCollection)) {
+      const rows = await fetchQuizQuestions({ collectionId, numbers, revalidate: 3600 });
+      allQuestions.push(...rows.map(rowToQuestion));
     }
     return allQuestions;
   }
 
+  // ── GSAT ───────────────────────────────────────────────────────────────────
   if (id.startsWith("國文學測")) {
     return fetchGSATQuestions(id);
   }
 
-  return fetchFirestoreQuestions(id, levelsParam ?? null);
+  // ── regular collection from quiz_questions ─────────────────────────────────
+  return fetchCollectionQuestions(id, levelsParam ?? null);
 }

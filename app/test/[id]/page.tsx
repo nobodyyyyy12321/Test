@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { fetchQuestions } from "../../../lib/questions-firebase";
 import { getListById } from "../../../lib/lists-firebase";
+import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
 import TestClient from "./TestClient";
 
 // deduplicate within same request (generateMetadata + TestPage both call this)
@@ -12,18 +13,31 @@ type Props = {
   searchParams: Promise<{ levels?: string; ordered?: string; listId?: string }>;
 };
 
-const ENGLISH_LEVEL_MAP: Record<string, string> = {
-  "1,2": "教育部2000單",
-  "3,4": "教育部4000單",
-  "5,6": "教育部6000單",
-};
-const ID_NAME_MAP: Record<string, string> = { quoteChinese: "名言佳句" };
-
-function resolveTitle(id: string, levels?: string | null): string {
-  if (id === "englishWords") {
-    return levels ? (ENGLISH_LEVEL_MAP[levels] ?? "英文單字") : "英文單字";
+function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
+  for (const node of nodes) {
+    if (node.href) {
+      const url = new URL(node.href, "http://x");
+      if (url.pathname === `/test/${id}`) {
+        if (!levels || !url.searchParams.get("levels") || url.searchParams.get("levels") === levels) {
+          return node.name;
+        }
+      }
+    }
+    const fromChildren = node.children ? findNameInTree(node.children, id, levels) : null;
+    if (fromChildren) return fromChildren;
+    if (node.dropdown) {
+      for (const d of node.dropdown) {
+        const url = new URL(d.href, "http://x");
+        if (url.pathname === `/test/${id}`) return d.name;
+      }
+    }
   }
-  return ID_NAME_MAP[id] ?? id;
+  return null;
+}
+
+async function resolveTitle(id: string, levels?: string | null): Promise<string> {
+  const categories = await getCategoriesCached("zh-TW");
+  return findNameInTree(categories, id, levels) ?? id;
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
@@ -31,7 +45,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { levels, listId } = await searchParams;
   const decodedId = decodeURIComponent(id);
 
-  let title = resolveTitle(decodedId, levels);
+  let title = await resolveTitle(decodedId, levels);
   if (listId) {
     const list = await getListByIdCached(listId).catch(() => null);
     if (list?.title) title = list.title;
@@ -53,7 +67,7 @@ export default async function TestPage({ params, searchParams }: Props) {
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),
   ]);
 
-  const pageTitle = list?.title ?? resolveTitle(decodedId, levels);
+  const pageTitle = list?.title ?? await resolveTitle(decodedId, levels);
 
   return (
     <TestClient
