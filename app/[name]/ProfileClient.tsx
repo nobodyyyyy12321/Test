@@ -405,7 +405,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
-      <main className="w-full max-w-2xl px-6 py-10 pb-24 sm:pb-10">
+      <main className="w-full max-w-2xl px-6 pt-10 pb-28 sm:pb-10">
 
         {/* header */}
         <div className="flex items-center justify-between mb-6">
@@ -435,12 +435,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         </div>
 
         {/* tab bar */}
-        <div className="flex gap-1 mb-8 border-b border-zinc-200 dark:border-zinc-700">
+        <div className="flex gap-1 mb-8 border-b border-zinc-200 dark:border-zinc-700 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleTabs.map(t => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === t.id
                   ? "border-current"
                   : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
