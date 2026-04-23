@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 
-export default function UploadButton() {
+export default function UploadButton({ placement = "top" }: { placement?: "right" | "top" }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [hover, setHover] = useState(false);
@@ -13,13 +13,17 @@ export default function UploadButton() {
     if (session?.user) router.push("/upload");
   };
 
+  const tooltipPos = placement === "right"
+    ? "left-full ml-3 top-1/2 -translate-y-1/2"
+    : "bottom-full mb-3 left-1/2 -translate-x-1/2";
+
   return (
     <div className="relative flex items-center justify-center"
       onMouseEnter={() => !session?.user && setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
       {hover && (
-        <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-zinc-800 text-white dark:bg-zinc-100 dark:text-black pointer-events-none">
+        <div className={`absolute ${tooltipPos} whitespace-nowrap text-xs px-3 py-1.5 rounded-full bg-zinc-800 text-white dark:bg-zinc-100 dark:text-black pointer-events-none z-50`}>
           登入以使用上傳功能
         </div>
       )}

@@ -6,6 +6,7 @@ import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
 import type { Question } from "../../../lib/questions-firebase";
 import RenderContent from "../../components/RenderContent";
+import { useTimer } from "../../providers/TimerContext";
 
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
   if (userAns === null) return false;
@@ -42,13 +43,15 @@ type Props = {
 
 export default function TestClient({ id, initialQuestions, ordered, listId, listTitle, levels, pageTitle }: Props) {
   const { data: session } = useSession();
+  const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [questions, setQuestions] = useState<Question[]>(() =>
     [...initialQuestions].sort((a, b) => a.number - b.number)
   );
 
   useEffect(() => {
     if (!ordered) setQuestions(shuffle(initialQuestions));
-  }, []);
+    if (timerEnabled) { timerReset(); timerStart(); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>(() =>
     new Array(initialQuestions.length).fill(null)
   );
@@ -84,6 +87,10 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
     return () => { setShareText(null); setShareTitle(null); };
   }, [setShareText, setShareTitle]);
 
+  useEffect(() => {
+    if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
+  }, [timerFinished]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSingleAnswerAt = (idx: number, answer: string) => {
     setUserAnswers(prev => { const next = [...prev]; next[idx] = answer; return next; });
   };
@@ -104,6 +111,7 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
 
   const checkAnswers = () => {
     setShowResults(true);
+    if (timerEnabled && timerRunning) timerStop();
     const answeredCount = userAnswers.filter(a => a !== null).length;
     const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
 

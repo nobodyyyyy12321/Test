@@ -10,6 +10,8 @@ import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import ShareButton from "./components/ShareButton";
 import UploadButton from "./components/UploadButton";
+import TimerButton from "./components/TimerButton";
+import { TimerProvider } from "./providers/TimerContext";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
 // ...existing code...
@@ -56,6 +58,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${notoSerifSc.variable} antialiased`}
       >
         <Providers>
+          <TimerProvider>
           <aside
             className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center justify-center gap-8"
             style={{ backgroundColor: "var(--zen-bg)", borderRight: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
@@ -70,7 +73,10 @@ export default function RootLayout({
               <ShareButton />
             </div>
             <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <UploadButton />
+              <UploadButton placement="right" />
+            </div>
+            <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+              <TimerButton placement="right" />
             </div>
             <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <AuthNav />
@@ -101,6 +107,7 @@ export default function RootLayout({
           </div>
           {/* 手機版底部列 */}
           <MobileBottomBar />
+          </TimerProvider>
         </Providers>
         <Analytics />
       </body>

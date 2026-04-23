@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
@@ -18,8 +19,55 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
+  const [catOpen, setCatOpen] = useState(true);
+  const [pinnedNames, setPinnedNames] = useState<string[]>([]);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [draggingFrom, setDraggingFrom] = useState<"pinned" | "grid" | null>(null);
+  const [overPinned, setOverPinned] = useState(false);
+  const [overGrid, setOverGrid] = useState(false);
+  const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
+  const { data: session } = useSession();
+  const loggedIn = !!session?.user;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subjects = useFilteredCategories(categories, query);
+
+  const colors = ["#b19739", "#5fa870"];
+
+  // find a node by name at top-level or child level
+  const findSubject = (name: string): { node: CategoryNode; color: string } | null => {
+    for (let i = 0; i < subjects.length; i++) {
+      const s = subjects[i];
+      if (s.name === name) return { node: s, color: colors[i % colors.length] };
+      const child = s.children?.find(c => c.name === name);
+      if (child) return { node: child, color: colors[i % colors.length] };
+    }
+    return null;
+  };
+
+  // load pinned from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("pinnedCats");
+      if (stored) setPinnedNames(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  const pin = (name: string) => {
+    setPinnedNames(prev => {
+      if (prev.includes(name)) return prev;
+      const next = [...prev, name];
+      localStorage.setItem("pinnedCats", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const unpin = (name: string) => {
+    setPinnedNames(prev => {
+      const next = prev.filter(n => n !== name);
+      localStorage.setItem("pinnedCats", JSON.stringify(next));
+      return next;
+    });
+  };
 
   // sync language from localStorage
   useEffect(() => {
@@ -36,7 +84,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     };
   }, []);
 
-  // fetch categories when language changes (zh-TW uses SSR initial data)
+  // fetch categories when language changes
   useEffect(() => {
     setOpenKey(null);
     setOpenDropKey(null);
@@ -71,7 +119,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   }, [query]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
+    <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-40 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
@@ -90,133 +138,294 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         />
       </div>
 
-      <main className="flex min-h-screen w-full max-w-[72rem] flex-col items-center justify-start pt-32 pb-10 px-4 sm:px-16">
-        <div className="flex flex-col items-center gap-6 text-center w-full">
-          <div className="mt-10 w-full overflow-visible">
-            {loadingLang ? (
-              <p className="text-sm zen-subtle opacity-50 text-center">載入中...</p>
-            ) : (
-              <div className="bookshelf-grid home-bookshelf-grid">
-                {subjects.map((subject, i) => {
-                  const key = `${language}-${i}-${subject.href || subject.name}`;
-                  const isOpen = !!query || openKey === key;
-                  const hasSub = !!subject.children?.length;
-                  const colors = ["#b19739", "#5fa870"];
-                  const color = colors[i % colors.length];
-                  const btnStyle = { color };
+      <main className="flex min-h-screen w-full flex-col pt-36 pb-10 px-4 sm:pl-16 sm:pr-16">
+        <div className="flex flex-row items-start gap-6 w-full flex-1">
+          {/* Left panel — categories */}
+          <div className="w-full sm:w-[42%] shrink-0">
 
-                  return (
-                    <div key={key} className="contents">
-                      <div>
-                        {hasSub ? (
-                          <button
-                            type="button"
-                            className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`}
-                            style={btnStyle}
-                            onClick={() => setOpenKey(isOpen ? null : key)}
-                          >
-                            {subject.name}
-                          </button>
-                        ) : (
-                          <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={btnStyle}>
-                            {subject.name}
-                          </Link>
-                        )}
-                      </div>
-
-                      {isOpen && subject.children?.map((sub, j) => {
-                        const subKey = `${key}-${j}`;
-                        if (sub.dropdown?.length) {
-                          const isDropOpen = openDropKey === subKey;
+            {/* Pinned bar — drop target */}
+            <div
+              className="flex flex-wrap items-start gap-2 min-h-[5.5rem] px-2 py-2 border-b transition-colors"
+              style={{
+                borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
+                background: loggedIn && overPinned ? "color-mix(in srgb, #5fa870 8%, transparent)" : "transparent",
+              }}
+              onDragOver={e => { if (!loggedIn) return; e.preventDefault(); setOverPinned(true); }}
+              onDragLeave={() => setOverPinned(false)}
+              onDrop={e => {
+                if (!loggedIn) return;
+                e.preventDefault();
+                if (dragging) pin(dragging);
+                setDragging(null);
+                setOverPinned(false);
+              }}
+            >
+              {loggedIn && pinnedNames.length === 0 && !overPinned && (
+                <span className="text-xs opacity-25 select-none" style={{ color: "var(--zen-ink)" }}>
+                  {language === "en" ? "Favorites" : "常用"}
+                </span>
+              )}
+              {!loggedIn && null}
+              {loggedIn && pinnedNames.map(name => {
+                const found = findSubject(name);
+                if (!found) return null;
+                const { node: subject, color } = found;
+                const isExpanded = openPinnedKey === name;
+                return (
+                  <div key={name} className="flex flex-row items-start gap-1 flex-wrap">
+                    {/* pinned item row */}
+                    <div
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragging(name);
+                        setDraggingFrom("pinned");
+                      }}
+                      onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                      style={{ cursor: "grab" }}
+                    >
+                      {subject.children?.length ? (
+                        <button
+                          type="button"
+                          className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
+                          style={{ color }}
+                          onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                        >
+                          {name}
+                        </button>
+                      ) : (
+                        <Link
+                          href={subject.href || "#"}
+                          className="book-link bookshelf-btn"
+                          style={{ color }}
+                        >
+                          {name}
+                        </Link>
+                      )}
+                    </div>
+                    {/* expanded children */}
+                    {isExpanded && subject.children && (
+                      <div className="bookshelf-grid home-bookshelf-grid">
+                        {subject.children.map(child => {
+                          const childPinned = pinnedNames.includes(child.name);
                           return (
-                            <div key={subKey} className="contents">
-                              <div>
+                            <div
+                              key={child.name}
+                              draggable
+                              onDragStart={e => {
+                                e.dataTransfer.effectAllowed = "move";
+                                setDragging(child.name);
+                                setDraggingFrom(childPinned ? "pinned" : "grid");
+                              }}
+                              onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                              style={{ cursor: "grab", opacity: childPinned ? 0.4 : 1 }}
+                            >
+                              {child.href ? (
+                                <Link
+                                  href={child.href}
+                                  className="book-link bookshelf-btn sub-item"
+                                  style={{ color }}
+                                >
+                                  {child.name}
+                                </Link>
+                              ) : (
                                 <button
                                   type="button"
-                                  className={`book-link bookshelf-btn sub-item ${isDropOpen ? "active-category" : ""}`}
-                                  style={btnStyle}
-                                  onClick={() => setOpenDropKey(isDropOpen ? null : subKey)}
+                                  className="book-link bookshelf-btn sub-item"
+                                  style={{ color }}
                                 >
-                                  {sub.name}
+                                  {child.name}
                                 </button>
-                              </div>
-                              {isDropOpen && (
-                                <div className="relative">
-                                  <button
-                                    type="button"
-                                    className="book-link bookshelf-btn sub-sub-item flex items-center gap-1"
-                                    style={btnStyle}
-                                    onClick={() => setOpenYearKey(openYearKey === subKey ? null : subKey)}
-                                  >
-                                    年份
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                  </button>
-                                  {openYearKey === subKey && (
-                                    <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
-                                      {sub.dropdown.map((opt) => (
-                                        <Link
-                                          key={opt.href + opt.name}
-                                          href={opt.href}
-                                          className="block px-4 py-3 text-left"
-                                          style={{ color, fontSize: "inherit" }}
-                                          onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
-                                        >
-                                          {opt.name}
-                                        </Link>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
                               )}
                             </div>
                           );
-                        }
-                        return (
-                          <div key={subKey}>
-                            <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
-                              {sub.name}
-                            </Link>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* collapse toggle */}
+              <button
+                type="button"
+                className="ml-auto opacity-40 hover:opacity-80 transition-opacity"
+                onClick={() => setCatOpen(o => !o)}
+                aria-label={catOpen ? "收合" : "展開"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: catOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                >
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+            </div>
 
-            {!loadingLang && subjects.length === 0 && userResults.length === 0 && query && (
-              <p className="text-sm zen-subtle text-center mt-10 opacity-50">
-                {language === "en" ? "No matching results" : "沒有符合的結果"}
-              </p>
+            {catOpen && (
+              <div className="mt-2 overflow-visible">
+                {loadingLang ? (
+                  <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
+                ) : (
+                  <div
+                    className="bookshelf-grid home-bookshelf-grid"
+                    onDragOver={e => { e.preventDefault(); if (draggingFrom === "pinned") setOverGrid(true); }}
+                    onDragLeave={() => setOverGrid(false)}
+                    onDrop={e => {
+                      e.preventDefault();
+                      if (draggingFrom === "pinned" && dragging) unpin(dragging);
+                      setDragging(null); setDraggingFrom(null); setOverGrid(false);
+                    }}
+                    style={{ outline: overGrid ? "2px dashed #5fa870" : "none", borderRadius: "0.5rem" }}
+                  >
+                    {subjects.map((subject, i) => {
+                      const key = `${language}-${i}-${subject.href || subject.name}`;
+                      const isOpen = !!query || openKey === key || openKey === subject.name;
+                      const hasSub = !!subject.children?.length;
+                      const color = colors[i % colors.length];
+                      const btnStyle = { color };
+                      const isPinned = pinnedNames.includes(subject.name);
+                      if (loggedIn && isPinned) return null;
+
+                      return (
+                        <div key={key} className="contents">
+                          <div
+                            draggable={loggedIn}
+                            onDragStart={loggedIn ? e => {
+                              e.dataTransfer.effectAllowed = "move";
+                              setDragging(subject.name);
+                              setDraggingFrom("grid");
+                            } : undefined}
+                            onDragEnd={loggedIn ? () => { setDragging(null); setDraggingFrom(null); } : undefined}
+                            style={{ cursor: loggedIn ? "grab" : undefined }}
+                          >
+                            {hasSub ? (
+                              <button
+                                type="button"
+                                className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`}
+                                style={btnStyle}
+                                onClick={() => setOpenKey(isOpen ? null : key)}
+                              >
+                                {subject.name}
+                              </button>
+                            ) : (
+                              <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={btnStyle}>
+                                {subject.name}
+                              </Link>
+                            )}
+                          </div>
+
+                          {isOpen && subject.children?.map((sub, j) => {
+                            const subKey = `${key}-${j}`;
+                            if (sub.dropdown?.length) {
+                              const isDropOpen = openDropKey === subKey;
+                              return (
+                                <div key={subKey} className="contents">
+                                  <div
+                                    draggable
+                                    onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(sub.name); setDraggingFrom("grid"); }}
+                                    onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                                    style={{ cursor: "grab", display: pinnedNames.includes(sub.name) ? "none" : undefined }}
+                                  >
+                                    <button
+                                      type="button"
+                                      className={`book-link bookshelf-btn sub-item ${isDropOpen ? "active-category" : ""}`}
+                                      style={btnStyle}
+                                      onClick={() => setOpenDropKey(isDropOpen ? null : subKey)}
+                                    >
+                                      {sub.name}
+                                    </button>
+                                  </div>
+                                  {isDropOpen && (
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        className="book-link bookshelf-btn sub-sub-item flex items-center gap-1"
+                                        style={btnStyle}
+                                        onClick={() => setOpenYearKey(openYearKey === subKey ? null : subKey)}
+                                      >
+                                        年份
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                      </button>
+                                      {openYearKey === subKey && (
+                                        <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                                          {sub.dropdown.map((opt) => (
+                                            <Link
+                                              key={opt.href + opt.name}
+                                              href={opt.href}
+                                              className="block px-4 py-3 text-left"
+                                              style={{ color, fontSize: "inherit" }}
+                                              onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
+                                            >
+                                              {opt.name}
+                                            </Link>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            if (pinnedNames.includes(sub.name)) return null;
+                            return (
+                              <div
+                                key={subKey}
+                                draggable
+                                onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(sub.name); setDraggingFrom("grid"); }}
+                                onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                                style={{ cursor: "grab" }}
+                              >
+                                <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
+                                  {sub.name}
+                                </Link>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!loadingLang && subjects.length === 0 && userResults.length === 0 && query && (
+                  <p className="text-sm zen-subtle mt-6 opacity-50">
+                    {language === "en" ? "No matching results" : "沒有符合的結果"}
+                  </p>
+                )}
+
+                {userResults.length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-xs text-zinc-400 mb-3">
+                      {language === "en" ? "Users" : "帳號"}
+                    </p>
+                    <ul className="flex flex-col gap-2">
+                      {userResults.map(u => (
+                        <li key={u.id}>
+                          <Link
+                            href={`/${encodeURIComponent(u.name)}`}
+                            className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          >
+                            <img
+                              src={u.avatarUrl || "/avatar-placeholder.svg"}
+                              alt={u.name}
+                              className="w-8 h-8 rounded-full object-cover shrink-0"
+                            />
+                            <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
-          {userResults.length > 0 && (
-            <div className="mt-8 w-full max-w-sm mx-auto">
-              <p className="text-xs text-zinc-400 mb-3 text-left">
-                {language === "en" ? "Users" : "帳號"}
-              </p>
-              <ul className="flex flex-col gap-2">
-                {userResults.map(u => (
-                  <li key={u.id}>
-                    <Link
-                      href={`/${encodeURIComponent(u.name)}`}
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                      <img
-                        src={u.avatarUrl || "/avatar-placeholder.svg"}
-                        alt={u.name}
-                        className="w-8 h-8 rounded-full object-cover shrink-0"
-                      />
-                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Right 2/3 — reserved */}
+          <div className="hidden sm:block flex-1" />
         </div>
+
         <Footer language={language} />
       </main>
     </div>
