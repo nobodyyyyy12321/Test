@@ -14,7 +14,7 @@ export default function UploadButton() {
   };
 
   return (
-    <div className="relative"
+    <div className="relative flex items-center justify-center"
       onMouseEnter={() => !session?.user && setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
