@@ -1,72 +1,88 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { getFirestoreDB } from "@/lib/firebase-admin";
+import { upsertQuizQuestions } from "@/lib/questions-supabase";
 
 /**
- * 共用 JSON 上傳 API
- * POST /api/upload-json?file=xxx.json&collection=xxx&key=xxx
- * body 也可傳 file/collection/key，query string 優先
- * 只允許讀取 app/data/ 下的 json 檔
+ * 從 app/data/ 讀取 JSON 並上傳到 Supabase quiz_questions
+ * POST /api/upload-json?file=xxx.json&collection=xxx
+ *
+ * JSON 格式支援：
+ *   1. 舊格式：flat array  → collection param 指定 collection_id
+ *   2. 新格式：{ collections: { collectionId: [...] } }
  */
 export async function POST(req: Request) {
+  const secret = process.env.UPLOAD_SECRET;
+  if (secret) {
+    const auth = req.headers.get("x-upload-secret");
+    if (auth !== secret) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   try {
-    // 解析 query string
     const url = new URL(req.url);
     const qs = url.searchParams;
-    // 解析 body
     let body: any = {};
-    try {
-      body = await req.json();
-    } catch {}
-    // 參數優先順序：query string > body > 預設
-    const file = (qs.get("file") || body.file || "").trim();
-    const collectionName = (qs.get("collection") || body.collection || "").trim();
-    const key = (qs.get("key") || body.key || "number").trim();
+    try { body = await req.json(); } catch {}
 
-    if (!file || !collectionName || !key) {
-      return Response.json({ error: "Missing file, collection, or key param" }, { status: 400 });
+    const file = (qs.get("file") || body.file || "").trim();
+    const collectionParam = (qs.get("collection") || body.collection || "").trim();
+
+    if (!file) {
+      return Response.json({ error: "Missing file param" }, { status: 400 });
     }
     if (!file.endsWith(".json")) {
       return Response.json({ error: "Only .json files allowed" }, { status: 400 });
     }
+
     const filePath = join(process.cwd(), "app/data", file);
     if (!existsSync(filePath)) {
       return Response.json({ error: `File not found: ${file}` }, { status: 404 });
     }
-    const fileContent = readFileSync(filePath, "utf-8");
-    let items;
+
+    let parsed: unknown;
     try {
-      items = JSON.parse(fileContent);
+      parsed = JSON.parse(readFileSync(filePath, "utf-8"));
     } catch {
       return Response.json({ error: "Invalid JSON file" }, { status: 400 });
     }
-    if (!Array.isArray(items)) {
-      return Response.json({ error: "JSON must be an array" }, { status: 400 });
-    }
-    const db = getFirestoreDB();
-    const collection = db.collection(collectionName);
-    let added = 0;
-    let updated = 0;
-    for (const item of items) {
-      const docKey = item[key];
-      if (!docKey) continue;
-      const docRef = collection.doc(docKey.toString());
-      const docSnap = await docRef.get();
-      if (docSnap.exists) {
-        updated++;
-      } else {
-        added++;
+
+    // 判斷格式
+    let collectionsMap: Record<string, any[]>;
+
+    if (Array.isArray(parsed)) {
+      // 舊格式：flat array，需要 collection param
+      if (!collectionParam) {
+        return Response.json({ error: "Missing collection param for flat array format" }, { status: 400 });
       }
-      await docRef.set(item, { merge: true });
+      collectionsMap = { [collectionParam]: parsed };
+    } else if (
+      parsed &&
+      typeof parsed === "object" &&
+      "collections" in (parsed as object) &&
+      typeof (parsed as any).collections === "object"
+    ) {
+      // 新格式：{ collections: { collectionId: [...] } }
+      collectionsMap = (parsed as any).collections;
+    } else {
+      return Response.json({ error: "JSON must be a flat array or new format { collections: {...} }" }, { status: 400 });
     }
+
+    const results: Record<string, { upserted: number }> = {};
+
+    for (const [collectionId, questions] of Object.entries(collectionsMap)) {
+      if (!Array.isArray(questions)) continue;
+      const result = await upsertQuizQuestions(collectionId, questions);
+      results[collectionId] = result;
+    }
+
+    const totalUpserted = Object.values(results).reduce((s, r) => s + r.upserted, 0);
+
     return Response.json({
       success: true,
-      added,
-      updated,
-      total: items.length,
+      total: totalUpserted,
+      collections: results,
       file,
-      collection: collectionName,
-      key,
     });
   } catch (error) {
     console.error("Error uploading json:", error);

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
 import type { Question } from "../../../lib/questions-firebase";
+import RenderContent from "../../components/RenderContent";
 
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
   if (userAns === null) return false;
@@ -42,10 +43,12 @@ type Props = {
 export default function TestClient({ id, initialQuestions, ordered, listId, listTitle, levels, pageTitle }: Props) {
   const { data: session } = useSession();
   const [questions, setQuestions] = useState<Question[]>(() =>
-    ordered
-      ? [...initialQuestions].sort((a, b) => a.number - b.number)
-      : shuffle(initialQuestions)
+    [...initialQuestions].sort((a, b) => a.number - b.number)
   );
+
+  useEffect(() => {
+    if (!ordered) setQuestions(shuffle(initialQuestions));
+  }, []);
   const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>(() =>
     new Array(initialQuestions.length).fill(null)
   );
@@ -222,7 +225,7 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
                       {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
                     </div>
                     <div className="flex items-center gap-2 mb-3">
-                      <p className="text-base" style={{ color: "#5fa870" }}>{q.title}</p>
+                      <span className="text-base" style={{ color: "#5fa870" }}><RenderContent inline>{q.title}</RenderContent></span>
                       {id === "englishWords" && (
                         <button type="button" onClick={() => speakQuestion(q.title)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-white hover:bg-zinc-600" aria-label="朗讀英文">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
@@ -256,7 +259,8 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
                                 border: isSel ? "1.5px solid #5fa870" : "1.5px solid transparent",
                               }}
                             >
-                              <span className="font-semibold">{option.label}</span> {option.text}
+                              <span className="font-semibold">{option.label}</span>{" "}
+                              <RenderContent inline>{option.text}</RenderContent>
                             </button>
                           );
                         })}
@@ -303,11 +307,11 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
                   if (qt === "multiple") {
                     return (userAns as string[]).map(l => {
                       const opt = question.options.find(o => o.label === l);
-                      return <span key={l} className="mr-1">{l} {opt?.text}</span>;
+                      return <span key={l} className="mr-1">{l} {opt && <RenderContent inline>{opt.text}</RenderContent>}</span>;
                     });
                   }
                   const opt = question.options.find(o => o.label === userAns);
-                  return <span>{userAns as string} {opt?.text}</span>;
+                  return <span>{userAns as string} {opt && <RenderContent inline>{opt.text}</RenderContent>}</span>;
                 };
 
                 const renderCorrectAns = () => {
@@ -315,11 +319,11 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
                   if (qt === "multiple") {
                     return (question.answer as string[]).map(l => {
                       const opt = question.options.find(o => o.label === l);
-                      return <span key={l} className="mr-1">{l} {opt?.text}</span>;
+                      return <span key={l} className="mr-1">{l} {opt && <RenderContent inline>{opt.text}</RenderContent>}</span>;
                     });
                   }
                   const opt = question.options.find(o => o.label === question.answer);
-                  return <span>{question.answer as string} {opt?.text}</span>;
+                  return <span>{question.answer as string} {opt && <RenderContent inline>{opt.text}</RenderContent>}</span>;
                 };
 
                 const isChecked = checkedIdxs.has(idx);
@@ -339,7 +343,7 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
                           {isChecked && "✓"}
                         </button>
                       )}
-                      <p className="font-medium flex-1">題號{question.number}：{question.title}</p>
+                      <p className="font-medium flex-1">題號{question.number}：<RenderContent inline>{question.title}</RenderContent></p>
                     </div>
                     <div className="text-sm space-y-1 pl-7">
                       <p>你的答案：<span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${isCorrect ? "bg-green-200 text-green-700 dark:bg-green-900/50 dark:text-green-400" : "bg-red-200 text-red-700 dark:bg-red-900/50 dark:text-red-400"}`}>{renderUserAns()}</span></p>
