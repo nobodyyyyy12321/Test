@@ -108,7 +108,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [shareCopied, setShareCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── lists state ──
@@ -304,18 +303,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     window.dispatchEvent(new Event("profile:updated"));
   }
 
-  function handleShare() {
-    const url = `${window.location.origin}/${encodeURIComponent(urlName)}`;
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 1500);
-      }).catch(() => window.prompt("複製連結", url));
-    } else {
-      window.prompt("複製連結", url);
-    }
-  }
-
   function makeSocialHref(platform: string, value?: string) {
     if (!value) return null;
     const v = value.trim();
@@ -460,13 +447,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {isFollowing ? "已追蹤" : "追蹤"}
               </button>
             )}
-            <button
-              onClick={handleShare}
-              className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              style={{ color: "var(--zen-ink)" }}
-            >
-              {shareCopied ? "已複製" : "分享"}
-            </button>
           </div>
         </div>
 
