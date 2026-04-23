@@ -11,7 +11,7 @@ type UserResult = { id: string; name: string; avatarUrl?: string };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
-  const [categories, setCategories] = useState<CategoryNode[]>(initialCategories);
+  const [categories, setCategories] = useState<CategoryNode[]>(initialCategories ?? []);
   const [loadingLang, setLoadingLang] = useState(false);
   const [query, setQuery] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -72,24 +72,26 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
+      {/* top-left brand */}
+      <div className="fixed top-8 left-6 sm:left-40 flex items-center gap-12 z-30">
+        <div className="relative flex flex-col items-center leading-none">
+          <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Test</h1>
+          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#5fa870" }}>testtttt.io</span>
+          <div className="absolute -top-1 -right-5">
+            <LanguageSelector />
+          </div>
+        </div>
+        <input
+          className="home-search w-[12.5rem] sm:w-[18.75rem] p-2 rounded-full border text-sm outline-none transition-all"
+          style={{ backgroundColor: "var(--zen-bg)", color: "#b19739", borderColor: "#b19739" }}
+          placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
+        />
+      </div>
+
       <main className="flex min-h-screen w-full max-w-[72rem] flex-col items-center justify-start pt-32 pb-10 px-4 sm:px-16">
         <div className="flex flex-col items-center gap-6 text-center w-full">
-          <div className="relative inline-flex justify-center">
-            <h1 className="text-4xl font-bold zen-title" style={{ color: "#b19739" }}>Test</h1>
-            <div className="absolute -top-1 -right-6">
-              <LanguageSelector />
-            </div>
-          </div>
-          <p className="max-w-md text-lg leading-8 zen-subtle" style={{ color: "#5fa870" }}>testtttt.io</p>
-
-          <input
-            className="home-search w-full max-w-sm mx-auto p-3 rounded-full border text-sm mt-4 outline-none transition-all"
-            style={{ backgroundColor: "var(--zen-bg)", color: "#b19739", borderColor: "#b19739" }}
-            placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
-          />
-
           <div className="mt-10 w-full overflow-visible">
             {loadingLang ? (
               <p className="text-sm zen-subtle opacity-50 text-center">載入中...</p>
@@ -122,7 +124,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         )}
                       </div>
 
-                      {isOpen && subject.children!.map((sub, j) => {
+                      {isOpen && subject.children?.map((sub, j) => {
                         const subKey = `${key}-${j}`;
                         if (sub.dropdown?.length) {
                           const isDropOpen = openDropKey === subKey;
