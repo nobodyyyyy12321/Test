@@ -6,7 +6,7 @@ type QuoteRecord = {
   correct: number;
   set: string;
   timestamp: string;
-  category: "名言佳句";
+  category: "金句";
 };
 
 export async function POST(request: Request) {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       correct,
       set,
       timestamp: new Date().toISOString(),
-      category: "名言佳句",
+      category: "金句",
     };
 
     // Save to Firestore

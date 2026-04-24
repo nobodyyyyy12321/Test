@@ -199,7 +199,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             {/* Pinned bar — drop target */}
             <div
               data-drop="pinned"
-              className="flex flex-wrap items-start gap-2 min-h-[5.5rem] px-2 py-2 border-b transition-colors"
+              className="min-h-[5.5rem] px-2 py-2 border-b transition-colors"
               style={{
                 borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
                 background: loggedIn && overPinned ? "color-mix(in srgb, #5fa870 8%, transparent)" : "transparent",
@@ -216,48 +216,67 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             >
               {loggedIn && pinnedNames.length === 0 && !overPinned && (
                 <span className="text-xs opacity-25 select-none" style={{ color: "var(--zen-ink)" }}>
-                  {language === "en" ? "Favorites" : "常用"}
+                  {language === "en" ? "Favorites" : "釘選"}
                 </span>
               )}
-              {!loggedIn && null}
-              {loggedIn && pinnedNames.map(name => {
-                const found = findSubject(name);
-                if (!found) return null;
-                const { node: subject, color } = found;
-                const isExpanded = openPinnedKey === name;
-                return (
-                  <div key={name} className="flex flex-row items-start gap-1 flex-wrap">
-                    {/* pinned item row */}
-                    <div
-                      draggable
-                      onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
-                      onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
-                      onTouchStart={e => startTouchDrag(e, name, "pinned")}
-                      style={{ cursor: "grab" }}
-                    >
-                      {subject.children?.length ? (
-                        <button
-                          type="button"
-                          className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
-                          style={{ color }}
-                          onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+              {loggedIn && pinnedNames.length > 0 && (
+                <div className="bookshelf-grid home-bookshelf-grid">
+                  {pinnedNames.map(name => {
+                    const found = findSubject(name);
+                    if (!found) return null;
+                    const { node: subject, color } = found;
+                    const isExpanded = openPinnedKey === name;
+                    return (
+                      <div key={name} className="contents">
+                        <div
+                          className="relative"
+                          draggable
+                          onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
+                          onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
+                          onTouchStart={e => startTouchDrag(e, name, "pinned")}
+                          style={{ cursor: "grab" }}
                         >
-                          {name}
-                        </button>
-                      ) : (
-                        <Link
-                          href={subject.href || "#"}
-                          className="book-link bookshelf-btn"
-                          style={{ color }}
-                        >
-                          {name}
-                        </Link>
-                      )}
-                    </div>
-                    {/* expanded children */}
-                    {isExpanded && subject.children && (
-                      <div className="bookshelf-grid home-bookshelf-grid">
-                        {subject.children.map(child => {
+                          {subject.children?.length ? (
+                            <button
+                              type="button"
+                              className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
+                              style={{ color }}
+                              onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                            >
+                              {name}
+                            </button>
+                          ) : subject.dropdown?.length ? (
+                            <button
+                              type="button"
+                              className={`book-link bookshelf-btn flex items-center gap-1 ${isExpanded ? "active-category" : ""}`}
+                              style={{ color }}
+                              onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                            >
+                              {name}
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                          ) : (
+                            <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={{ color }}>
+                              {name}
+                            </Link>
+                          )}
+                          {subject.dropdown?.length && isExpanded && (
+                            <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                              {subject.dropdown.map(opt => (
+                                <Link
+                                  key={opt.href + opt.name}
+                                  href={opt.href}
+                                  className="block px-4 py-3 text-left"
+                                  style={{ color, fontSize: "inherit" }}
+                                  onClick={() => setOpenPinnedKey(null)}
+                                >
+                                  {opt.name}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {isExpanded && subject.children?.map(child => {
                           const childPinned = pinnedNames.includes(child.name);
                           return (
                             <div
@@ -269,19 +288,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               style={{ cursor: "grab", opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
-                                <Link
-                                  href={child.href}
-                                  className="book-link bookshelf-btn sub-item"
-                                  style={{ color }}
-                                >
+                                <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color }}>
                                   {child.name}
                                 </Link>
                               ) : (
-                                <button
-                                  type="button"
-                                  className="book-link bookshelf-btn sub-item"
-                                  style={{ color }}
-                                >
+                                <button type="button" className="book-link bookshelf-btn sub-item" style={{ color }}>
                                   {child.name}
                                 </button>
                               )}
@@ -289,10 +300,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
               {/* collapse toggle */}
               <button
                 type="button"
@@ -331,6 +342,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       const key = `${language}-${i}-${subject.href || subject.name}`;
                       const isOpen = !!query || openKey === key || openKey === subject.name;
                       const hasSub = !!subject.children?.length;
+                      const hasDrop = !!subject.dropdown?.length;
                       const color = colors[i % colors.length];
                       const btnStyle = { color };
                       const isPinned = pinnedNames.includes(subject.name);
@@ -339,6 +351,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       return (
                         <div key={key} className="contents">
                           <div
+                            className="relative"
                             draggable={loggedIn}
                             onDragStart={loggedIn ? e => { e.dataTransfer.effectAllowed = "move"; setDragging(subject.name); setDraggingFrom("grid"); } : undefined}
                             onDragEnd={loggedIn ? () => { setDragging(null); setDraggingFrom(null); } : undefined}
@@ -354,10 +367,35 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               >
                                 {subject.name}
                               </button>
+                            ) : hasDrop ? (
+                              <button
+                                type="button"
+                                className={`book-link bookshelf-btn flex items-center gap-1 ${openDropKey === key ? "active-category" : ""}`}
+                                style={btnStyle}
+                                onClick={() => setOpenDropKey(openDropKey === key ? null : key)}
+                              >
+                                {subject.name}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: openDropKey === key ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
+                              </button>
                             ) : (
                               <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={btnStyle}>
                                 {subject.name}
                               </Link>
+                            )}
+                            {hasDrop && openDropKey === key && (
+                              <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                                {subject.dropdown!.map(opt => (
+                                  <Link
+                                    key={opt.href + opt.name}
+                                    href={opt.href}
+                                    className="block px-4 py-3 text-left"
+                                    style={{ color, fontSize: "inherit" }}
+                                    onClick={() => setOpenDropKey(null)}
+                                  >
+                                    {opt.name}
+                                  </Link>
+                                ))}
+                              </div>
                             )}
                           </div>
 
