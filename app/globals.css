@@ -36,6 +36,9 @@
   * {
     scrollbar-width: none;
   }
+  html, body {
+    overscroll-behavior: none;
+  }
 }
 
 :root {
