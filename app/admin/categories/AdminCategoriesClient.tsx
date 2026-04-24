@@ -19,7 +19,10 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
   const [activeLang, setActiveLang] = useState("zh-TW");
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [jsonTexts, setJsonTexts] = useState<Record<string, string>>(
-    Object.fromEntries(initialEntries.map(e => [e.language, JSON.stringify(e.data, null, 2)]))
+    Object.fromEntries(initialEntries.map(e => [
+      e.language,
+      `// 可使用 JavaScript 語法（迴圈、變數等），最後 return 分類陣列\n\nreturn ${JSON.stringify(e.data, null, 2)};`
+    ]))
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +34,11 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
     setError(null);
     let parsed: CategoryNode[];
     try {
-      parsed = JSON.parse(currentJson);
-      if (!Array.isArray(parsed)) throw new Error("必須是陣列");
+      // eslint-disable-next-line no-new-func
+      parsed = new Function(currentJson)() as CategoryNode[];
+      if (!Array.isArray(parsed)) throw new Error("必須 return 陣列");
     } catch (e: any) {
-      setError("JSON 格式錯誤：" + e.message);
+      setError("JS 執行錯誤：" + e.message);
       return;
     }
 
@@ -81,7 +85,7 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
         {/* editor */}
         <div className="flex-1 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400">JSON 編輯（CategoryNode[]）</span>
+            <span className="text-xs text-zinc-400">JS 編輯（return CategoryNode[]）</span>
             <div className="flex items-center gap-2">
               {saved && <span className="text-xs text-green-500">已儲存 ✓</span>}
               {error && <span className="text-xs text-red-500">{error}</span>}
@@ -116,7 +120,11 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
 
 function Preview({ json }: { json: string }) {
   let nodes: CategoryNode[] = [];
-  try { nodes = JSON.parse(json); } catch { /* invalid */ }
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = new Function(json)();
+    if (Array.isArray(result)) nodes = result;
+  } catch { /* invalid */ }
   if (!Array.isArray(nodes) || nodes.length === 0) {
     return <p className="text-xs text-zinc-400">（無內容或格式錯誤）</p>;
   }

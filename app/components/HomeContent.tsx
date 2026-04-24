@@ -216,7 +216,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             >
               {loggedIn && pinnedNames.length === 0 && !overPinned && (
                 <span className="text-xs opacity-25 select-none" style={{ color: "var(--zen-ink)" }}>
-                  {language === "en" ? "Favorites" : "常用"}
+                  {language === "en" ? "Favorites" : "釘選"}
                 </span>
               )}
               {loggedIn && pinnedNames.length > 0 && (
@@ -229,6 +229,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     return (
                       <div key={name} className="contents">
                         <div
+                          className="relative"
                           draggable
                           onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
                           onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
@@ -244,10 +245,35 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             >
                               {name}
                             </button>
+                          ) : subject.dropdown?.length ? (
+                            <button
+                              type="button"
+                              className={`book-link bookshelf-btn flex items-center gap-1 ${isExpanded ? "active-category" : ""}`}
+                              style={{ color }}
+                              onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                            >
+                              {name}
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
                           ) : (
                             <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={{ color }}>
                               {name}
                             </Link>
+                          )}
+                          {subject.dropdown?.length && isExpanded && (
+                            <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                              {subject.dropdown.map(opt => (
+                                <Link
+                                  key={opt.href + opt.name}
+                                  href={opt.href}
+                                  className="block px-4 py-3 text-left"
+                                  style={{ color, fontSize: "inherit" }}
+                                  onClick={() => setOpenPinnedKey(null)}
+                                >
+                                  {opt.name}
+                                </Link>
+                              ))}
+                            </div>
                           )}
                         </div>
                         {isExpanded && subject.children?.map(child => {
@@ -316,6 +342,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       const key = `${language}-${i}-${subject.href || subject.name}`;
                       const isOpen = !!query || openKey === key || openKey === subject.name;
                       const hasSub = !!subject.children?.length;
+                      const hasDrop = !!subject.dropdown?.length;
                       const color = colors[i % colors.length];
                       const btnStyle = { color };
                       const isPinned = pinnedNames.includes(subject.name);
@@ -324,6 +351,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       return (
                         <div key={key} className="contents">
                           <div
+                            className="relative"
                             draggable={loggedIn}
                             onDragStart={loggedIn ? e => { e.dataTransfer.effectAllowed = "move"; setDragging(subject.name); setDraggingFrom("grid"); } : undefined}
                             onDragEnd={loggedIn ? () => { setDragging(null); setDraggingFrom(null); } : undefined}
@@ -339,10 +367,35 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               >
                                 {subject.name}
                               </button>
+                            ) : hasDrop ? (
+                              <button
+                                type="button"
+                                className={`book-link bookshelf-btn flex items-center gap-1 ${openDropKey === key ? "active-category" : ""}`}
+                                style={btnStyle}
+                                onClick={() => setOpenDropKey(openDropKey === key ? null : key)}
+                              >
+                                {subject.name}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: openDropKey === key ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
+                              </button>
                             ) : (
                               <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={btnStyle}>
                                 {subject.name}
                               </Link>
+                            )}
+                            {hasDrop && openDropKey === key && (
+                              <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                                {subject.dropdown!.map(opt => (
+                                  <Link
+                                    key={opt.href + opt.name}
+                                    href={opt.href}
+                                    className="block px-4 py-3 text-left"
+                                    style={{ color, fontSize: "inherit" }}
+                                    onClick={() => setOpenDropKey(null)}
+                                  >
+                                    {opt.name}
+                                  </Link>
+                                ))}
+                              </div>
                             )}
                           </div>
 

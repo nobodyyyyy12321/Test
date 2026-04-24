@@ -12,7 +12,7 @@ const zhTW = [
   { "name": "國文", "children": [
     { "name": "學測", "dropdown": Array.from({ length: 115 - 83 + 1 }, (_, i) => {
         const year = 115 - i;
-        const href = year === 115 ? "/test/國文學測115?ordered=true" : "/under-construction";
+        const href = "/under-construction";
         return { name: String(year), href };
       })
     }
