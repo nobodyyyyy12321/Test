@@ -215,7 +215,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             {/* Pinned bar — drop target */}
             <div
               data-drop="pinned"
-              className="min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
+              className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{
                 borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
                 background: loggedIn && overPinned ? "color-mix(in srgb, #5fa870 8%, transparent)" : "transparent",
@@ -323,12 +323,12 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               {/* collapse toggle */}
               <button
                 type="button"
-                className="ml-auto opacity-40 hover:opacity-80 transition-opacity"
+                className="absolute bottom-2 right-2 opacity-40 hover:opacity-80 transition-opacity"
                 onClick={() => setCatOpen(o => !o)}
                 aria-label={catOpen ? "收合" : "展開"}
               >
                 <svg
-                  xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                   fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                   style={{ transform: catOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
                 >
