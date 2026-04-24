@@ -168,7 +168,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       {ghostPos && (
         <div
           className="fixed pointer-events-none z-[200] book-link bookshelf-btn opacity-80"
-          style={{ left: ghostPos.x - 40, top: ghostPos.y - 20, color: "#b19739", transform: "scale(1.08)" }}
+          style={{ left: ghostPos.x, top: ghostPos.y + 12, color: "#b19739", transform: "translateX(-50%) scale(1.08)" }}
         >
           {ghostPos.name}
         </div>
