@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
@@ -16,6 +16,13 @@ export default function AuthNav() {
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
+  useLayoutEffect(() => {
+    const cached = localStorage.getItem("avatarUrl");
+    if (cached) setAvatarUrl(cached);
+    const cachedName = localStorage.getItem("displayName");
+    if (cachedName) setDisplayName(cachedName);
+  }, []);
 
   useEffect(() => {
     setDomMounted(true);
@@ -57,8 +64,14 @@ export default function AuthNav() {
         if (!res.ok) return;
         const j = await res.json();
         if (j?.ok && mounted) {
-          if (j.user?.avatarUrl) setAvatarUrl(j.user.avatarUrl);
-          if (j.user?.name) setDisplayName(j.user.name);
+          if (j.user?.avatarUrl) {
+            setAvatarUrl(j.user.avatarUrl);
+            localStorage.setItem("avatarUrl", j.user.avatarUrl);
+          }
+          if (j.user?.name) {
+            setDisplayName(j.user.name);
+            localStorage.setItem("displayName", j.user.name);
+          }
         }
       } catch (e) {
         // ignore
@@ -77,7 +90,15 @@ export default function AuthNav() {
   }, [session]);
 
   if (status === "loading") {
-    return <div className="text-sm zen-subtle">載入中…</div>;
+    if (avatarUrl) {
+      return <img src={avatarUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />;
+    }
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0 }}>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+      </svg>
+    );
   }
 
   if (!session?.user) {
@@ -132,6 +153,8 @@ export default function AuthNav() {
   const handleSignOut = async () => {
     try {
       setLogoutError(null);
+      localStorage.removeItem("avatarUrl");
+      localStorage.removeItem("displayName");
       const csrfRes = await fetch("/api/auth/csrf", { method: "GET", credentials: "include" });
       if (!csrfRes.ok) throw new Error(`csrf_http_${csrfRes.status}`);
       const csrfJson = await csrfRes.json();
