@@ -8,6 +8,7 @@ import LanguageGate from "./components/LanguageGate";
 import PWARegister from "./components/PWARegister";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
+import PullToRefresh from "./components/PullToRefresh";
 import ShareButton from "./components/ShareButton";
 import TimerButton from "./components/TimerButton";
 import { TimerProvider } from "./providers/TimerContext";
@@ -114,6 +115,7 @@ export default function RootLayout({
           </Link>
           {/* 手機版底部列 */}
           <MobileBottomBar />
+          <PullToRefresh />
           </TimerProvider>
         </Providers>
         <Analytics />
