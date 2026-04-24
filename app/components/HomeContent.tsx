@@ -337,8 +337,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               </button>
             </div>
 
+            {/* Grid container — scrollable, always present */}
+            <div className="max-sm:flex-1 max-sm:min-h-0 max-sm:overflow-y-auto">
             {catOpen && (
-              <div className="mt-2 overflow-visible max-sm:flex-1 max-sm:overflow-y-auto max-sm:pb-24">
+              <div className="mt-2 overflow-visible max-sm:pb-24">
                 {loadingLang ? (
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
@@ -522,6 +524,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 )}
               </div>
             )}
+            </div>
           </div>
 
           {/* Right 2/3 — reserved */}
