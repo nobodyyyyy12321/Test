@@ -29,13 +29,18 @@
 }
 @import "tailwindcss";
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @media (max-width: 639px) {
   ::-webkit-scrollbar {
     display: none;
   }
   * {
     scrollbar-width: none;
-    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
   }
   html, body {
     overscroll-behavior: none;
