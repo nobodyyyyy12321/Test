@@ -35,6 +35,7 @@
   }
   * {
     scrollbar-width: none;
+    -webkit-tap-highlight-color: transparent;
   }
   html, body {
     overscroll-behavior: none;
