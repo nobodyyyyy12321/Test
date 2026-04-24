@@ -208,14 +208,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       </div>
 
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-16 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
-        <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden">
+        <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden max-sm:items-stretch">
           {/* Left panel — categories */}
-          <div className="w-full sm:w-[42%] shrink-0 max-sm:flex max-sm:flex-col max-sm:flex-1 max-sm:overflow-hidden">
+          <div className="w-full sm:w-[42%] shrink-0 max-sm:flex max-sm:flex-col max-sm:h-full max-sm:overflow-hidden">
 
             {/* Pinned bar — drop target */}
             <div
               data-drop="pinned"
-              className="min-h-[5.5rem] px-2 py-2 border-b transition-colors"
+              className="min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{
                 borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
                 background: loggedIn && overPinned ? "color-mix(in srgb, #5fa870 8%, transparent)" : "transparent",
