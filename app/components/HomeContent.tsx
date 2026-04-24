@@ -207,10 +207,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         />
       </div>
 
-      <main className="flex min-h-screen w-full flex-col pt-36 pb-10 px-4 sm:pl-16 sm:pr-16">
-        <div className="flex flex-row items-start gap-6 w-full flex-1">
+      <main className="flex w-full flex-col pt-36 px-4 sm:pl-16 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
+        <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden">
           {/* Left panel — categories */}
-          <div className="w-full sm:w-[42%] shrink-0">
+          <div className="w-full sm:w-[42%] shrink-0 max-sm:flex max-sm:flex-col max-sm:flex-1 max-sm:overflow-hidden">
 
             {/* Pinned bar — drop target */}
             <div
@@ -338,7 +338,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             </div>
 
             {catOpen && (
-              <div className="mt-2 overflow-visible">
+              <div className="mt-2 overflow-visible max-sm:flex-1 max-sm:overflow-y-auto max-sm:pb-24">
                 {loadingLang ? (
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
