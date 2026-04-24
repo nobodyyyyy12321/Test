@@ -31,6 +31,12 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const loggedIn = !!session?.user;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchDragRef = useRef<{ name: string; from: "pinned" | "grid" } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressPendingRef = useRef<{ e: React.TouchEvent; name: string; from: "pinned" | "grid" } | null>(null);
+  const cancelLongPressRef = useRef(() => {
+    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+    longPressPendingRef.current = null;
+  });
   const subjects = useFilteredCategories(categories, query);
 
   const colors = ["#b19739", "#5fa870"];
@@ -79,12 +85,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   // touch drag global listeners
   useEffect(() => {
     const onMove = (e: TouchEvent) => {
+      if (longPressPendingRef.current) cancelLongPressRef.current();
       if (!touchDragRef.current) return;
       e.preventDefault();
       const t = e.touches[0];
       setGhostPos({ name: touchDragRef.current.name, x: t.clientX, y: t.clientY });
     };
     const onEnd = (e: TouchEvent) => {
+      cancelLongPressRef.current();
       const drag = touchDragRef.current;
       if (!drag) return;
       const t = e.changedTouches[0];
@@ -107,10 +115,18 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const startTouchDrag = (e: React.TouchEvent, name: string, from: "pinned" | "grid") => {
     if (!loggedIn) return;
     const t = e.touches[0];
-    touchDragRef.current = { name, from };
-    setDragging(name);
-    setDraggingFrom(from);
-    setGhostPos({ name, x: t.clientX, y: t.clientY });
+    const startX = t.clientX;
+    const startY = t.clientY;
+    longPressPendingRef.current = { e, name, from };
+    longPressTimerRef.current = setTimeout(() => {
+      const pending = longPressPendingRef.current;
+      if (!pending) return;
+      touchDragRef.current = { name: pending.name, from: pending.from };
+      setDragging(pending.name);
+      setDraggingFrom(pending.from);
+      setGhostPos({ name: pending.name, x: startX, y: startY });
+      longPressPendingRef.current = null;
+    }, 500);
   };
 
   // sync language from localStorage
