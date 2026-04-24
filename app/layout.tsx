@@ -9,7 +9,6 @@ import PWARegister from "./components/PWARegister";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import ShareButton from "./components/ShareButton";
-import UploadButton from "./components/UploadButton";
 import TimerButton from "./components/TimerButton";
 import { TimerProvider } from "./providers/TimerContext";
 import { Analytics } from "@vercel/analytics/next";
@@ -71,9 +70,6 @@ export default function RootLayout({
             </Link>
             <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <ShareButton />
-            </div>
-            <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <UploadButton placement="right" />
             </div>
             <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <TimerButton placement="right" />
