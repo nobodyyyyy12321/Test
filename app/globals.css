@@ -29,6 +29,15 @@
 }
 @import "tailwindcss";
 
+@media (max-width: 639px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    scrollbar-width: none;
+  }
+}
+
 :root {
   /* Warmer beige background */
   --background: #f5efe6;
