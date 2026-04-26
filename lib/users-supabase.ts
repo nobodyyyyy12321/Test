@@ -90,7 +90,7 @@ async function attachRecordsAndRecitations(user: User): Promise<User> {
       set: r.set,
       timestamp: r.timestamp,
       category: r.category,
-      answers: r.answers as User["records"] extends Array<infer T> ? T["answers"] : never,
+      answers: r.answers as { n: number; u: string | string[] | null }[] | undefined,
     }));
 
   user.studyChineseRecords = allRecords
@@ -227,7 +227,7 @@ export async function updateUser(
   if (updates.emailPublic !== undefined) row.email_public = updates.emailPublic;
 
   if (Object.keys(row).length === 0) {
-    return findUserById(id) ?? null;
+    return (await findUserById(id)) ?? null;
   }
 
   const { error } = await db.from("users").update(row).eq("id", id);
