@@ -13,7 +13,6 @@ export default function AuthNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [domMounted, setDomMounted] = useState(false);
-  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
@@ -32,19 +31,6 @@ export default function AuthNav() {
     setIsMenuOpen(false);
   }, [pathname]);
 
-  const handleMouseEnter = () => {
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-    setIsMenuOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    closeTimeoutRef.current = setTimeout(() => {
-      setIsMenuOpen(false);
-    }, 300);
-  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -84,7 +70,6 @@ export default function AuthNav() {
     window.addEventListener('profile:updated', onProfileUpdated);
     return () => {
       mounted = false;
-      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
       window.removeEventListener('profile:updated', onProfileUpdated);
     };
   }, [session]);
@@ -189,8 +174,6 @@ export default function AuthNav() {
       <div
         className="relative"
         ref={menuRef}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
         <button
           aria-haspopup="true"

@@ -68,7 +68,7 @@ export default function LanguageSelector() {
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-5 w-5"
+          className="h-5 w-5 transition-transform duration-200 hover:scale-[1.15]"
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="9" />
