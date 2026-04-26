@@ -111,11 +111,34 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
-      if (!showResults && e.key === "Enter") checkAnswers();
+      if (showResults) return;
+      if (e.key === "Enter") { checkAnswers(); return; }
+      const keyMap: Record<string, string> = { "1": "A", "2": "B", "3": "C", "4": "D" };
+      const label = keyMap[e.key];
+      if (!label) return;
+      const q = questions[focusedIdx];
+      if (!q) return;
+      const qt = q.type ?? "single";
+      if (qt === "fill") return;
+      if (!q.options.some(o => o.label === label)) return;
+      if (qt === "multiple") {
+        handleMultipleToggleAt(focusedIdx, label);
+      } else {
+        handleSingleAnswerAt(focusedIdx, label);
+        setFocusedIdx(prev => {
+          const nextUnanswered = questions.findIndex((_, i) => i > prev && userAnswers[i] === null);
+          return nextUnanswered !== -1 ? nextUnanswered : prev;
+        });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showResults, userAnswers, questions]);
+  }, [showResults, userAnswers, questions, focusedIdx]);
+
+  useEffect(() => {
+    const el = questionRefs.current[focusedIdx];
+    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focusedIdx]);
 
   useEffect(() => {
     if (checkedIdxs.size === 0) { setShareText(null); setShareTitle(null); return; }
@@ -200,6 +223,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     setQuestions(displayed);
     setUserAnswers(new Array(displayed.length).fill(null));
     setCheckedIdxs(new Set());
+    setFocusedIdx(0);
   };
 
   const retryWrong = () => {
@@ -209,6 +233,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     setShowResults(false);
     setUserAnswers(new Array(wrong.length).fill(null));
     setCheckedIdxs(new Set());
+    setFocusedIdx(0);
   };
 
   const speakQuestion = (text: string) => {
@@ -290,7 +315,11 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                       {q.groupContent}
                     </div>
                   )}
-                  <div className="py-4">
+                  <div
+                    ref={el => { questionRefs.current[idx] = el; }}
+                    className="py-4"
+                    onClick={() => setFocusedIdx(idx)}
+                  >
                     <div className="flex items-center gap-2 text-sm mb-2">
                       {session?.user && (
                         <button
@@ -307,7 +336,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                       {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
                     </div>
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-base" style={{ color: "#5fa870" }}><RenderContent inline>{q.title}</RenderContent></span>
+                      <span className="text-base rounded transition-all" style={{ color: "#5fa870", backgroundColor: idx === focusedIdx && !showResults && qt !== "fill" ? "rgba(95,168,112,0.15)" : "transparent" }}><RenderContent inline>{q.title}</RenderContent></span>
                       {id === "englishWords" && (
                         <button type="button" onClick={() => speakQuestion(q.title)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-white hover:bg-zinc-600" aria-label="朗讀英文">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
