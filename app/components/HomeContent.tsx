@@ -52,6 +52,13 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     if (savedMode === "formal" || savedMode === "practice") setQuizMode(savedMode);
   }, []);
 
+  useEffect(() => {
+    if (!loggedIn) {
+      setQuizMode("practice");
+      localStorage.setItem("quizMode", "practice");
+    }
+  }, [loggedIn]);
+
   const toggleMode = () => {
     const next = quizMode === "practice" ? "formal" : "practice";
     setQuizMode(next);
@@ -205,18 +212,20 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
           />
-          <button
-            type="button"
-            onClick={toggleMode}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs transition-colors whitespace-nowrap"
-            style={quizMode === "formal"
-              ? { borderColor: "#b19739", color: "#b19739", backgroundColor: "color-mix(in srgb, #b19739 10%, transparent)" }
-              : { borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }
-            }
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: quizMode === "formal" ? "#b19739" : "#5fa870" }} />
-            {quizMode === "formal" ? (language === "en" ? "Formal" : "正式模式") : (language === "en" ? "Practice" : "練習模式")}
-          </button>
+          {loggedIn && (
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs transition-colors whitespace-nowrap"
+              style={quizMode === "formal"
+                ? { borderColor: "#b19739", color: "#b19739", backgroundColor: "color-mix(in srgb, #b19739 10%, transparent)" }
+                : { borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }
+              }
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: quizMode === "formal" ? "#b19739" : "#5fa870" }} />
+              {quizMode === "formal" ? (language === "en" ? "Formal" : "正式模式") : (language === "en" ? "Practice" : "練習模式")}
+            </button>
+          )}
         </div>
       </div>
 
