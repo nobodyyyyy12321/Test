@@ -60,6 +60,26 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     } catch {}
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const apply = (matches: boolean) => {
+      if (matches) {
+        document.documentElement.style.overflow = "hidden";
+        document.body.style.overflow = "hidden";
+      } else {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+      }
+    };
+    apply(mq.matches);
+    mq.addEventListener("change", e => apply(e.matches));
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+      mq.removeEventListener("change", e => apply(e.matches));
+    };
+  }, []);
+
   const pin = (name: string) => {
     setPinnedNames(prev => {
       if (prev.includes(name)) return prev;
