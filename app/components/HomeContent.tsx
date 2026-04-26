@@ -207,9 +207,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
               {loggedIn && pinnedNames.length === 0 && (
-                <span className="text-xs opacity-25 select-none" style={{ color: "var(--zen-ink)" }}>
-                  {language === "en" ? "Favorites" : "釘選"}
-                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
+                  <line x1="12" y1="17" x2="12" y2="22"/>
+                  <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+                </svg>
               )}
               {loggedIn && pinnedNames.length > 0 && (
                 <div className="bookshelf-grid home-bookshelf-grid">
