@@ -9,6 +9,7 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
+type CtxMenu = { id: string; x: number; y: number; from: "pinned" | "grid" };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
@@ -21,27 +22,15 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [userResults, setUserResults] = useState<UserResult[]>([]);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [draggingFrom, setDraggingFrom] = useState<"pinned" | "grid" | null>(null);
-  const [overPinned, setOverPinned] = useState(false);
-  const [overGrid, setOverGrid] = useState(false);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
-  const [ghostPos, setGhostPos] = useState<{ name: string; x: number; y: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchDragRef = useRef<{ name: string; from: "pinned" | "grid" } | null>(null);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressPendingRef = useRef<{ e: React.TouchEvent; name: string; from: "pinned" | "grid" } | null>(null);
-  const cancelLongPressRef = useRef(() => {
-    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-    longPressPendingRef.current = null;
-  });
   const subjects = useFilteredCategories(categories, query);
 
   const colors = ["#b19739", "#5fa870"];
 
-  // find a node by name at top-level or child level
   const findSubject = (name: string): { node: CategoryNode; color: string } | null => {
     for (let i = 0; i < subjects.length; i++) {
       const s = subjects[i];
@@ -52,7 +41,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return null;
   };
 
-  // load pinned from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem("pinnedCats");
@@ -97,59 +85,13 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     });
   };
 
-  // stable refs for touch handlers
-  const pinRef = useRef(pin);
-  const unpinRef = useRef(unpin);
-  useEffect(() => { pinRef.current = pin; unpinRef.current = unpin; });
-
-  // touch drag global listeners
   useEffect(() => {
-    const onMove = (e: TouchEvent) => {
-      if (longPressPendingRef.current) cancelLongPressRef.current();
-      if (!touchDragRef.current) return;
-      e.preventDefault();
-      const t = e.touches[0];
-      setGhostPos({ name: touchDragRef.current.name, x: t.clientX, y: t.clientY });
-    };
-    const onEnd = (e: TouchEvent) => {
-      cancelLongPressRef.current();
-      const drag = touchDragRef.current;
-      if (!drag) return;
-      const t = e.changedTouches[0];
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      if (el?.closest('[data-drop="pinned"]') && drag.from === "grid") pinRef.current(drag.name);
-      else if (el?.closest('[data-drop="grid"]') && drag.from === "pinned") unpinRef.current(drag.name);
-      touchDragRef.current = null;
-      setGhostPos(null);
-      setDragging(null);
-      setDraggingFrom(null);
-    };
-    document.addEventListener("touchmove", onMove, { passive: false });
-    document.addEventListener("touchend", onEnd);
-    return () => {
-      document.removeEventListener("touchmove", onMove);
-      document.removeEventListener("touchend", onEnd);
-    };
-  }, []);
+    if (!ctxMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCtxMenu(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [ctxMenu]);
 
-  const startTouchDrag = (e: React.TouchEvent, name: string, from: "pinned" | "grid") => {
-    if (!loggedIn) return;
-    const t = e.touches[0];
-    const startX = t.clientX;
-    const startY = t.clientY;
-    longPressPendingRef.current = { e, name, from };
-    longPressTimerRef.current = setTimeout(() => {
-      const pending = longPressPendingRef.current;
-      if (!pending) return;
-      touchDragRef.current = { name: pending.name, from: pending.from };
-      setDragging(pending.name);
-      setDraggingFrom(pending.from);
-      setGhostPos({ name: pending.name, x: startX, y: startY });
-      longPressPendingRef.current = null;
-    }, 500);
-  };
-
-  // sync language from localStorage
   useEffect(() => {
     const sync = () => {
       const lang = localStorage.getItem("siteLanguage") || "zh-TW";
@@ -164,7 +106,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     };
   }, []);
 
-  // fetch categories when language changes
   useEffect(() => {
     setOpenKey(null);
     setOpenDropKey(null);
@@ -185,7 +126,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       .finally(() => setLoadingLang(false));
   }, [language, initialCategories]);
 
-  // user search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) { setUserResults([]); return; }
@@ -198,17 +138,46 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
+  const openCtx = (e: React.MouseEvent, id: string, from: "pinned" | "grid") => {
+    e.preventDefault();
+    setCtxMenu({ id, x: e.clientX, y: e.clientY, from });
+  };
+
   return (
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
-      {/* touch drag ghost */}
-      {ghostPos && (
-        <div
-          className="fixed pointer-events-none z-[200] book-link bookshelf-btn opacity-80"
-          style={{ left: ghostPos.x, top: ghostPos.y + 12, color: "#b19739", transform: "translateX(-50%) scale(1.08)" }}
-        >
-          {ghostPos.name}
-        </div>
+      {/* context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={() => setCtxMenu(null)} />
+          <div
+            className="fixed z-50 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ left: ctxMenu.x, top: ctxMenu.y, minWidth: "5rem" }}
+          >
+            {ctxMenu.from === "grid" ? (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { pin(ctxMenu.id); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                釘選
+              </button>
+            ) : (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { unpin(ctxMenu.id); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                取消釘選
+              </button>
+            )}
+          </div>
+        </>
       )}
+
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-40 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
@@ -232,25 +201,12 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
           {/* Left panel — categories */}
           <div className="w-full sm:w-[42%] shrink-0 max-sm:flex max-sm:flex-col max-sm:h-full max-sm:overflow-hidden">
 
-            {/* Pinned bar — drop target */}
+            {/* Pinned bar */}
             <div
-              data-drop="pinned"
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
-              style={{
-                borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)",
-                background: loggedIn && overPinned ? "color-mix(in srgb, #5fa870 8%, transparent)" : "transparent",
-              }}
-              onDragOver={e => { if (!loggedIn) return; e.preventDefault(); setOverPinned(true); }}
-              onDragLeave={() => setOverPinned(false)}
-              onDrop={e => {
-                if (!loggedIn) return;
-                e.preventDefault();
-                if (dragging) pin(dragging);
-                setDragging(null);
-                setOverPinned(false);
-              }}
+              style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
-              {loggedIn && pinnedNames.length === 0 && !overPinned && (
+              {loggedIn && pinnedNames.length === 0 && (
                 <span className="text-xs opacity-25 select-none" style={{ color: "var(--zen-ink)" }}>
                   {language === "en" ? "Favorites" : "釘選"}
                 </span>
@@ -266,11 +222,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       <div key={name} className="contents">
                         <div
                           className="relative"
-                          draggable
-                          onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(name); setDraggingFrom("pinned"); }}
-                          onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
-                          onTouchStart={e => startTouchDrag(e, name, "pinned")}
-                          style={{ cursor: "grab" }}
+                          onContextMenu={e => openCtx(e, name, "pinned")}
                         >
                           {subject.children?.length ? (
                             <button
@@ -317,11 +269,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           return (
                             <div
                               key={child.name}
-                              draggable
-                              onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(child.name); setDraggingFrom(childPinned ? "pinned" : "grid"); }}
-                              onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
-                              onTouchStart={e => startTouchDrag(e, child.name, childPinned ? "pinned" : "grid")}
-                              style={{ cursor: "grab", opacity: childPinned ? 0.4 : 1 }}
+                              onContextMenu={e => openCtx(e, child.name, childPinned ? "pinned" : "grid")}
+                              style={{ opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
                                 <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color }}>
@@ -364,18 +313,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 {loadingLang ? (
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
-                  <div
-                    data-drop="grid"
-                    className="bookshelf-grid home-bookshelf-grid"
-                    onDragOver={e => { e.preventDefault(); if (draggingFrom === "pinned") setOverGrid(true); }}
-                    onDragLeave={() => setOverGrid(false)}
-                    onDrop={e => {
-                      e.preventDefault();
-                      if (draggingFrom === "pinned" && dragging) unpin(dragging);
-                      setDragging(null); setDraggingFrom(null); setOverGrid(false);
-                    }}
-                    style={{ outline: overGrid ? "2px dashed #5fa870" : "none", borderRadius: "0.5rem" }}
-                  >
+                  <div className="bookshelf-grid home-bookshelf-grid">
                     {subjects.map((subject, i) => {
                       const key = `${language}-${i}-${subject.href || subject.name}`;
                       const isOpen = !!query || openKey === key || openKey === subject.name;
@@ -390,11 +328,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         <div key={key} className="contents">
                           <div
                             className="relative"
-                            draggable={loggedIn}
-                            onDragStart={loggedIn ? e => { e.dataTransfer.effectAllowed = "move"; setDragging(subject.name); setDraggingFrom("grid"); } : undefined}
-                            onDragEnd={loggedIn ? () => { setDragging(null); setDraggingFrom(null); } : undefined}
-                            onTouchStart={e => startTouchDrag(e, subject.name, "grid")}
-                            style={{ cursor: loggedIn ? "grab" : undefined }}
+                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, "grid") : undefined}
                           >
                             {hasSub ? (
                               <button
@@ -444,11 +378,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               return (
                                 <div key={subKey} className="contents">
                                   <div
-                                    draggable
-                                    onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(sub.name); setDraggingFrom("grid"); }}
-                                    onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
-                                    onTouchStart={e => startTouchDrag(e, sub.name, "grid")}
-                                    style={{ cursor: "grab", display: pinnedNames.includes(sub.name) ? "none" : undefined }}
+                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, "grid") : undefined}
+                                    style={{ display: pinnedNames.includes(sub.name) ? "none" : undefined }}
                                   >
                                     <button
                                       type="button"
@@ -494,11 +425,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             return (
                               <div
                                 key={subKey}
-                                draggable
-                                onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragging(sub.name); setDraggingFrom("grid"); }}
-                                onDragEnd={() => { setDragging(null); setDraggingFrom(null); }}
-                                onTouchStart={e => startTouchDrag(e, sub.name, "grid")}
-                                style={{ cursor: "grab" }}
+                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, "grid") : undefined}
                               >
                                 <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
                                   {sub.name}

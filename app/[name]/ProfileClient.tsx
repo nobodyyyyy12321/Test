@@ -118,8 +118,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [shareOpenId, setShareOpenId] = useState<string | null>(null);
   const [shareInput, setShareInput] = useState("");
   const [shareError, setShareError] = useState<string | null>(null);
@@ -224,15 +224,14 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       .finally(() => setFollowingLoading(false));
   }, [activeTab, followingLoaded, urlName]);
 
-  // ── menu click-outside ─────────────────────────────────────────────────────
+  // ── context menu close on Escape ─────────────────────────────────────────
 
   useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null);
-    };
-    if (menuOpenId) document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [menuOpenId]);
+    if (!contextMenuId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setContextMenuId(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [contextMenuId]);
 
   // ── profile actions ───────────────────────────────────────────────────────
 
@@ -415,7 +414,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               alt="avatar"
               className="w-14 h-14 rounded-full object-cover"
             />
-            <h1 className="text-2xl font-bold zen-title">{urlName}</h1>
+            <h1 className="text-2xl font-bold zen-title" style={{ color: "#b19739" }}>{urlName}</h1>
           </div>
           <div className="flex items-center gap-2">
             {!isOwner && session?.user && (
@@ -436,20 +435,23 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
         {/* tab bar */}
         <div className="flex gap-1 mb-8 border-b border-zinc-200 dark:border-zinc-700 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {visibleTabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => { setActiveTab(t.id); window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }}
-              className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === t.id
-                  ? "border-current"
-                  : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-              }`}
-              style={activeTab === t.id ? { color: "var(--zen-ink)" } : {}}
-            >
-              {t.label}
-            </button>
-          ))}
+          {visibleTabs.map((t, i) => {
+            const tabColor = i % 2 === 0 ? "#5fa870" : "#b19739";
+            return (
+              <button
+                key={t.id}
+                onClick={() => { setActiveTab(t.id); window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }}
+                className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === t.id
+                    ? "border-current"
+                    : "border-transparent hover:opacity-70"
+                }`}
+                style={{ color: activeTab === t.id ? tabColor : tabColor, opacity: activeTab === t.id ? 1 : 0.45 }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* ── profile tab ─────────────────────────────────────────────────── */}
@@ -582,84 +584,94 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
               </p>
             ) : (
-              <ul className="space-y-3">
+              <>
+              <div className="bookshelf-grid">
                 {lists.map(list => (
-                  <li key={list.id} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <div className="flex items-center gap-3 p-4">
-                      <button type="button" className="flex-1 min-w-0 text-left"
-                        onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}>
-                        {isOwner && editingListId === list.id ? (
-                          <input autoFocus value={editTitle}
-                            onChange={e => setEditTitle(e.target.value)}
-                            onBlur={() => saveListEdit(list.id)}
-                            onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
-                            onClick={e => e.stopPropagation()}
-                            className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
-                            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }} />
-                        ) : (
-                          <span className="font-medium" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
-                        )}
-                        <p className="text-xs text-zinc-400 mt-0.5">{list.questions.length} 題</p>
-                      </button>
+                  <div key={list.id} className="relative"
+                    onContextMenu={isOwner && editingListId !== list.id ? e => {
+                      e.preventDefault();
+                      setContextMenuId(list.id);
+                      setContextMenuPos({ x: e.clientX, y: e.clientY });
+                    } : undefined}
+                  >
+                    <button
+                      type="button"
+                      className="book-link bookshelf-btn"
+                      style={{ color: "#5fa870", height: "auto", minHeight: "3.25rem", whiteSpace: "normal", justifyContent: "flex-start" }}
+                      onClick={() => { setExpandedId(expandedId === list.id ? null : list.id); setShareOpenId(null); }}
+                    >
+                      {isOwner && editingListId === list.id ? (
+                        <input autoFocus value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          onBlur={() => saveListEdit(list.id)}
+                          onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
+                          onClick={e => e.stopPropagation()}
+                          className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
+                          style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }} />
+                      ) : (
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span>{list.title}</span>
+                          <span className="text-xs" style={{ opacity: 0.5 }}>{list.questions.length} 題</span>
+                        </div>
+                      )}
+                    </button>
+                    {isOwner && contextMenuId === list.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
+                        <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                          style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
+                          <button type="button"
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={() => { togglePublic(list); setContextMenuId(null); }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            style={{ color: "var(--zen-ink)" }}>
+                            設為{list.isPublic ? "私人" : "公開"}
+                          </button>
+                          <button type="button"
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={() => { setEditingListId(list.id); setEditTitle(list.title); setContextMenuId(null); }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            style={{ color: "var(--zen-ink)" }}>
+                            改名
+                          </button>
+                          <button type="button"
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setExpandedId(list.id); setContextMenuId(null); }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            style={{ color: "var(--zen-ink)" }}>
+                            分享
+                          </button>
+                          <button type="button"
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={() => { deleteList(list.id); setContextMenuId(null); }}
+                            className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            刪除
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
 
+              {/* expanded detail panel */}
+              {expandedId && (() => {
+                const list = lists.find(l => l.id === expandedId);
+                if (!list) return null;
+                return (
+                  <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                      <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
                       {list.questions.length > 0 && (
                         <a href={`/test/list?listId=${list.id}`}
-                          className="text-xs px-2 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                           style={{ color: "var(--zen-ink)" }}>
                           作答
                         </a>
                       )}
-
-                      {isOwner && (
-                        <div className="relative" ref={menuOpenId === list.id ? menuRef : null}>
-                          <button type="button"
-                            onClick={() => setMenuOpenId(menuOpenId === list.id ? null : list.id)}
-                            className="flex items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
-                            style={{ width: "1.75rem", height: "1.75rem", minWidth: "1.75rem" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                            </svg>
-                          </button>
-                          {menuOpenId === list.id && (
-                            <div className="absolute right-0 top-full mt-1 z-30 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
-                              <button type="button"
-                                onClick={() => { togglePublic(list); setMenuOpenId(null); }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                                style={{ color: "var(--zen-ink)" }}>
-                                設為{list.isPublic ? "私人" : "公開"}
-                              </button>
-                              <button type="button"
-                                onClick={() => { setEditingListId(list.id); setEditTitle(list.title); setMenuOpenId(null); }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                                style={{ color: "var(--zen-ink)" }}>
-                                改名
-                              </button>
-                              <button type="button"
-                                onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setMenuOpenId(null); }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                                style={{ color: "var(--zen-ink)" }}>
-                                分享
-                              </button>
-                              <button type="button"
-                                onClick={() => { deleteList(list.id); setMenuOpenId(null); }}
-                                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                刪除
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                        className={`shrink-0 text-zinc-400 transition-transform ${expandedId === list.id ? "rotate-180" : ""}`}>
-                        <path d="m6 9 6 6 6-6"/>
-                      </svg>
                     </div>
-
-                    {/* share panel */}
                     {isOwner && shareOpenId === list.id && (
-                      <div className="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3">
+                      <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                         <p className="text-xs text-zinc-400 mb-2">分享給帳號</p>
                         <div className="flex gap-2 mb-2">
                           <input
@@ -709,114 +721,123 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                         )}
                       </div>
                     )}
-
-                    {expandedId === list.id && (
-                      <div className="border-t border-zinc-100 dark:border-zinc-800 overflow-hidden rounded-b-xl">
-                        {list.questions.length === 0 ? (
-                          <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
-                        ) : (
-                          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                            {list.questions.map((q: ListQuestion, i: number) => (
-                              <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
-                                <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
-                                <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
-                                <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
-                                {isOwner && (
-                                  <button type="button"
-                                    onClick={() => removeQuestion(list.id, q.questionId, q.collectionId)}
-                                    className="text-xs text-red-400 hover:text-red-500 transition-colors">
-                                    移除
-                                  </button>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
+                    {list.questions.length === 0 ? (
+                      <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
+                    ) : (
+                      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {list.questions.map((q: ListQuestion, i: number) => (
+                          <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
+                            <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
+                            <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
+                            <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
+                            {isOwner && (
+                              <button type="button"
+                                onClick={() => removeQuestion(list.id, q.questionId, q.collectionId)}
+                                className="text-xs text-red-400 hover:text-red-500 transition-colors">
+                                移除
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                );
+              })()}
+              </>
             )}
 
             {/* shared-with-me lists */}
             {isOwner && sharedLists.length > 0 && (
               <div className="mt-8">
                 <p className="text-xs text-zinc-400 mb-3">分享給我的試卷</p>
-                <ul className="space-y-3">
+                <div className="bookshelf-grid">
                   {sharedLists.map(list => (
-                    <li key={list.id} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
-                      <div className="flex items-center gap-3 p-4">
-                        <button type="button" className="flex-1 min-w-0 text-left"
-                          onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}>
-                          <span className="font-medium" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
-                          <p className="text-xs text-zinc-400 mt-0.5">{list.ownerName} · {list.questions.length} 題</p>
-                        </button>
+                    <div key={list.id} className="relative"
+                      onContextMenu={e => {
+                        e.preventDefault();
+                        setContextMenuId(list.id);
+                        setContextMenuPos({ x: e.clientX, y: e.clientY });
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="book-link bookshelf-btn"
+                        style={{ color: "#5fa870", height: "auto", minHeight: "3.25rem", whiteSpace: "normal", justifyContent: "flex-start" }}
+                        onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}
+                      >
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span>{list.title}</span>
+                          <span className="text-xs" style={{ opacity: 0.5 }}>{list.ownerName} · {list.questions.length} 題</span>
+                        </div>
+                      </button>
+                      {contextMenuId === list.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
+                          <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                            style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
+                            <button type="button"
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={async () => {
+                                setContextMenuId(null);
+                                const res = await fetch(`/api/lists/${list.id}/copy`, { method: "POST" });
+                                if (res.ok) {
+                                  const d = await res.json();
+                                  setLists(prev => [d.list, ...prev]);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                              style={{ color: "var(--zen-ink)" }}>
+                              複製
+                            </button>
+                            <button type="button"
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={async () => {
+                                setContextMenuId(null);
+                                const res = await fetch(`/api/lists/${list.id}/unsubscribe`, { method: "DELETE" });
+                                if (res.ok) setSharedLists(prev => prev.filter(l => l.id !== list.id));
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              刪除
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {expandedId && (() => {
+                  const list = sharedLists.find(l => l.id === expandedId);
+                  if (!list) return null;
+                  return (
+                    <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                        <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
                         {list.questions.length > 0 && (
                           <a href={`/test/list?listId=${list.id}`}
-                            className="text-xs px-2 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                             style={{ color: "var(--zen-ink)" }}>
                             作答
                           </a>
                         )}
-                        <div className="relative" ref={menuOpenId === list.id ? menuRef : null}>
-                          <button type="button"
-                            onClick={() => setMenuOpenId(menuOpenId === list.id ? null : list.id)}
-                            className="flex items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
-                            style={{ width: "1.75rem", height: "1.75rem", minWidth: "1.75rem" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                            </svg>
-                          </button>
-                          {menuOpenId === list.id && (
-                            <div className="absolute right-0 top-full mt-1 z-30 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
-                              <button type="button"
-                                onClick={async () => {
-                                  setMenuOpenId(null);
-                                  const res = await fetch(`/api/lists/${list.id}/copy`, { method: "POST" });
-                                  if (res.ok) {
-                                    const d = await res.json();
-                                    setLists(prev => [d.list, ...prev]);
-                                  }
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                                style={{ color: "var(--zen-ink)" }}>
-                                複製
-                              </button>
-                              <button type="button"
-                                onClick={async () => {
-                                  setMenuOpenId(null);
-                                  const res = await fetch(`/api/lists/${list.id}/unsubscribe`, { method: "DELETE" });
-                                  if (res.ok) setSharedLists(prev => prev.filter(l => l.id !== list.id));
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                刪除
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                          className={`shrink-0 text-zinc-400 transition-transform ${expandedId === list.id ? "rotate-180" : ""}`}>
-                          <path d="m6 9 6 6 6-6"/>
-                        </svg>
                       </div>
-                      {expandedId === list.id && list.questions.length > 0 && (
-                        <div className="border-t border-zinc-100 dark:border-zinc-800 overflow-hidden rounded-b-xl">
-                          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                            {list.questions.map((q: ListQuestion, i: number) => (
-                              <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
-                                <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
-                                <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
-                                <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                      {list.questions.length === 0 ? (
+                        <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
+                      ) : (
+                        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                          {list.questions.map((q: ListQuestion, i: number) => (
+                            <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
+                              <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
+                              <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
+                              <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
-                    </li>
-                  ))}
-                </ul>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
