@@ -95,7 +95,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       .then(({ questions: qs }: { questions: Question[] }) => {
         const sorted = [...qs].sort((a, b) => a.number - b.number);
         originalQuestionsRef.current = sorted;
-        const displayed = ordered ? sorted : shuffle(sorted);
+        const shuffled = ordered ? sorted : shuffle(sorted);
+        const displayed = id === "englishWords" ? shuffled.slice(0, 50) : shuffled;
         setQuestions(displayed);
         setUserAnswers(new Array(displayed.length).fill(null));
         if (!formalMode && timerEnabled) { timerReset(); timerStart(); }
