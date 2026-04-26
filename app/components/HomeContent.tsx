@@ -238,10 +238,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               )}
               {loggedIn && pinnedNames.length > 0 && (
                 <div className="bookshelf-grid home-bookshelf-grid">
-                  {pinnedNames.map(name => {
+                  {pinnedNames.map((name, pinnedIdx) => {
                     const found = findSubject(name);
                     if (!found) return null;
-                    const { node: subject, color } = found;
+                    const { node: subject } = found;
+                    const color = colors[(pinnedIdx + 1) % colors.length];
                     const isExpanded = openPinnedKey === name;
                     return (
                       <div key={name} className="contents">
@@ -274,7 +275,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             </Link>
                           )}
                           {subject.dropdown?.length && isExpanded && (
-                            <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                            <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${subject.dropdownAlign === "right" ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
                               {subject.dropdown.map(opt => (
                                 <Link
                                   key={opt.href + opt.name}
@@ -339,15 +340,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
                   <div className="bookshelf-grid home-bookshelf-grid">
-                    {subjects.map((subject, i) => {
+                    {subjects
+                      .map((subject, i) => ({ subject, i }))
+                      .filter(({ subject }) => !(loggedIn && pinnedNames.includes(subject.name)))
+                      .map(({ subject, i }, visibleIdx) => {
                       const key = `${language}-${i}-${subject.href || subject.name}`;
                       const isOpen = !!query || openKey === key || openKey === subject.name;
                       const hasSub = !!subject.children?.length;
                       const hasDrop = !!subject.dropdown?.length;
-                      const color = colors[i % colors.length];
+                      const color = colors[visibleIdx % colors.length];
                       const btnStyle = { color };
-                      const isPinned = pinnedNames.includes(subject.name);
-                      if (loggedIn && isPinned) return null;
 
                       return (
                         <div key={key} className="contents">
@@ -380,7 +382,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               </Link>
                             )}
                             {hasDrop && openDropKey === key && (
-                              <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                              <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${subject.dropdownAlign === "right" ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
                                 {subject.dropdown!.map(opt => (
                                   <Link
                                     key={opt.href + opt.name}
@@ -427,7 +429,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                       </button>
                                       {openYearKey === subKey && (
-                                        <div className="year-dropdown absolute top-full left-0 z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto" style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+                                        <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${(sub.dropdownAlign === "right" || sub.name === "數學學測") ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
                                           {sub.dropdown.map((opt) => (
                                             <Link
                                               key={opt.href + opt.name}

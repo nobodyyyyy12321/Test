@@ -4,4 +4,5 @@ export type CategoryNode = {
   href?: string;
   children?: CategoryNode[];
   dropdown?: { name: string; href: string }[];
+  dropdownAlign?: "left" | "right";
 };

@@ -52,7 +52,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
   const [formalMode, setFormalMode] = useState(false);
   const [started, setStarted] = useState(!!autostart);
+  const [focusedIdx, setFocusedIdx] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useLayoutEffect(() => {
     const isFormal = localStorage.getItem("quizMode") === "formal";
