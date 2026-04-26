@@ -78,6 +78,7 @@ function recordToUrl(set: string, replayKey?: string): string | null {
     url = `/test/${encodeURIComponent(set)}`;
   }
   if (replayKey) url += `${url.includes("?") ? "&" : "?"}replay=${encodeURIComponent(replayKey)}`;
+  url += `${url.includes("?") ? "&" : "?"}autostart=1`;
   return url;
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchUsersByName } from "../../../../lib/users-firebase";
+import { searchUsersByName } from "../../../../lib/users-supabase";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

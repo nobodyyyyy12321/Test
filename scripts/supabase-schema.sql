@@ -1,0 +1,90 @@
+-- Supabase schema for user account data
+-- Run this in the Supabase SQL editor before running the migration script
+
+-- ── users ──────────────────────────────────────────────────────────────────
+create table if not exists users (
+  id                  text primary key,  -- Firestore doc ID
+  name                text unique not null,
+  email               text unique,
+  password_hash       text,
+  email_verified      boolean default false,
+  verification_token  text,
+  verification_expires timestamptz,
+  bio                 text,
+  avatar_url          text,
+  social_links        jsonb default '{}',
+  recitations_public  boolean default false,
+  email_public        boolean default false,
+  created_at          timestamptz default now()
+);
+
+-- ── quiz_records ────────────────────────────────────────────────────────────
+create table if not exists quiz_records (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    text not null references users(id) on delete cascade,
+  answered   int not null,
+  correct    int not null,
+  set        text not null,
+  timestamp  timestamptz not null,
+  category   text not null,
+  answers    jsonb
+);
+
+create index if not exists quiz_records_user_id_idx on quiz_records(user_id);
+create index if not exists quiz_records_timestamp_idx on quiz_records(user_id, timestamp desc);
+
+-- ── recitations ─────────────────────────────────────────────────────────────
+create table if not exists recitations (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        text not null references users(id) on delete cascade,
+  article_id     text not null,
+  article_number int not null,
+  title          text not null,
+  success        boolean not null,
+  timestamp      timestamptz not null
+);
+
+create index if not exists recitations_user_id_idx on recitations(user_id);
+
+-- ── lists ────────────────────────────────────────────────────────────────────
+create table if not exists lists (
+  id             text primary key,  -- Firestore doc ID (UUID v4)
+  title          text not null,
+  owner_id       text not null references users(id) on delete cascade,
+  is_public      boolean default false,
+  created_at     timestamptz not null,
+  shared_with    text[] default '{}',
+  shared_results jsonb default '{}'
+);
+
+create index if not exists lists_owner_id_idx on lists(owner_id);
+
+-- ── list_questions ───────────────────────────────────────────────────────────
+create table if not exists list_questions (
+  list_id       text not null references lists(id) on delete cascade,
+  question_id   text not null,
+  collection_id text not null,
+  title         text not null,
+  number        int not null,
+  level         int,
+  position      int not null default 0,
+  primary key (list_id, question_id, collection_id)
+);
+
+create index if not exists list_questions_list_id_idx on list_questions(list_id);
+
+-- ── follows ───────────────────────────────────────────────────────────────────
+create table if not exists follows (
+  id                  text primary key,  -- Firestore doc ID
+  follower_id         text not null references users(id) on delete cascade,
+  follower_name       text not null,
+  follower_avatar_url text,
+  following_id        text not null references users(id) on delete cascade,
+  following_name      text not null,
+  following_avatar_url text,
+  created_at          timestamptz not null,
+  unique (follower_id, following_id)
+);
+
+create index if not exists follows_follower_id_idx on follows(follower_id);
+create index if not exists follows_following_id_idx on follows(following_id);

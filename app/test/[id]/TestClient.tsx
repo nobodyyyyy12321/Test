@@ -39,9 +39,10 @@ type Props = {
   levels: string | null;
   pageTitle: string;
   replayKey?: string | null;
+  autostart?: boolean;
 };
 
-export default function TestClient({ id, ordered, listId, listTitle, levels, pageTitle, replayKey }: Props) {
+export default function TestClient({ id, ordered, listId, listTitle, levels, pageTitle, replayKey, autostart }: Props) {
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -50,7 +51,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
   const [formalMode, setFormalMode] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(!!autostart);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {

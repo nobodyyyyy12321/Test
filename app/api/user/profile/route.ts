@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { findUserByEmail, findUserByName, updateUser } from "../../../../lib/users";
-import { getFirestoreDB } from "../../../../lib/firebase-admin";
 import type { Session } from "next-auth";
 import { auth } from "../../../../auth";
 

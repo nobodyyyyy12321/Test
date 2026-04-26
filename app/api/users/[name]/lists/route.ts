@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findUserByName } from "../../../../../lib/users";
-import { getPublicListsByOwner } from "../../../../../lib/lists-firebase";
+import { getPublicListsByOwner } from "../../../../../lib/lists-supabase";
 
 export async function GET(
   _req: Request,

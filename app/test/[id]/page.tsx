@@ -9,7 +9,7 @@ const getListByIdCached = cache(getListById);
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string }>;
+  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string }>;
 };
 
 function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
@@ -58,7 +58,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { levels, ordered, listId, replay } = await searchParams;
+  const { levels, ordered, listId, replay, autostart } = await searchParams;
   const decodedId = decodeURIComponent(id);
 
   const [list, pageTitle] = await Promise.all([
@@ -77,6 +77,7 @@ export default async function TestPage({ params, searchParams }: Props) {
       levels={levels ?? null}
       pageTitle={title}
       replayKey={replay ?? null}
+      autostart={autostart === "1"}
     />
   );
 }

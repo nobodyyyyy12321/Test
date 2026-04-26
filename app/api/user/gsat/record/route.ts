@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getFirestoreDB } from "@/lib/firebase-admin";
+import { appendQuizRecord } from "@/lib/users";
 
 export async function POST(request: Request) {
   try {
@@ -15,33 +15,13 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid data" }, { status: 400 });
     }
 
-    const db = getFirestoreDB();
-    const userSnapshot = await db
-      .collection("users")
-      .where("email", "==", session.user.email.toLowerCase())
-      .limit(1)
-      .get();
-
-    if (userSnapshot.empty) {
-      return Response.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const record: Record<string, unknown> = {
+    await appendQuizRecord(session.user.email, {
       answered,
       correct,
       set,
-      timestamp: new Date().toISOString(),
       category: "國文學測",
-    };
-    if (Array.isArray(answers)) record.answers = answers;
-
-    const userRef = userSnapshot.docs[0].ref;
-    const userDoc = await userRef.get();
-    const userData = userDoc.data() ?? {};
-    const existing = userData.gsatRecords ?? [];
-    const trimmed = [...existing, record].slice(-20);
-
-    await userRef.update({ gsatRecords: trimmed });
+      answers: Array.isArray(answers) ? answers : undefined,
+    });
 
     return Response.json({ success: true });
   } catch (error) {

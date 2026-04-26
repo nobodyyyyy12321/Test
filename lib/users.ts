@@ -1,5 +1,4 @@
-// 重新導出 Firebase 用戶服務
-export type { User } from "./users-firebase";
+export type { User } from "./users-supabase";
 export {
   getUsers,
   findUserByEmail,
@@ -8,5 +7,7 @@ export {
   findUserById,
   saveUser,
   updateUser,
-} from "./users-firebase";
-
+  searchUsersByName,
+  appendQuizRecord,
+  appendRecitation,
+} from "./users-supabase";

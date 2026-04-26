@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { findUserByEmail, findUserByName, findUserById } from "../../../lib/users";
-import { getListsByOwner, getListsSharedWithUser, createList } from "../../../lib/lists-firebase";
+import { getListsByOwner, getListsSharedWithUser, createList } from "../../../lib/lists-supabase";
 import type { Session } from "next-auth";
 
 async function getSessionUser() {

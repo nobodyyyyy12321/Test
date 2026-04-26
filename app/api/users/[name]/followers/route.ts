@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findUserByName } from "../../../../../lib/users";
-import { getFollowers } from "../../../../../lib/follows-firebase";
+import { getFollowers } from "../../../../../lib/follows-supabase";
 
 export async function GET(
   _req: Request,

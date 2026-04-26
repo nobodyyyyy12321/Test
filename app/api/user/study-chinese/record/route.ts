@@ -1,13 +1,5 @@
 import { auth } from "@/auth";
-import { getFirestoreDB } from "@/lib/firebase-admin";
-
-type StudyChineseRecord = {
-  answered: number;
-  correct: number;
-  set: string;
-  timestamp: string;
-  category: "學中文";
-};
+import { appendQuizRecord } from "@/lib/users";
 
 export async function POST(request: Request) {
   try {
@@ -23,34 +15,9 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid data" }, { status: 400 });
     }
 
-    const db = getFirestoreDB();
-    const userSnapshot = await db
-      .collection("users")
-      .where("email", "==", session.user.email.toLowerCase())
-      .limit(1)
-      .get();
+    await appendQuizRecord(session.user.email, { answered, correct, set, category: "學中文" });
 
-    if (userSnapshot.empty) {
-      return Response.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const record: StudyChineseRecord = {
-      answered,
-      correct,
-      set,
-      timestamp: new Date().toISOString(),
-      category: "學中文",
-    };
-
-    const userRef = userSnapshot.docs[0].ref;
-    const userDoc = await userRef.get();
-    const userData = userDoc.data();
-    const studyChineseRecords = userData?.studyChineseRecords || [];
-    studyChineseRecords.push(record);
-
-    await userRef.update({ studyChineseRecords });
-
-    return Response.json({ success: true, record });
+    return Response.json({ success: true });
   } catch (error) {
     console.error("Error saving study-chinese record:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
