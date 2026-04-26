@@ -1,6 +1,5 @@
 import { cache } from "react";
 import type { Metadata } from "next";
-import { fetchQuestions } from "../../../lib/questions-firebase";
 import { getListById } from "../../../lib/lists-firebase";
 import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
 import TestClient from "./TestClient";
@@ -10,7 +9,7 @@ const getListByIdCached = cache(getListById);
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string }>;
+  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string }>;
 };
 
 function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
@@ -59,25 +58,25 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { levels, ordered, listId } = await searchParams;
+  const { levels, ordered, listId, replay } = await searchParams;
   const decodedId = decodeURIComponent(id);
 
-  const [questions, list] = await Promise.all([
-    fetchQuestions({ id: decodedId, levels, listId }).catch(() => [] as Awaited<ReturnType<typeof fetchQuestions>>),
+  const [list, pageTitle] = await Promise.all([
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),
+    resolveTitle(decodedId, levels),
   ]);
 
-  const pageTitle = list?.title ?? await resolveTitle(decodedId, levels);
+  const title = list?.title ?? pageTitle;
 
   return (
     <TestClient
       id={decodedId}
-      initialQuestions={questions}
       ordered={ordered === "true"}
       listId={listId ?? null}
       listTitle={list?.title ?? null}
       levels={levels ?? null}
-      pageTitle={pageTitle}
+      pageTitle={title}
+      replayKey={replay ?? null}
     />
   );
 }

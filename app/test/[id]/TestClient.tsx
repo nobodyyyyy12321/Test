@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
@@ -33,30 +33,74 @@ function shuffle<T>(items: T[]): T[] {
 
 type Props = {
   id: string;
-  initialQuestions: Question[];
   ordered: boolean;
   listId: string | null;
   listTitle: string | null;
   levels: string | null;
   pageTitle: string;
+  replayKey?: string | null;
 };
 
-export default function TestClient({ id, initialQuestions, ordered, listId, listTitle, levels, pageTitle }: Props) {
+export default function TestClient({ id, ordered, listId, listTitle, levels, pageTitle, replayKey }: Props) {
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
-  const [questions, setQuestions] = useState<Question[]>(() =>
-    [...initialQuestions].sort((a, b) => a.number - b.number)
-  );
-
-  useEffect(() => {
-    if (!ordered) setQuestions(shuffle(initialQuestions));
-    if (timerEnabled) { timerReset(); timerStart(); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>(() =>
-    new Array(initialQuestions.length).fill(null)
-  );
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
+  const originalQuestionsRef = useRef<Question[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
+  const [formalMode, setFormalMode] = useState(false);
+  const [started, setStarted] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const isFormal = localStorage.getItem("quizMode") === "formal";
+    if (isFormal) setFormalMode(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // replay mode: load stored answers, fetch questions to match
+    if (replayKey) {
+      try {
+        const stored = sessionStorage.getItem(`quiz_replay_${replayKey}`);
+        if (stored) {
+          const { answers: storedAnswers }: { answers: { n: number; u: string | string[] | null }[] } = JSON.parse(stored);
+          const params = new URLSearchParams({ id });
+          if (levels) params.set("levels", levels);
+          if (listId) params.set("listId", listId);
+          fetch(`/api/questions?${params}`)
+            .then(r => r.json())
+            .then(({ questions: qs }: { questions: Question[] }) => {
+              const sorted = [...qs].sort((a, b) => a.number - b.number);
+              const answerMap = new Map(storedAnswers.map(a => [a.n, a.u]));
+              const displayed = sorted.filter(q => answerMap.has(q.number));
+              const answers = displayed.map(q => answerMap.get(q.number) ?? null);
+              originalQuestionsRef.current = sorted;
+              setQuestions(displayed);
+              setUserAnswers(answers);
+              setShowResults(true);
+            })
+            .catch(() => {});
+          return;
+        }
+      } catch {}
+    }
+
+    const params = new URLSearchParams({ id });
+    if (levels) params.set("levels", levels);
+    if (listId) params.set("listId", listId);
+    fetch(`/api/questions?${params}`)
+      .then(r => r.json())
+      .then(({ questions: qs }: { questions: Question[] }) => {
+        const sorted = [...qs].sort((a, b) => a.number - b.number);
+        originalQuestionsRef.current = sorted;
+        const displayed = ordered ? sorted : shuffle(sorted);
+        setQuestions(displayed);
+        setUserAnswers(new Array(displayed.length).fill(null));
+        if (!formalMode && timerEnabled) { timerReset(); timerStart(); }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { setShareText, setShareTitle } = useShare();
 
   useEffect(() => {
@@ -114,6 +158,9 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
     if (timerEnabled && timerRunning) timerStop();
     const answeredCount = userAnswers.filter(a => a !== null).length;
     const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
+    const timestamp = new Date().toISOString();
+    const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
+    try { sessionStorage.setItem(`quiz_replay_${timestamp}`, JSON.stringify({ answers: compactAnswers })); } catch {}
 
     if (session?.user?.email) {
       const recordEndpoint = ordered
@@ -128,6 +175,7 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
           answered: answeredCount,
           correct: correctCount,
           set: listTitle ? `個人試卷${listTitle}` : levels ? `${id}:${levels}` : id,
+          answers: compactAnswers,
         }),
       }).catch(() => {});
 
@@ -142,9 +190,11 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
   };
 
   const resetQuiz = () => {
+    const orig = originalQuestionsRef.current;
+    const displayed = ordered ? orig : shuffle(orig);
     setShowResults(false);
-    setQuestions(ordered ? [...initialQuestions].sort((a, b) => a.number - b.number) : shuffle(initialQuestions));
-    setUserAnswers(new Array(questions.length).fill(null));
+    setQuestions(displayed);
+    setUserAnswers(new Array(displayed.length).fill(null));
     setCheckedIdxs(new Set());
   };
 
@@ -171,6 +221,26 @@ export default function TestClient({ id, initialQuestions, ordered, listId, list
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
+      {formalMode && !started && (
+        <div ref={overlayRef} className="fixed inset-0 sm:left-24 z-50 flex items-center justify-center" style={{ backgroundColor: "var(--zen-bg)" }}>
+          <div className="flex flex-col items-center gap-8 px-8 py-12 rounded-2xl" style={{ backgroundColor: "var(--zen-paper)" }}>
+            <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: "#b19739", color: "#b19739" }}>正式模式</span>
+            <h1 className="text-2xl font-bold text-center zen-title" style={{ color: "#b19739" }}>{pageTitle}</h1>
+            <button
+              disabled={questions.length === 0}
+              onClick={() => {
+                if (overlayRef.current) overlayRef.current.style.display = "none";
+                setStarted(true);
+                if (timerEnabled) { timerReset(); timerStart(); }
+              }}
+              className="px-10 py-3 rounded-full text-base font-medium transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ backgroundColor: "#5fa870", color: "#fff" }}
+            >
+              開始
+            </button>
+          </div>
+        </div>
+      )}
       <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-24 sm:pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
           <h1 className="text-3xl font-bold zen-title"></h1>

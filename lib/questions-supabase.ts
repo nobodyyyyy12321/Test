@@ -34,16 +34,26 @@ export async function fetchQuizQuestions(opts: {
     : [null];
 
   for (const batch of numberBatches) {
-    let url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc`;
-    if (levels?.length) url += `&level=in.(${levels.join(",")})`;
-    if (batch !== null) url += `&number=in.(${batch.join(",")})`;
+    const baseUrl = () => {
+      let url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc&limit=1000`;
+      if (levels?.length) url += `&level=in.(${levels.join(",")})`;
+      if (batch !== null) url += `&number=in.(${batch.join(",")})`;
+      return url;
+    };
 
-    const res = await fetch(url, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      next: revalidate === false ? { revalidate: 0 } : { revalidate, tags: [`quiz-questions-${collectionId}`] },
-    });
-    if (!res.ok) throw new Error(`Supabase fetch error: ${await res.text()}`);
-    chunks.push(await res.json());
+    let offset = 0;
+    while (true) {
+      const url = `${baseUrl()}&offset=${offset}`;
+      const res = await fetch(url, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: "count=none" },
+        next: revalidate === false ? { revalidate: 0 } : { revalidate, tags: [`quiz-questions-${collectionId}`] },
+      });
+      if (!res.ok) throw new Error(`Supabase fetch error: ${await res.text()}`);
+      const page: QuizQuestionRow[] = await res.json();
+      chunks.push(page);
+      if (page.length < 1000) break;
+      offset += 1000;
+    }
   }
 
   return chunks.flat();

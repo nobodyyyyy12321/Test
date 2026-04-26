@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { answered, correct, set } = body;
+    const { answered, correct, set, answers } = body;
 
     if (typeof answered !== "number" || typeof correct !== "number" || typeof set !== "string") {
       return Response.json({ error: "Invalid data" }, { status: 400 });
@@ -26,13 +26,14 @@ export async function POST(request: Request) {
       return Response.json({ error: "User not found" }, { status: 404 });
     }
 
-    const record = {
+    const record: Record<string, unknown> = {
       answered,
       correct,
       set,
       timestamp: new Date().toISOString(),
       category: "國文學測",
     };
+    if (Array.isArray(answers)) record.answers = answers;
 
     const userRef = userSnapshot.docs[0].ref;
     const userDoc = await userRef.get();

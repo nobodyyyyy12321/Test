@@ -63,7 +63,23 @@ type QuizRecord = {
   timestamp: string;
   category?: string;
   success?: boolean;
+  answers?: { n: number; u: string | string[] | null }[];
 };
+
+function recordToUrl(set: string, replayKey?: string): string | null {
+  if (set.startsWith("個人試卷")) return null;
+  const colonIdx = set.indexOf(":");
+  let url: string;
+  if (colonIdx !== -1) {
+    const id = set.slice(0, colonIdx);
+    const levels = set.slice(colonIdx + 1);
+    url = `/test/${encodeURIComponent(id)}?levels=${encodeURIComponent(levels)}`;
+  } else {
+    url = `/test/${encodeURIComponent(set)}`;
+  }
+  if (replayKey) url += `${url.includes("?") ? "&" : "?"}replay=${encodeURIComponent(replayKey)}`;
+  return url;
+}
 
 const ENGLISH_SET_NAMES: Record<string, string> = {
   "englishWords:1,2": "2000單",
@@ -609,10 +625,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
                           style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }} />
                       ) : (
-                        <div className="flex flex-col items-start gap-0.5">
-                          <span>{list.title}</span>
-                          <span className="text-xs" style={{ opacity: 0.5 }}>{list.questions.length} 題</span>
-                        </div>
+                        <span>{list.title}</span>
                       )}
                     </button>
                     {isOwner && contextMenuId === list.id && (
@@ -768,7 +781,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       >
                         <div className="flex flex-col items-start gap-0.5">
                           <span>{list.title}</span>
-                          <span className="text-xs" style={{ opacity: 0.5 }}>{list.ownerName} · {list.questions.length} 題</span>
+                          <span className="text-xs" style={{ opacity: 0.5 }}>{list.ownerName}</span>
                         </div>
                       </button>
                       {contextMenuId === list.id && (
@@ -856,8 +869,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {[...quizRecords]
                   .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
                   .slice(-10).reverse()
-                  .map((item, index) => (
-                    <div key={index} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
+                  .map((item, index) => {
+                    const replayKey = item.answers ? item.timestamp : undefined;
+                    if (replayKey && item.answers) {
+                      try { sessionStorage.setItem(`quiz_replay_${replayKey}`, JSON.stringify({ answers: item.answers })); } catch {}
+                    }
+                    const url = recordToUrl(item.set, replayKey);
+                    const inner = (
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <span className="text-sm" style={{ color: "var(--zen-ink)" }}>
@@ -875,8 +893,18 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           })}
                         </p>
                       </div>
-                    </div>
-                  ))}
+                    );
+                    return url ? (
+                      <a key={index} href={url} className="block border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                        {inner}
+                      </a>
+                    ) : (
+                      <div key={index} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
+                        {inner}
+                      </div>
+                    );
+                  })}
+
               </div>
             )}
           </div>

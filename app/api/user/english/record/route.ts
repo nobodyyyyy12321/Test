@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { answered, correct, set } = body;
+    const { answered, correct, set, answers } = body;
 
     if (typeof answered !== "number" || typeof correct !== "number" || typeof set !== "string") {
       return Response.json(
@@ -30,13 +30,14 @@ export async function POST(request: Request) {
     }
 
     const userEmail = session.user.email;
-    const record: EnglishRecord = {
+    const record: EnglishRecord & { answers?: unknown[] } = {
       answered,
       correct,
       set,
       timestamp: new Date().toISOString(),
       category: "英文",
     };
+    if (Array.isArray(answers)) record.answers = answers;
 
     // Save to Firestore
     const db = getFirestoreDB();
