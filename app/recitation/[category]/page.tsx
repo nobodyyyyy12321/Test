@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { getArticlesByCategory } from "../../../lib/articles-firebase";
+import { getArticlesByCategory } from "../../../lib/articles-supabase";
 
 type Props = { params: Promise<{ category: string }> };
 

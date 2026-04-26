@@ -1,5 +1,5 @@
 import React from "react";
-import { getArticleByNumber } from "../../../../lib/articles-firebase";
+import { getArticleByNumber } from "../../../../lib/articles-supabase";
 import { auth } from "../../../../auth";
 import Link from "next/link";
 import RecitationClient from "./RecitationClient";
@@ -49,7 +49,7 @@ export default async function ArticlePage({ params }: Props) {
         <main className="w-full max-w-2xl rounded-lg zen-card p-12">
           <header className="mb-6 text-center">
             <h1 className="text-4xl zen-title">找不到文章</h1>
-            <p className="mt-2 text-sm zen-subtle">找不到編號為「{number}」的文章，請確認 Firestore `articles` 是否存在該文件。</p>
+            <p className="mt-2 text-sm zen-subtle">找不到編號為「{number}」的文章。</p>
           </header>
         </main>
       </div>
