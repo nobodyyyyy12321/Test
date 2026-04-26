@@ -88,3 +88,23 @@ create table if not exists follows (
 
 create index if not exists follows_follower_id_idx on follows(follower_id);
 create index if not exists follows_following_id_idx on follows(following_id);
+
+-- ── articles ──────────────────────────────────────────────────────────────────
+create table if not exists articles (
+  id            text primary key,
+  title         text not null,
+  category      text,
+  author        text,
+  content       jsonb not null default '[]',
+  type          text,
+  number        int,
+  language      text not null default '中文',
+  attempt_count int not null default 0,
+  success_count int not null default 0,
+  created_at    timestamptz,
+  updated_at    timestamptz
+);
+
+create index if not exists articles_category_idx on articles(category);
+create index if not exists articles_type_idx on articles(type);
+create index if not exists articles_number_idx on articles(number);

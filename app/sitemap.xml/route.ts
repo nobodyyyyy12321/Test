@@ -1,4 +1,4 @@
-import { getArticles } from '../../lib/articles-firebase';
+import { getArticles } from '../../lib/articles-supabase';
 
 type SitemapUrl = {
   loc: string;

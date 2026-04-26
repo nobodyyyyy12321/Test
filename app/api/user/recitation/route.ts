@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
 import { appendQuizRecord, appendRecitation } from "../../../../lib/users";
-import { getFirestoreDB } from "../../../../lib/firebase-admin";
+import { incrementArticleCounters } from "../../../../lib/articles-supabase";
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     const ts: string = timestamp || new Date().toISOString();
 
-    // Save user recitation record to Supabase
+    // Save user records to Supabase
     if (session?.user?.email) {
       try {
         await Promise.all([
@@ -39,31 +39,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update article counters in Firebase (articles collection not yet migrated)
+    // Update article counters in Supabase
     try {
-      const db = getFirestoreDB();
-      const articlesCol = db.collection("articles");
-      const articleRef = articlesCol.doc(articleId);
-      const articleSnap = await articleRef.get();
-
-      let attemptCount = 0;
-      let successCount = 0;
-
-      if (!articleSnap.exists) {
-        const byNumber = await articlesCol.where("number", "==", articleNumber).limit(1).get();
-        if (!byNumber.empty) {
-          const doc = byNumber.docs[0];
-          attemptCount = (doc.data().attemptCount || 0) + 1;
-          successCount = (doc.data().successCount || 0) + (success ? 1 : 0);
-          await doc.ref.update({ attemptCount, successCount, updatedAt: new Date().toISOString() });
-        }
-      } else {
-        const data = articleSnap.data() || {};
-        attemptCount = (data.attemptCount || 0) + 1;
-        successCount = (data.successCount || 0) + (success ? 1 : 0);
-        await articleRef.update({ attemptCount, successCount, updatedAt: new Date().toISOString() });
-      }
-
+      const { attemptCount, successCount } = await incrementArticleCounters(articleId, articleNumber, success);
       return NextResponse.json({ success: true, message: "Recitation recorded", attemptCount, successCount });
     } catch (err) {
       console.error("Failed updating article counters:", err);

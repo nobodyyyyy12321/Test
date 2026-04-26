@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getArticles } from "../../../lib/articles-firebase";
+import { getArticles } from "../../../lib/articles-supabase";
 
 export async function GET(req: Request) {
   try {

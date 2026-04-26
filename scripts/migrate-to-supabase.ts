@@ -1,7 +1,7 @@
 /**
  * Migrate user data from Firebase Firestore → Supabase
  *
- * Collections migrated: users, lists, follows
+ * Collections migrated: users, lists, follows, articles
  *
  * Run AFTER applying scripts/supabase-schema.sql in the Supabase SQL editor.
  * Usage:  npx tsx scripts/migrate-to-supabase.ts
@@ -217,6 +217,39 @@ async function migrateFollows() {
   await upsertBatch("follows", rows);
 }
 
+// ── migrate articles ──────────────────────────────────────────────────────────
+async function migrateArticles() {
+  console.log("\n[articles]");
+  const db = getFirestoreDB();
+  const snap = await db.collection("articles").get();
+  console.log(`  Firestore docs: ${snap.size}`);
+
+  const rows = snap.docs.map((doc) => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      title: d.title ?? "",
+      category: d.category ?? null,
+      author: d.author ?? null,
+      // content may be string or array; store as jsonb
+      content: Array.isArray(d.content)
+        ? d.content
+        : typeof d.content === "string"
+        ? d.content
+        : [],
+      type: d.type ?? null,
+      number: typeof d.number === "number" ? d.number : null,
+      language: d.language ?? "中文",
+      attempt_count: d.attemptCount ?? 0,
+      success_count: d.successCount ?? 0,
+      created_at: toTs(d.createdAt) ?? null,
+      updated_at: toTs(d.updatedAt) ?? null,
+    };
+  });
+
+  await upsertBatch("articles", rows);
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 async function clearTable(table: string, filterCol: string, sentinel: string) {
   const { error } = await supabase.from(table).delete().neq(filterCol, sentinel);
@@ -236,6 +269,7 @@ async function truncateTables() {
   await clearTable("follows",        "id",         "\x00");
   await clearTable("lists",          "id",         "\x00");
   await clearTable("users",          "id",         "\x00");
+  await clearTable("articles",       "id",         "\x00");
 }
 
 async function main() {
@@ -246,6 +280,7 @@ async function main() {
   await migrateUsers();
   await migrateLists();
   await migrateFollows();
+  await migrateArticles();
 
   console.log("\n✅ Migration complete.");
 }
