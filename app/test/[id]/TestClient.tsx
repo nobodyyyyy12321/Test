@@ -341,10 +341,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       window.removeEventListener("beforeunload", beforeUnloadHandlerRef.current);
       beforeUnloadHandlerRef.current = null;
     }
-    saveRecord(
-      userAnswers.filter(a => a !== null).length,
-      questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length,
-    );
     const nav = pendingNavRef.current ?? (() => { window.location.href = "/"; });
     pendingNavRef.current = null;
     if (document.fullscreenElement) {
@@ -418,8 +414,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       {formalMode && !started && (
         <div ref={overlayRef} className="fixed inset-0 sm:left-24 z-50 flex items-center justify-center" style={{ backgroundColor: "var(--zen-bg)" }}>
           <div className="flex flex-col items-center gap-8 px-8 py-12 rounded-2xl" style={{ backgroundColor: "var(--zen-paper)" }}>
-            <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: "#b19739", color: "#b19739" }}>正式模式</span>
             <h1 className="text-2xl font-bold text-center zen-title" style={{ color: "#b19739" }}>{pageTitle}</h1>
+            <p className="text-s text-center opacity-65" style={{ color: "var(--zen-ink)" }}>開始後交卷前不得離開測驗畫面</p>
             <button
               disabled={questions.length === 0}
               onClick={() => {
