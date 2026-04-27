@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function AuthNav() {
   const { data: session, status } = useSession();
@@ -90,7 +91,7 @@ export default function AuthNav() {
 
   if (status === "loading") {
     if (avatarUrl) {
-      return <img src={avatarUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />;
+      return <Image src={avatarUrl} alt="avatar" width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover" />;
     }
     return (
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0 }}>
@@ -202,7 +203,7 @@ export default function AuthNav() {
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           {avatarUrl ? (
-            <img src={avatarUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
+            <Image src={avatarUrl} alt="avatar" width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover" />
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="8" r="4" />

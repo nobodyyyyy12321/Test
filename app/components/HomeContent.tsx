@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
@@ -462,9 +463,12 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             href={`/${encodeURIComponent(u.name)}`}
                             className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                           >
-                            <img
+                            <Image
                               src={u.avatarUrl || "/avatar-placeholder.svg"}
                               alt={u.name}
+                              width={32}
+                              height={32}
+                              unoptimized
                               className="w-8 h-8 rounded-full object-cover shrink-0"
                             />
                             <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>

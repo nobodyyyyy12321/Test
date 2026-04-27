@@ -34,7 +34,6 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
     setError(null);
     let parsed: CategoryNode[];
     try {
-      // eslint-disable-next-line no-new-func
       parsed = new Function(currentJson)() as CategoryNode[];
       if (!Array.isArray(parsed)) throw new Error("必須 return 陣列");
     } catch (e: any) {
@@ -121,7 +120,6 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
 function Preview({ json }: { json: string }) {
   let nodes: CategoryNode[] = [];
   try {
-    // eslint-disable-next-line no-new-func
     const result = new Function(json)();
     if (Array.isArray(result)) nodes = result;
   } catch { /* invalid */ }

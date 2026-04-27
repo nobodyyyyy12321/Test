@@ -56,7 +56,7 @@ export async function getGroupsByUser(userId: string): Promise<{ owned: Group[];
 
   // Attach member counts
   const allIds = [...(owned ?? []).map((g: Record<string, unknown>) => g.id as string), ...joinedIds];
-  let countMap: Record<string, number> = {};
+  const countMap: Record<string, number> = {};
   if (allIds.length > 0) {
     const { data: counts } = await sb
       .from("group_members")

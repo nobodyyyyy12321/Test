@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
@@ -65,7 +65,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   useLayoutEffect(() => {
     const isFormal = localStorage.getItem("quizMode") === "formal";
     if (isFormal) setFormalMode(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const active = formalMode && started && !showResults;
@@ -195,6 +195,40 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { setShareText, setShareTitle } = useShare();
 
+  const checkAnswers = useCallback(() => {
+    setShowResults(true);
+    if (timerEnabled && timerRunning) timerStop();
+    const answeredCount = userAnswers.filter(a => a !== null).length;
+    const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
+    const timestamp = new Date().toISOString();
+    const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
+    try { sessionStorage.setItem(`quiz_replay_${timestamp}`, JSON.stringify({ answers: compactAnswers })); } catch {}
+
+    if (!session?.user?.email || answeredCount === 0) return;
+    const recordEndpoint = ordered
+      ? "/api/user/gsat/record"
+      : id === "quoteChinese"
+      ? "/api/user/quote/record"
+      : "/api/user/english/record";
+    fetch(recordEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        answered: answeredCount,
+        correct: correctCount,
+        set: listTitle ? `個人試卷${listTitle}` : levels ? `${id}:${levels}` : id,
+        answers: compactAnswers,
+      }),
+    }).catch(() => {});
+    if (listId) {
+      fetch(`/api/lists/${listId}/result`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answered: answeredCount, correct: correctCount }),
+      }).catch(() => {});
+    }
+  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, session?.user?.email, ordered, id, listTitle, levels, listId]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -221,7 +255,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showResults, userAnswers, questions, focusedIdx]);
+  }, [showResults, userAnswers, questions, focusedIdx, checkAnswers]);
 
   useEffect(() => {
     const el = questionRefs.current[focusedIdx];
@@ -248,7 +282,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
 
   useEffect(() => {
     if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
-  }, [timerFinished]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timerFinished, timerMode, showResults, checkAnswers]);
 
   const handleSingleAnswerAt = (idx: number, answer: string) => {
     setUserAnswers(prev => { const next = [...prev]; next[idx] = answer; return next; });
@@ -266,44 +300,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
 
   const handleFillChangeAt = (idx: number, value: string) => {
     setUserAnswers(prev => { const next = [...prev]; next[idx] = value || null; return next; });
-  };
-
-  const saveRecord = (answeredCnt: number, correctCnt: number) => {
-    if (!session?.user?.email || answeredCnt === 0) return;
-    const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
-    const recordEndpoint = ordered
-      ? "/api/user/gsat/record"
-      : id === "quoteChinese"
-      ? "/api/user/quote/record"
-      : "/api/user/english/record";
-    fetch(recordEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        answered: answeredCnt,
-        correct: correctCnt,
-        set: listTitle ? `個人試卷${listTitle}` : levels ? `${id}:${levels}` : id,
-        answers: compactAnswers,
-      }),
-    }).catch(() => {});
-    if (listId) {
-      fetch(`/api/lists/${listId}/result`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answered: answeredCnt, correct: correctCnt }),
-      }).catch(() => {});
-    }
-  };
-
-  const checkAnswers = () => {
-    setShowResults(true);
-    if (timerEnabled && timerRunning) timerStop();
-    const answeredCount = userAnswers.filter(a => a !== null).length;
-    const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
-    const timestamp = new Date().toISOString();
-    const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
-    try { sessionStorage.setItem(`quiz_replay_${timestamp}`, JSON.stringify({ answers: compactAnswers })); } catch {}
-    saveRecord(answeredCount, correctCount);
   };
 
   const resetQuiz = () => {

@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
+import NextImage from "next/image";
 import type { QuestionList, ListQuestion } from "../../lib/lists-firebase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
@@ -184,6 +185,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [groupShareLoading, setGroupShareLoading] = useState(false);
   const [groupShareMsg, setGroupShareMsg] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+
+  // share-panel group state (lists tab)
+  const [listShareGroupId, setListShareGroupId] = useState("");
+  const [listShareGroupLoading, setListShareGroupLoading] = useState(false);
+  const [listShareGroupMsg, setListShareGroupMsg] = useState<string | null>(null);
 
   // client-side isOwner upgrade: only set true, never false
   // compares session name OR email against the profile being viewed
@@ -405,6 +411,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (activeGroupId === groupId) closeGroupSheet();
   };
 
+  // ── load owned groups when share panel opens (for group-share dropdown) ──
+
+  useEffect(() => {
+    if (!shareOpenId || !isOwner || groupsLoaded) return;
+    setGroupsLoading(true);
+    fetch("/api/groups")
+      .then(r => r.json())
+      .then(d => { setOwnedGroups(d.owned ?? []); setJoinedGroups(d.joined ?? []); setGroupsLoaded(true); })
+      .finally(() => setGroupsLoading(false));
+  }, [shareOpenId, isOwner, groupsLoaded]);
+
   // ── context menu close on Escape ─────────────────────────────────────────
 
   useEffect(() => {
@@ -583,7 +600,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
     { id: "profile", label: "個人檔案" },
-    { id: "lists", label: "個人試卷" },
+    { id: "lists", label: "個人分類" },
     { id: "record", label: "紀錄", ownerOnly: true },
     { id: "groups", label: "群組", ownerOnly: true },
     { id: "followers", label: "追蹤者" },
@@ -611,7 +628,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               {activeGroup.members?.map(m => (
                 <div key={m.userId} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <img src={m.avatarUrl || "/avatar-placeholder.svg"} className="w-7 h-7 rounded-full object-cover shrink-0" alt={m.userName} />
+                    <NextImage src={m.avatarUrl || "/avatar-placeholder.svg"} alt={m.userName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                     <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{m.userName}</span>
                     {m.status === "pending" && (
                       <span className="text-xs opacity-50 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>待接受</span>
@@ -649,7 +666,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       return (
                         <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
                           <div className="flex items-center gap-2">
-                            <img src={u.avatarUrl || "/avatar-placeholder.svg"} className="w-7 h-7 rounded-full object-cover shrink-0" alt={u.name} />
+                            <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                             <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                           </div>
                           {alreadyMember ? (
@@ -720,9 +737,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <img
+            <NextImage
               src={avatarUrl || "/avatar-placeholder.svg"}
               alt="avatar"
+              width={56}
+              height={56}
+              unoptimized
               className="w-14 h-14 rounded-full object-cover"
             />
             <h1 className="text-2xl font-bold zen-title" style={{ color: "#b19739" }}>{urlName}</h1>
@@ -772,7 +792,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               {/* avatar (large, editing mode) */}
               {editing && (
                 <div className="flex items-center gap-4">
-                  <img src={avatarUrl || "/avatar-placeholder.svg"} alt="avatar" className="w-24 h-24 rounded-md object-cover" />
+                  <NextImage src={avatarUrl || "/avatar-placeholder.svg"} alt="avatar" width={96} height={96} unoptimized className="w-24 h-24 rounded-md object-cover" />
                   <div>
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} />
@@ -944,7 +964,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           </button>
                           <button type="button"
                             onMouseDown={e => e.stopPropagation()}
-                            onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setExpandedId(list.id); setContextMenuId(null); }}
+                            onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setListShareGroupId(""); setListShareGroupMsg(null); setExpandedId(list.id); setContextMenuId(null); }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                             style={{ color: "var(--zen-ink)" }}>
                             分享
@@ -979,54 +999,111 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       )}
                     </div>
                     {isOwner && shareOpenId === list.id && (
-                      <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                        <p className="text-xs text-zinc-400 mb-2">分享給帳號</p>
-                        <div className="flex gap-2 mb-2">
-                          <input
-                            value={shareInput}
-                            onChange={e => { setShareInput(e.target.value); setShareError(null); }}
-                            onKeyDown={e => { if (e.key === "Enter") addShare(list.id); }}
-                            placeholder="輸入帳號名稱"
-                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none"
-                            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                          />
-                          <button type="button"
-                            onClick={() => addShare(list.id)}
-                            disabled={shareLoading || !shareInput.trim()}
-                            className="px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
-                            style={{ color: "var(--zen-ink)" }}>
-                            新增
-                          </button>
+                      <div className="border-b border-zinc-100 dark:border-zinc-800">
+                        {/* share to user */}
+                        <div className="px-4 py-3">
+                          <p className="text-xs text-zinc-400 mb-2">分享給帳號</p>
+                          <div className="flex gap-2 mb-2">
+                            <input
+                              value={shareInput}
+                              onChange={e => { setShareInput(e.target.value); setShareError(null); }}
+                              onKeyDown={e => { if (e.key === "Enter") addShare(list.id); }}
+                              placeholder="輸入帳號名稱"
+                              className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none"
+                              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                            />
+                            <button type="button"
+                              onClick={() => addShare(list.id)}
+                              disabled={shareLoading || !shareInput.trim()}
+                              className="px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
+                              style={{ color: "var(--zen-ink)" }}>
+                              新增
+                            </button>
+                          </div>
+                          {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
+                          {(list.sharedWith ?? []).length > 0 && (
+                            <ul className="flex flex-col gap-2">
+                              {(list.sharedWith ?? []).map(n => {
+                                const results = (list.sharedResults ?? {})[n] ?? [];
+                                return (
+                                  <li key={n} className="text-xs" style={{ color: "var(--zen-ink)" }}>
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-medium">{n}</span>
+                                      <button type="button" onClick={() => removeShare(list.id, n)}
+                                        className="text-red-400 hover:text-red-500 transition-colors">移除</button>
+                                    </div>
+                                    {results.length > 0 ? (
+                                      <ul className="mt-1 flex flex-col gap-0.5 pl-2 border-l border-zinc-200 dark:border-zinc-700">
+                                        {results.map((r: any, i: number) => (
+                                          <li key={i} className="flex items-center gap-2 text-zinc-400">
+                                            <span>{r.correct}/{r.answered}</span>
+                                            <span>{new Date(r.timestamp).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="mt-0.5 pl-2 text-zinc-400">尚未作答</p>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
                         </div>
-                        {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
-                        {(list.sharedWith ?? []).length > 0 && (
-                          <ul className="flex flex-col gap-2">
-                            {(list.sharedWith ?? []).map(n => {
-                              const results = (list.sharedResults ?? {})[n] ?? [];
-                              return (
-                                <li key={n} className="text-xs" style={{ color: "var(--zen-ink)" }}>
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium">{n}</span>
-                                    <button type="button" onClick={() => removeShare(list.id, n)}
-                                      className="text-red-400 hover:text-red-500 transition-colors">移除</button>
-                                  </div>
-                                  {results.length > 0 ? (
-                                    <ul className="mt-1 flex flex-col gap-0.5 pl-2 border-l border-zinc-200 dark:border-zinc-700">
-                                      {results.map((r: any, i: number) => (
-                                        <li key={i} className="flex items-center gap-2 text-zinc-400">
-                                          <span>{r.correct}/{r.answered}</span>
-                                          <span>{new Date(r.timestamp).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    <p className="mt-0.5 pl-2 text-zinc-400">尚未作答</p>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
+
+                        {/* share to group */}
+                        <div className="px-4 pb-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                          <p className="text-xs text-zinc-400 mb-2">分享給群組</p>
+                          {groupsLoading && <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>載入群組...</p>}
+                          {!groupsLoading && ownedGroups.length === 0 && joinedGroups.length === 0 && groupsLoaded && (
+                            <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>尚無群組</p>
+                          )}
+                          {(ownedGroups.length > 0 || joinedGroups.length > 0) && (
+                            <div className="flex gap-2">
+                              <select
+                                value={listShareGroupId}
+                                onChange={e => { setListShareGroupId(e.target.value); setListShareGroupMsg(null); }}
+                                className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none"
+                                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                              >
+                                <option value="">選擇群組</option>
+                                {ownedGroups.length > 0 && (
+                                  <optgroup label="我建立的">
+                                    {ownedGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                  </optgroup>
+                                )}
+                                {joinedGroups.length > 0 && (
+                                  <optgroup label="加入的">
+                                    {joinedGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                  </optgroup>
+                                )}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!listShareGroupId) return;
+                                  setListShareGroupLoading(true);
+                                  setListShareGroupMsg(null);
+                                  const res = await fetch(`/api/groups/${listShareGroupId}/share-list`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ listId: list.id }),
+                                  });
+                                  const d = await res.json();
+                                  setListShareGroupMsg(d.ok ? `已分享給 ${d.shared} 位成員` : (d.error ?? "分享失敗"));
+                                  setListShareGroupLoading(false);
+                                }}
+                                disabled={listShareGroupLoading || !listShareGroupId}
+                                className="px-3 py-1.5 text-xs rounded-lg border transition-colors disabled:opacity-40 hover:opacity-80"
+                                style={{ borderColor: "#b19739", color: "#b19739" }}>
+                                分享
+                              </button>
+                            </div>
+                          )}
+                          {listShareGroupMsg && (
+                            <p className="text-xs mt-1.5 opacity-70" style={{ color: "var(--zen-ink)" }}>{listShareGroupMsg}</p>
+                          )}
+                        </div>
                       </div>
                     )}
                     {list.questions.length === 0 ? (
@@ -1217,7 +1294,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {followers.map(u => (
                   <li key={u.id}>
                     <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <img src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
                       <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                     </a>
                   </li>
@@ -1371,7 +1448,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {following.map(u => (
                   <li key={u.id}>
                     <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <img src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
                       <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                     </a>
                   </li>

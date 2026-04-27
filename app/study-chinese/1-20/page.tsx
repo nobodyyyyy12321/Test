@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 
 type Option = {
@@ -95,6 +95,38 @@ export default function StudyChineseSetPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleAnswer = useCallback((answer: string) => {
+    if (showResults) return;
+    const next = [...userAnswers];
+    next[currentIndex] = answer;
+    setUserAnswers(next);
+
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  }, [showResults, userAnswers, currentIndex, questions.length]);
+
+  const checkAnswers = useCallback(() => {
+    setShowResults(true);
+
+    if (session?.user?.email) {
+      const answered = userAnswers.filter((a) => a !== null).length;
+      const correct = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
+
+      fetch("/api/user/study-chinese/record", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          answered,
+          correct,
+          set: "1-20",
+        }),
+      }).catch((err) => console.error("Failed to save study-chinese record:", err));
+    }
+  }, [session?.user?.email, userAnswers, questions]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -119,44 +151,12 @@ export default function StudyChineseSetPage() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showResults, currentIndex, questions.length]);
+  }, [showResults, currentIndex, questions.length, handleAnswer, checkAnswers]);
 
   const currentQuestion = questions[currentIndex];
 
   const answeredCount = userAnswers.filter((a) => a !== null).length;
   const correctCount = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
-
-  const handleAnswer = (answer: string) => {
-    if (showResults) return;
-    const next = [...userAnswers];
-    next[currentIndex] = answer;
-    setUserAnswers(next);
-
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const checkAnswers = () => {
-    setShowResults(true);
-
-    if (session?.user?.email) {
-      const answered = userAnswers.filter((a) => a !== null).length;
-      const correct = userAnswers.filter((answer, idx) => answer === questions[idx]?.answer).length;
-
-      fetch("/api/user/study-chinese/record", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          answered,
-          correct,
-          set: "1-20",
-        }),
-      }).catch((err) => console.error("Failed to save study-chinese record:", err));
-    }
-  };
 
   const speakQuestion = (text: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
