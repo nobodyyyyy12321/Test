@@ -43,9 +43,10 @@ export async function POST(req: Request) {
     const { data: members } = await db
       .from("group_members").select("user_id")
       .eq("group_id", groupId).eq("status", "accepted");
-    const recipientIds = (members ?? [])
-      .map((m: Record<string, unknown>) => m.user_id as string)
-      .filter(id => id !== me.id);
+    const memberIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string);
+    // owner is not in group_members, include them explicitly
+    const allIds = Array.from(new Set([ownerId, ...memberIds]));
+    const recipientIds = allIds.filter(id => id !== me.id);
     await Promise.all(
       recipientIds.map(id => shareCategoryWithUser(me.id, id, categoryKey, categoryName))
     );
