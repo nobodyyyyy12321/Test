@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import type { QuestionList, ListQuestion } from "../../lib/lists-firebase";
 import zhTW from "../../public/locale/zh-TW.js";
@@ -50,7 +51,11 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups";
+
+type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
+type Group = { id: string; name: string; ownerId: string; ownerName?: string; createdAt: string; memberCount?: number; members?: GroupMember[] };
+type PendingInvite = { groupId: string; groupName: string; ownerName: string; invitedAt: string };
 
 type FollowUser = { id: string; name: string; avatarUrl?: string };
 
@@ -158,6 +163,28 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
+  // ── groups state ──
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [ownedGroups, setOwnedGroups] = useState<Group[]>([]);
+  const [joinedGroups, setJoinedGroups] = useState<Group[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
+  const [activeGroupLoading, setActiveGroupLoading] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupInviteInput, setGroupInviteInput] = useState("");
+  const [groupInviteLoading, setGroupInviteLoading] = useState(false);
+  const [groupInviteError, setGroupInviteError] = useState<string | null>(null);
+  const [groupSearchResults, setGroupSearchResults] = useState<{ id: string; name: string; avatarUrl?: string }[]>([]);
+  const [groupSearchLoading, setGroupSearchLoading] = useState(false);
+  const [groupInvitedIds, setGroupInvitedIds] = useState<Set<string>>(new Set());
+  const groupSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [groupShareListId, setGroupShareListId] = useState("");
+  const [groupShareLoading, setGroupShareLoading] = useState(false);
+  const [groupShareMsg, setGroupShareMsg] = useState<string | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+
   // client-side isOwner upgrade: only set true, never false
   // compares session name OR email against the profile being viewed
   useEffect(() => {
@@ -171,7 +198,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   // ── load lists when tab activated ─────────────────────────────────────────
 
   useEffect(() => {
-    if (activeTab !== "lists" || listsLoaded) return;
+    if ((activeTab !== "lists" && activeTab !== "groups") || listsLoaded) return;
     setListsLoading(true);
     if (isOwner) {
       fetch("/api/lists")
@@ -241,6 +268,143 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       .finally(() => setFollowingLoading(false));
   }, [activeTab, followingLoaded, urlName]);
 
+  // ── load groups when tab activated ───────────────────────────────────────
+
+  useEffect(() => {
+    if (activeTab !== "groups" || groupsLoaded || !isOwner) return;
+    setGroupsLoading(true);
+    fetch("/api/groups")
+      .then(r => r.json())
+      .then(d => {
+        setOwnedGroups(d.owned ?? []);
+        setJoinedGroups(d.joined ?? []);
+        // Check pending invites
+        fetch("/api/groups/invites")
+          .then(r => r.json())
+          .then(inv => setPendingInvites(inv.invites ?? []))
+          .catch(() => {});
+        setGroupsLoaded(true);
+      })
+      .finally(() => setGroupsLoading(false));
+  }, [activeTab, groupsLoaded, isOwner]);
+
+  const closeGroupSheet = () => {
+    setActiveGroupId(null);
+    setActiveGroup(null);
+    setGroupInviteInput("");
+    setGroupSearchResults([]);
+    setGroupInviteError(null);
+    setGroupInvitedIds(new Set());
+    setGroupShareMsg(null);
+  };
+
+  const loadActiveGroup = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setActiveGroupLoading(true);
+    setActiveGroup(null);
+    setGroupInviteInput("");
+    setGroupSearchResults([]);
+    setGroupInviteError(null);
+    setGroupInvitedIds(new Set());
+    setGroupShareMsg(null);
+    fetch(`/api/groups/${groupId}`)
+      .then(r => r.json())
+      .then(d => setActiveGroup(d.group ?? null))
+      .finally(() => setActiveGroupLoading(false));
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setCreatingGroup(true);
+    const res = await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newGroupName.trim() }),
+    });
+    const d = await res.json();
+    if (d.group) {
+      setOwnedGroups(prev => [d.group, ...prev]);
+      setNewGroupName("");
+    }
+    setCreatingGroup(false);
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    await fetch(`/api/groups/${groupId}`, { method: "DELETE" });
+    setOwnedGroups(prev => prev.filter(g => g.id !== groupId));
+    if (activeGroupId === groupId) closeGroupSheet();
+  };
+
+  const handleInviteSearch = (q: string) => {
+    setGroupInviteInput(q);
+    setGroupInviteError(null);
+    if (groupSearchTimer.current) clearTimeout(groupSearchTimer.current);
+    if (!q.trim()) { setGroupSearchResults([]); return; }
+    groupSearchTimer.current = setTimeout(async () => {
+      setGroupSearchLoading(true);
+      try {
+        const r = await fetch(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
+        const d = await r.json();
+        setGroupSearchResults(d.users ?? []);
+      } finally {
+        setGroupSearchLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleInvite = async (userName: string, userId: string) => {
+    if (!activeGroupId) return;
+    setGroupInviteLoading(true);
+    setGroupInviteError(null);
+    const res = await fetch(`/api/groups/${activeGroupId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userName }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      setGroupInvitedIds(prev => new Set(prev).add(userId));
+      loadActiveGroup(activeGroupId);
+    } else {
+      setGroupInviteError(d.error ?? "邀請失敗");
+    }
+    setGroupInviteLoading(false);
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!activeGroupId) return;
+    await fetch(`/api/groups/${activeGroupId}/members/${userId}`, { method: "DELETE" });
+    loadActiveGroup(activeGroupId);
+  };
+
+  const handleShareListToGroup = async () => {
+    if (!groupShareListId || !activeGroupId) return;
+    setGroupShareLoading(true);
+    setGroupShareMsg(null);
+    const res = await fetch(`/api/groups/${activeGroupId}/share-list`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listId: groupShareListId }),
+    });
+    const d = await res.json();
+    setGroupShareMsg(d.ok ? `已分享給 ${d.shared} 位成員` : (d.error ?? "分享失敗"));
+    setGroupShareLoading(false);
+  };
+
+  const handleAcceptInvite = async (groupId: string) => {
+    await fetch(`/api/groups/${groupId}/accept`, { method: "POST" });
+    setPendingInvites(prev => prev.filter(inv => inv.groupId !== groupId));
+    setGroupsLoaded(false);
+  };
+
+  const handleLeaveGroup = async (groupId: string) => {
+    const user = session?.user as { id?: string } | undefined;
+    if (!user?.id) return;
+    await fetch(`/api/groups/${groupId}/members/${(session!.user as any).id}`, { method: "DELETE" });
+    setJoinedGroups(prev => prev.filter(g => g.id !== groupId));
+    if (activeGroupId === groupId) closeGroupSheet();
+  };
+
   // ── context menu close on Escape ─────────────────────────────────────────
 
   useEffect(() => {
@@ -249,6 +413,15 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [contextMenuId]);
+
+  // ── group sheet close on Escape ───────────────────────────────────────────
+
+  useEffect(() => {
+    if (!activeGroupId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeGroupSheet(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [activeGroupId]);
 
   // ── profile actions ───────────────────────────────────────────────────────
 
@@ -412,10 +585,131 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "profile", label: "個人檔案" },
     { id: "lists", label: "個人試卷" },
     { id: "record", label: "紀錄", ownerOnly: true },
+    { id: "groups", label: "群組", ownerOnly: true },
     { id: "followers", label: "追蹤者" },
     { id: "following", label: "追蹤中" },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || isOwner);
+
+  // ── group detail content (shared between desktop inline card and mobile sheet) ──
+
+  const renderGroupDetailContent = () => {
+    const isGroupOwner = ownedGroups.some(g => g.id === activeGroupId);
+    return (
+      <div className="px-4 py-4 flex flex-col gap-5" style={{ backgroundColor: "var(--zen-bg)" }}>
+        {activeGroupLoading && !activeGroup && (
+          <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
+        )}
+        {activeGroup && (
+          <>
+            {/* members */}
+            <div className="flex flex-col gap-3">
+              <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>成員</p>
+              {activeGroup.members?.length === 0 && (
+                <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>尚無成員</p>
+              )}
+              {activeGroup.members?.map(m => (
+                <div key={m.userId} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src={m.avatarUrl || "/avatar-placeholder.svg"} className="w-7 h-7 rounded-full object-cover shrink-0" alt={m.userName} />
+                    <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{m.userName}</span>
+                    {m.status === "pending" && (
+                      <span className="text-xs opacity-50 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>待接受</span>
+                    )}
+                  </div>
+                  {isGroupOwner && (
+                    <button onClick={() => handleRemoveMember(m.userId)} className="text-xs opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">移除</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* invite */}
+            {isGroupOwner && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>邀請成員</p>
+                <input
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                  placeholder="搜尋帳號名稱"
+                  value={groupInviteInput}
+                  onChange={e => handleInviteSearch(e.target.value)}
+                />
+                {groupSearchLoading && (
+                  <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>
+                )}
+                {!groupSearchLoading && groupInviteInput.trim() && groupSearchResults.length === 0 && (
+                  <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>找不到使用者</p>
+                )}
+                {groupSearchResults.length > 0 && (
+                  <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
+                    {groupSearchResults.map(u => {
+                      const alreadyMember = activeGroup?.members?.some(m => m.userId === u.id);
+                      const justInvited = groupInvitedIds.has(u.id);
+                      return (
+                        <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
+                          <div className="flex items-center gap-2">
+                            <img src={u.avatarUrl || "/avatar-placeholder.svg"} className="w-7 h-7 rounded-full object-cover shrink-0" alt={u.name} />
+                            <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                          </div>
+                          {alreadyMember ? (
+                            <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>已在群組</span>
+                          ) : justInvited ? (
+                            <span className="text-xs" style={{ color: "#5fa870" }}>已邀請</span>
+                          ) : (
+                            <button
+                              onClick={() => handleInvite(u.name, u.id)}
+                              disabled={groupInviteLoading}
+                              className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                              style={{ borderColor: "#b19739", color: "#b19739" }}
+                            >邀請</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {groupInviteError && <p className="text-xs text-red-500 px-1">{groupInviteError}</p>}
+              </div>
+            )}
+
+            {/* share list */}
+            {isGroupOwner && lists.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>分享試卷給全群組</p>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 px-3 py-2 rounded-xl border text-sm outline-none"
+                    style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                    value={groupShareListId}
+                    onChange={e => { setGroupShareListId(e.target.value); setGroupShareMsg(null); }}
+                  >
+                    <option value="">選擇試卷</option>
+                    {lists.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                  </select>
+                  <button
+                    onClick={handleShareListToGroup}
+                    disabled={groupShareLoading || !groupShareListId}
+                    className="px-4 py-2 rounded-xl text-sm transition-opacity hover:opacity-80 disabled:opacity-30"
+                    style={{ backgroundColor: "#5fa870", color: "#fff" }}
+                  >分享</button>
+                </div>
+                {groupShareMsg && <p className="text-xs opacity-70" style={{ color: "var(--zen-ink)" }}>{groupShareMsg}</p>}
+              </div>
+            )}
+
+            {/* delete / leave */}
+            {isGroupOwner && (
+              <button onClick={() => handleDeleteGroup(activeGroupId!)} className="text-xs self-start opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">刪除群組</button>
+            )}
+            {joinedGroups.some(g => g.id === activeGroupId) && (
+              <button onClick={() => handleLeaveGroup(activeGroupId!)} className="text-xs self-start opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">離開群組</button>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -931,6 +1225,138 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </ul>
             )}
           </div>
+        )}
+
+        {/* ── groups tab ──────────────────────────────────────────────────── */}
+        {activeTab === "groups" && (
+          <div className="flex flex-col gap-6">
+            {groupsLoading && <p className="text-sm zen-subtle opacity-50">載入中...</p>}
+
+            {/* pending invites */}
+            {pendingInvites.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>待接受邀請</p>
+                {pendingInvites.map(inv => (
+                  <div key={inv.groupId} className="flex items-center justify-between px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div>
+                      <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{inv.groupName}</span>
+                      {inv.ownerName && <span className="text-xs opacity-40 ml-2" style={{ color: "var(--zen-ink)" }}>{inv.ownerName}</span>}
+                    </div>
+                    <button
+                      onClick={() => handleAcceptInvite(inv.groupId)}
+                      className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
+                      style={{ borderColor: "#5fa870", color: "#5fa870" }}
+                    >接受</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* create group */}
+            <div className="flex gap-2">
+              <input
+                className="flex-1 px-3 py-2 rounded-xl border text-sm outline-none"
+                style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                placeholder="新增群組名稱"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleCreateGroup(); }}
+              />
+              <button
+                onClick={handleCreateGroup}
+                disabled={creatingGroup || !newGroupName.trim()}
+                className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-30"
+                style={{ backgroundColor: "#5fa870", color: "#fff" }}
+              >建立</button>
+            </div>
+
+
+            {/* owned groups */}
+            {ownedGroups.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>我建立的群組</p>
+                {ownedGroups.map(g => (
+                  <div key={g.id} className="flex flex-col">
+                    <button
+                      onClick={() => activeGroupId === g.id ? closeGroupSheet() : loadActiveGroup(g.id)}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl border transition-colors text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      style={{ borderColor: activeGroupId === g.id ? "#b19739" : "color-mix(in srgb, var(--zen-ink) 15%, transparent)", borderBottomLeftRadius: activeGroupId === g.id ? 0 : undefined, borderBottomRightRadius: activeGroupId === g.id ? 0 : undefined }}
+                    >
+                      <span className="text-sm font-medium" style={{ color: "#b19739" }}>{g.name}</span>
+                      <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.memberCount ?? 0} 位成員</span>
+                    </button>
+                    {activeGroupId === g.id && (
+                      <div className="hidden sm:block border border-t-0 rounded-b-xl overflow-hidden" style={{ borderColor: "#b19739" }}>
+                        {renderGroupDetailContent()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* joined groups */}
+            {joinedGroups.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>加入的群組</p>
+                {joinedGroups.map(g => (
+                  <div key={g.id} className="flex flex-col">
+                    <button
+                      onClick={() => activeGroupId === g.id ? closeGroupSheet() : loadActiveGroup(g.id)}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl border transition-colors text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      style={{ borderColor: activeGroupId === g.id ? "#5fa870" : "color-mix(in srgb, var(--zen-ink) 15%, transparent)", borderBottomLeftRadius: activeGroupId === g.id ? 0 : undefined, borderBottomRightRadius: activeGroupId === g.id ? 0 : undefined }}
+                    >
+                      <span className="text-sm font-medium" style={{ color: "#5fa870" }}>{g.name}</span>
+                      <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.ownerName ?? ""}</span>
+                    </button>
+                    {activeGroupId === g.id && (
+                      <div className="hidden sm:block border border-t-0 rounded-b-xl overflow-hidden" style={{ borderColor: "#5fa870" }}>
+                        {renderGroupDetailContent()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!groupsLoading && ownedGroups.length === 0 && joinedGroups.length === 0 && groupsLoaded && (
+              <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無群組</p>
+            )}
+          </div>
+        )}
+
+        {/* ── group bottom sheet (mobile only) ───────────────────────────── */}
+        {activeTab === "groups" && activeGroupId && typeof window !== "undefined" && createPortal(
+          <div className="sm:hidden">
+            {/* backdrop */}
+            <div className="fixed inset-0 z-40 bg-black/40" onClick={() => closeGroupSheet()} />
+            {/* sheet */}
+            <div
+              className="sheet-slide-up fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-2xl flex flex-col"
+              style={{ backgroundColor: "var(--zen-bg)", borderTop: "1px solid color-mix(in srgb, var(--zen-ink) 12%, transparent)", maxHeight: "80dvh" }}
+            >
+              {/* drag handle */}
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
+                <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)" }} />
+              </div>
+              {/* header */}
+              <div className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid color-mix(in srgb, var(--zen-ink) 8%, transparent)" }}>
+                <span className="font-semibold text-base" style={{ color: "var(--zen-ink)" }}>
+                  {activeGroupLoading ? "載入中..." : activeGroup?.name}
+                </span>
+                <button
+                  onClick={() => closeGroupSheet()}
+                  className="w-7 h-7 flex items-center justify-center rounded-full opacity-40 hover:opacity-70 text-sm"
+                  style={{ color: "var(--zen-ink)" }}
+                >✕</button>
+              </div>
+              {/* scrollable content */}
+              <div className="overflow-y-auto pb-8">
+                {renderGroupDetailContent()}
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
 
         {/* ── following tab ───────────────────────────────────────────────── */}

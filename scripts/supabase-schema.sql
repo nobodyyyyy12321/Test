@@ -108,3 +108,24 @@ create table if not exists articles (
 create index if not exists articles_category_idx on articles(category);
 create index if not exists articles_type_idx on articles(type);
 create index if not exists articles_number_idx on articles(number);
+
+-- ── groups ────────────────────────────────────────────────────────────────────
+create table if not exists groups (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  owner_id   text not null references users(id) on delete cascade,
+  created_at timestamptz default now()
+);
+
+create index if not exists groups_owner_id_idx on groups(owner_id);
+
+-- ── group_members ─────────────────────────────────────────────────────────────
+create table if not exists group_members (
+  group_id   uuid not null references groups(id) on delete cascade,
+  user_id    text not null references users(id) on delete cascade,
+  status     text not null default 'pending',  -- 'pending' | 'accepted'
+  invited_at timestamptz default now(),
+  primary key (group_id, user_id)
+);
+
+create index if not exists group_members_user_id_idx on group_members(user_id);
