@@ -21,6 +21,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
@@ -129,12 +130,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim()) { setUserResults([]); return; }
+    if (!query.trim()) { setUserResults([]); setSearchLoading(false); return; }
+    setSearchLoading(true);
     debounceRef.current = setTimeout(() => {
       fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`)
         .then(r => r.json())
         .then(d => setUserResults(d.users ?? []))
-        .catch(() => setUserResults([]));
+        .catch(() => setUserResults([]))
+        .finally(() => setSearchLoading(false));
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
@@ -445,7 +448,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   </div>
                 )}
 
-                {!loadingLang && subjects.length === 0 && userResults.length === 0 && query && (
+                {query && searchLoading && (
+                  <p className="text-sm zen-subtle mt-6 opacity-50">搜尋中...</p>
+                )}
+
+                {!loadingLang && !searchLoading && subjects.length === 0 && userResults.length === 0 && query && (
                   <p className="text-sm zen-subtle mt-6 opacity-50">
                     {language === "en" ? "No matching results" : "沒有符合的結果"}
                   </p>

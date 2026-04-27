@@ -660,8 +660,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (blockLoading) return;
     setBlockLoading(true);
     const method = isBlocking ? "DELETE" : "POST";
-    await fetch(`/api/users/${encodeURIComponent(urlName)}/block`, { method });
-    setIsBlocking(b => !b);
+    const res = await fetch(`/api/users/${encodeURIComponent(urlName)}/block`, { method });
+    if (res.ok) setIsBlocking(b => !b);
     setBlockLoading(false);
     setShowUserMenu(false);
   };
