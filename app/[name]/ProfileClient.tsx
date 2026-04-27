@@ -52,10 +52,10 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked";
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
-type Group = { id: string; name: string; ownerId: string; ownerName?: string; createdAt: string; memberCount?: number; members?: GroupMember[] };
+type Group = { id: string; name: string; ownerId: string; ownerName?: string; ownerAvatarUrl?: string; createdAt: string; memberCount?: number; members?: GroupMember[] };
 type PendingInvite = { groupId: string; groupName: string; ownerName: string; invitedAt: string };
 
 type FollowUser = { id: string; name: string; avatarUrl?: string };
@@ -163,6 +163,15 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // ── blocked state ──
+  const [blockedLoaded, setBlockedLoaded] = useState(false);
+  const [blockedLoading, setBlockedLoading] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<FollowUser[]>([]);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   // ── groups state ──
   const [groupsLoaded, setGroupsLoaded] = useState(false);
@@ -186,10 +195,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [groupShareMsg, setGroupShareMsg] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
-  // share-panel group state (lists tab)
-  const [listShareGroupId, setListShareGroupId] = useState("");
-  const [listShareGroupLoading, setListShareGroupLoading] = useState(false);
-  const [listShareGroupMsg, setListShareGroupMsg] = useState<string | null>(null);
+  // share-panel unified search (lists tab)
+  type ShareResult = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
+  const [shareSearchResults, setShareSearchResults] = useState<ShareResult[]>([]);
+  const [shareSearchLoading, setShareSearchLoading] = useState(false);
+  const [shareSharedGroupIds, setShareSharedGroupIds] = useState<Set<string>>(new Set());
+  const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // client-side isOwner upgrade: only set true, never false
   // compares session name OR email against the profile being viewed
@@ -234,13 +245,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       .finally(() => setRecordLoading(false));
   }, [activeTab, recordLoaded, urlName]);
 
-  // ── load follow counts & isFollowing on mount ─────────────────────────────
+  // ── load follow & block status on mount ──────────────────────────────────
 
   useEffect(() => {
     if (!urlName || !session?.user) return;
     fetch(`/api/users/${encodeURIComponent(urlName)}/follow`)
       .then(r => r.json())
       .then(d => setIsFollowing(Boolean(d.following)))
+      .catch(() => {});
+    fetch(`/api/users/${encodeURIComponent(urlName)}/block`)
+      .then(r => r.json())
+      .then(d => setIsBlocking(Boolean(d.blocking)))
       .catch(() => {});
   }, [urlName, session]);
 
@@ -273,6 +288,20 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       })
       .finally(() => setFollowingLoading(false));
   }, [activeTab, followingLoaded, urlName]);
+
+  // ── load blocked tab ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (activeTab !== "blocked" || blockedLoaded || !isOwner) return;
+    setBlockedLoading(true);
+    fetch("/api/users/blocked")
+      .then(r => r.json())
+      .then(d => {
+        setBlockedUsers((d.blocked ?? []) as FollowUser[]);
+        setBlockedLoaded(true);
+      })
+      .finally(() => setBlockedLoading(false));
+  }, [activeTab, blockedLoaded, isOwner]);
 
   // ── load groups when tab activated ───────────────────────────────────────
 
@@ -409,6 +438,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     await fetch(`/api/groups/${groupId}/members/${(session!.user as any).id}`, { method: "DELETE" });
     setJoinedGroups(prev => prev.filter(g => g.id !== groupId));
     if (activeGroupId === groupId) closeGroupSheet();
+  };
+
+  const handleUnblock = async (user: FollowUser) => {
+    setUnblockingId(user.id);
+    await fetch(`/api/users/${encodeURIComponent(user.name)}/block`, { method: "DELETE" });
+    setBlockedUsers(prev => prev.filter(u => u.id !== user.id));
+    setUnblockingId(null);
   };
 
   // ── load owned groups when share panel opens (for group-share dropdown) ──
@@ -551,6 +587,29 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     });
   };
 
+  const handleShareSearch = (q: string) => {
+    setShareInput(q);
+    setShareError(null);
+    if (shareSearchTimer.current) clearTimeout(shareSearchTimer.current);
+    if (!q.trim()) { setShareSearchResults([]); return; }
+    shareSearchTimer.current = setTimeout(async () => {
+      setShareSearchLoading(true);
+      const allGroups = [...ownedGroups, ...joinedGroups];
+      const lq = q.toLowerCase();
+      const matchGroups: ShareResult[] = allGroups
+        .filter(g => g.name.toLowerCase().includes(lq))
+        .map(g => ({ type: "group", id: g.id, name: g.name, memberCount: g.memberCount }));
+      try {
+        const r = await fetch(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
+        const d = await r.json();
+        const users: ShareResult[] = (d.users ?? []).map((u: { id: string; name: string; avatarUrl?: string }) => ({ type: "user", id: u.id, name: u.name, avatarUrl: u.avatarUrl }));
+        setShareSearchResults([...matchGroups, ...users]);
+      } finally {
+        setShareSearchLoading(false);
+      }
+    }, 300);
+  };
+
   const addShare = async (listId: string) => {
     const target = shareInput.trim();
     if (!target) return;
@@ -584,7 +643,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     ));
   };
 
-  // ── follow action ─────────────────────────────────────────────────────────
+  // ── follow / block actions ────────────────────────────────────────────────
 
   const toggleFollow = async () => {
     if (followLoading) return;
@@ -594,6 +653,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setIsFollowing(f => !f);
     setFollowersLoaded(false);
     setFollowLoading(false);
+    setShowUserMenu(false);
+  };
+
+  const toggleBlock = async () => {
+    if (blockLoading) return;
+    setBlockLoading(true);
+    const method = isBlocking ? "DELETE" : "POST";
+    await fetch(`/api/users/${encodeURIComponent(urlName)}/block`, { method });
+    setIsBlocking(b => !b);
+    setBlockLoading(false);
+    setShowUserMenu(false);
   };
 
   // ── tabs config ───────────────────────────────────────────────────────────
@@ -605,6 +675,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "groups", label: "群組", ownerOnly: true },
     { id: "followers", label: "追蹤者" },
     { id: "following", label: "追蹤中" },
+    { id: "blocked", label: "封鎖", ownerOnly: true },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || isOwner);
 
@@ -612,6 +683,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   const renderGroupDetailContent = () => {
     const isGroupOwner = ownedGroups.some(g => g.id === activeGroupId);
+    const isGroupMember = joinedGroups.some(g => g.id === activeGroupId);
+    const canInvite = isGroupOwner || isGroupMember;
     return (
       <div className="px-4 py-4 flex flex-col gap-5" style={{ backgroundColor: "var(--zen-bg)" }}>
         {activeGroupLoading && !activeGroup && (
@@ -619,6 +692,15 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         )}
         {activeGroup && (
           <>
+            {/* owner row (for joined groups) */}
+            {isGroupMember && !isGroupOwner && activeGroup.ownerName && (
+              <div className="flex items-center gap-2">
+                <NextImage src={activeGroup.ownerAvatarUrl || "/avatar-placeholder.svg"} alt={activeGroup.ownerName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{activeGroup.ownerName}</span>
+                <span className="text-xs opacity-40 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>群主</span>
+              </div>
+            )}
+
             {/* members */}
             <div className="flex flex-col gap-3">
               <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>成員</p>
@@ -642,7 +724,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             </div>
 
             {/* invite */}
-            {isGroupOwner && (
+            {canInvite && (
               <div className="flex flex-col gap-2">
                 <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>邀請成員</p>
                 <input
@@ -749,17 +831,52 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           </div>
           <div className="flex items-center gap-2">
             {!isOwner && session?.user && (
-              <button
-                onClick={toggleFollow}
-                disabled={followLoading}
-                className="text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50"
-                style={isFollowing
-                  ? { borderColor: "#5fa870", color: "#5fa870", background: "transparent" }
-                  : { borderColor: "#5fa870", color: "white", background: "#5fa870" }
-                }
-              >
-                {isFollowing ? "已追蹤" : "追蹤"}
-              </button>
+              <>
+                <button
+                  onClick={toggleFollow}
+                  disabled={followLoading}
+                  className="text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50"
+                  style={isFollowing
+                    ? { borderColor: "#5fa870", color: "#5fa870", background: "transparent" }
+                    : { borderColor: "#5fa870", color: "white", background: "#5fa870" }
+                  }
+                >
+                  {isFollowing ? "已追蹤" : "追蹤"}
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(m => !m)}
+                    className="text-sm w-7 h-7 flex items-center justify-center rounded-full border transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", color: "var(--zen-ink)" }}
+                    aria-label="更多選項"
+                  >⋯</button>
+                  {showUserMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                      <div className="absolute right-0 mt-1 z-50 w-28 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={toggleFollow}
+                          disabled={followLoading}
+                          className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
+                          style={{ color: "#5fa870" }}
+                        >
+                          {isFollowing ? "取消追蹤" : "追蹤"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleBlock}
+                          disabled={blockLoading}
+                          className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
+                          style={{ color: isBlocking ? "#ef4444" : "var(--zen-ink)" }}
+                        >
+                          {isBlocking ? "解除封鎖" : "封鎖"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -964,7 +1081,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           </button>
                           <button type="button"
                             onMouseDown={e => e.stopPropagation()}
-                            onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setListShareGroupId(""); setListShareGroupMsg(null); setExpandedId(list.id); setContextMenuId(null); }}
+                            onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); setExpandedId(null); setContextMenuId(null); }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                             style={{ color: "var(--zen-ink)" }}>
                             分享
@@ -982,7 +1099,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 ))}
               </div>
 
-              {/* expanded detail panel */}
+              {/* questions panel */}
               {expandedId && (() => {
                 const list = lists.find(l => l.id === expandedId);
                 if (!list) return null;
@@ -998,114 +1115,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                         </a>
                       )}
                     </div>
-                    {isOwner && shareOpenId === list.id && (
-                      <div className="border-b border-zinc-100 dark:border-zinc-800">
-                        {/* share to user */}
-                        <div className="px-4 py-3">
-                          <p className="text-xs text-zinc-400 mb-2">分享給帳號</p>
-                          <div className="flex gap-2 mb-2">
-                            <input
-                              value={shareInput}
-                              onChange={e => { setShareInput(e.target.value); setShareError(null); }}
-                              onKeyDown={e => { if (e.key === "Enter") addShare(list.id); }}
-                              placeholder="輸入帳號名稱"
-                              className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none"
-                              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                            />
-                            <button type="button"
-                              onClick={() => addShare(list.id)}
-                              disabled={shareLoading || !shareInput.trim()}
-                              className="px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
-                              style={{ color: "var(--zen-ink)" }}>
-                              新增
-                            </button>
-                          </div>
-                          {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
-                          {(list.sharedWith ?? []).length > 0 && (
-                            <ul className="flex flex-col gap-2">
-                              {(list.sharedWith ?? []).map(n => {
-                                const results = (list.sharedResults ?? {})[n] ?? [];
-                                return (
-                                  <li key={n} className="text-xs" style={{ color: "var(--zen-ink)" }}>
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-medium">{n}</span>
-                                      <button type="button" onClick={() => removeShare(list.id, n)}
-                                        className="text-red-400 hover:text-red-500 transition-colors">移除</button>
-                                    </div>
-                                    {results.length > 0 ? (
-                                      <ul className="mt-1 flex flex-col gap-0.5 pl-2 border-l border-zinc-200 dark:border-zinc-700">
-                                        {results.map((r: any, i: number) => (
-                                          <li key={i} className="flex items-center gap-2 text-zinc-400">
-                                            <span>{r.correct}/{r.answered}</span>
-                                            <span>{new Date(r.timestamp).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <p className="mt-0.5 pl-2 text-zinc-400">尚未作答</p>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                        </div>
-
-                        {/* share to group */}
-                        <div className="px-4 pb-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                          <p className="text-xs text-zinc-400 mb-2">分享給群組</p>
-                          {groupsLoading && <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>載入群組...</p>}
-                          {!groupsLoading && ownedGroups.length === 0 && joinedGroups.length === 0 && groupsLoaded && (
-                            <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>尚無群組</p>
-                          )}
-                          {(ownedGroups.length > 0 || joinedGroups.length > 0) && (
-                            <div className="flex gap-2">
-                              <select
-                                value={listShareGroupId}
-                                onChange={e => { setListShareGroupId(e.target.value); setListShareGroupMsg(null); }}
-                                className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none"
-                                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                              >
-                                <option value="">選擇群組</option>
-                                {ownedGroups.length > 0 && (
-                                  <optgroup label="我建立的">
-                                    {ownedGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                  </optgroup>
-                                )}
-                                {joinedGroups.length > 0 && (
-                                  <optgroup label="加入的">
-                                    {joinedGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                  </optgroup>
-                                )}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!listShareGroupId) return;
-                                  setListShareGroupLoading(true);
-                                  setListShareGroupMsg(null);
-                                  const res = await fetch(`/api/groups/${listShareGroupId}/share-list`, {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ listId: list.id }),
-                                  });
-                                  const d = await res.json();
-                                  setListShareGroupMsg(d.ok ? `已分享給 ${d.shared} 位成員` : (d.error ?? "分享失敗"));
-                                  setListShareGroupLoading(false);
-                                }}
-                                disabled={listShareGroupLoading || !listShareGroupId}
-                                className="px-3 py-1.5 text-xs rounded-lg border transition-colors disabled:opacity-40 hover:opacity-80"
-                                style={{ borderColor: "#b19739", color: "#b19739" }}>
-                                分享
-                              </button>
-                            </div>
-                          )}
-                          {listShareGroupMsg && (
-                            <p className="text-xs mt-1.5 opacity-70" style={{ color: "var(--zen-ink)" }}>{listShareGroupMsg}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
                     {list.questions.length === 0 ? (
                       <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
                     ) : (
@@ -1126,6 +1135,123 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                         ))}
                       </ul>
                     )}
+                  </div>
+                );
+              })()}
+
+              {/* share panel */}
+              {shareOpenId && (() => {
+                const list = lists.find(l => l.id === shareOpenId);
+                if (!list) return null;
+                return (
+                  <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                      <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
+                      <button type="button"
+                        onClick={() => { setShareOpenId(null); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); }}
+                        className="text-xs opacity-40 hover:opacity-70" style={{ color: "var(--zen-ink)" }}>✕</button>
+                    </div>
+                    <div className="px-4 py-3">
+                      <input
+                        value={shareInput}
+                        onChange={e => handleShareSearch(e.target.value)}
+                        placeholder="搜尋帳號或群組名稱"
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none mb-2"
+                        style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                      />
+                      {shareSearchLoading && <p className="text-xs opacity-40 mb-2" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
+                      {!shareSearchLoading && shareInput.trim() && shareSearchResults.length === 0 && (
+                        <p className="text-xs opacity-40 mb-2" style={{ color: "var(--zen-ink)" }}>找不到帳號或群組</p>
+                      )}
+                      {shareSearchResults.length > 0 && (
+                        <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 mb-2">
+                          {shareSearchResults.map(r => {
+                            const alreadyShared = r.type === "user" && (list.sharedWith ?? []).includes(r.name);
+                            const groupShared = r.type === "group" && shareSharedGroupIds.has(r.id);
+                            return (
+                              <div key={`${r.type}-${r.id}`} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
+                                <div className="flex items-center gap-2">
+                                  {r.type === "user" ? (
+                                    <img src={r.avatarUrl || "/avatar-placeholder.svg"} className="w-6 h-6 rounded-full object-cover shrink-0" alt={r.name} />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
+                                  )}
+                                  <span className="text-xs" style={{ color: "var(--zen-ink)" }}>{r.name}</span>
+                                  {r.type === "group" && r.memberCount != null && (
+                                    <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{r.memberCount} 人</span>
+                                  )}
+                                </div>
+                                {alreadyShared || groupShared ? (
+                                  <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                                ) : r.type === "user" ? (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      setShareLoading(true); setShareError(null);
+                                      const res = await fetch(`/api/lists/${list.id}/share`, {
+                                        method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ targetName: r.name }),
+                                      });
+                                      const j = await res.json();
+                                      if (res.ok) setLists(prev => prev.map(l => l.id === list.id ? { ...l, sharedWith: [...(l.sharedWith ?? []), r.name] } : l));
+                                      else setShareError(j.error ?? "失敗");
+                                      setShareLoading(false);
+                                    }}
+                                    disabled={shareLoading}
+                                    className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                                    style={{ borderColor: "#5fa870", color: "#5fa870" }}
+                                  >分享</button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const res = await fetch(`/api/groups/${r.id}/share-list`, {
+                                        method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ listId: list.id }),
+                                      });
+                                      const d = await res.json();
+                                      if (d.ok) setShareSharedGroupIds(prev => new Set(prev).add(r.id));
+                                      else setShareError(d.error ?? "分享失敗");
+                                    }}
+                                    className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80"
+                                    style={{ borderColor: "#b19739", color: "#b19739" }}
+                                  >分享</button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
+                      {(list.sharedWith ?? []).length > 0 && (
+                        <ul className="flex flex-col gap-2 mt-1">
+                          {(list.sharedWith ?? []).map(n => {
+                            const results = (list.sharedResults ?? {})[n] ?? [];
+                            return (
+                              <li key={n} className="text-xs" style={{ color: "var(--zen-ink)" }}>
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{n}</span>
+                                  <button type="button" onClick={() => removeShare(list.id, n)}
+                                    className="text-red-400 hover:text-red-500 transition-colors">移除</button>
+                                </div>
+                                {results.length > 0 ? (
+                                  <ul className="mt-1 flex flex-col gap-0.5 pl-2 border-l border-zinc-200 dark:border-zinc-700">
+                                    {results.map((r: any, i: number) => (
+                                      <li key={i} className="flex items-center gap-2 text-zinc-400">
+                                        <span>{r.correct}/{r.answered}</span>
+                                        <span>{new Date(r.timestamp).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="mt-0.5 pl-2 text-zinc-400">尚未作答</p>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -1384,7 +1510,14 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       style={{ borderColor: activeGroupId === g.id ? "#5fa870" : "color-mix(in srgb, var(--zen-ink) 15%, transparent)", borderBottomLeftRadius: activeGroupId === g.id ? 0 : undefined, borderBottomRightRadius: activeGroupId === g.id ? 0 : undefined }}
                     >
                       <span className="text-sm font-medium" style={{ color: "#5fa870" }}>{g.name}</span>
-                      <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.ownerName ?? ""}</span>
+                      <span className="flex items-center gap-1.5">
+                        {g.ownerAvatarUrl ? (
+                          <NextImage src={g.ownerAvatarUrl} alt={g.ownerName ?? ""} width={18} height={18} className="rounded-full object-cover" style={{ width: 18, height: 18 }} />
+                        ) : (
+                          <NextImage src="/avatar-placeholder.svg" alt={g.ownerName ?? ""} width={18} height={18} className="rounded-full" style={{ width: 18, height: 18 }} />
+                        )}
+                        <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.ownerName ?? ""}</span>
+                      </span>
                     </button>
                     {activeGroupId === g.id && (
                       <div className="hidden sm:block border border-t-0 rounded-b-xl overflow-hidden" style={{ borderColor: "#5fa870" }}>
@@ -1451,6 +1584,36 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
                       <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                     </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* ── blocked tab ─────────────────────────────────────────────────── */}
+        {activeTab === "blocked" && (
+          <div>
+            {blockedLoading ? (
+              <p className="text-sm zen-subtle">載入中...</p>
+            ) : blockedUsers.length === 0 ? (
+              <p className="text-sm zen-subtle opacity-50">尚無封鎖帳號</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {blockedUsers.map(u => (
+                  <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <span className="text-sm font-medium truncate" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                    </div>
+                    <button
+                      onClick={() => handleUnblock(u)}
+                      disabled={unblockingId === u.id}
+                      className="shrink-0 text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                      style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 30%, transparent)", color: "var(--zen-ink)" }}
+                    >
+                      {unblockingId === u.id ? "解封中..." : "解除封鎖"}
+                    </button>
                   </li>
                 ))}
               </ul>

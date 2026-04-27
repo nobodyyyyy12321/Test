@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
 import { findUserByEmail, findUserByName } from "../../../../../lib/users";
+import { hasBlockRelationship } from "../../../../../lib/users-supabase";
 import { getListById, shareListWithUser, unshareListWithUser } from "../../../../../lib/lists-supabase";
 import type { Session } from "next-auth";
 
@@ -28,6 +29,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
 
     const target = await findUserByName(targetName.trim());
     if (!target) return NextResponse.json({ error: "找不到該帳號" }, { status: 404 });
+
+    const blocked = await hasBlockRelationship(user.id, target.id);
+    if (blocked) return NextResponse.json({ error: "無法分享給該帳號" }, { status: 403 });
 
     await shareListWithUser(listId, target.name);
     return NextResponse.json({ ok: true });

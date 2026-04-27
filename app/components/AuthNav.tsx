@@ -222,7 +222,7 @@ export default function AuthNav() {
               <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
               <button
                 onClick={() => { setIsMenuOpen(false); setShowModeModal(true); }}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 style={{ color: "#5fa870" }}
               >
                 作答模式

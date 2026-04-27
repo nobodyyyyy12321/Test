@@ -6,6 +6,7 @@ export type Group = {
   name: string;
   ownerId: string;
   ownerName?: string;
+  ownerAvatarUrl?: string;
   createdAt: string;
   memberCount?: number;
   members?: GroupMember[];
@@ -51,7 +52,23 @@ export async function getGroupsByUser(userId: string): Promise<{ owned: Group[];
       .select("*")
       .in("id", joinedIds)
       .order("created_at", { ascending: false });
-    joined = (joinedGroups ?? []).map(mapGroup);
+
+    // Resolve ownerName for joined groups
+    const ownerIds = [...new Set((joinedGroups ?? []).map((g: Record<string, unknown>) => g.owner_id as string))];
+    const ownerMap: Record<string, { name: string; avatarUrl?: string }> = {};
+    if (ownerIds.length > 0) {
+      const { data: owners } = await sb.from("users").select("id,name,avatar_url").in("id", ownerIds);
+      for (const o of owners ?? []) {
+        const row = o as Record<string, unknown>;
+        ownerMap[row.id as string] = { name: row.name as string, avatarUrl: row.avatar_url as string | undefined };
+      }
+    }
+
+    joined = (joinedGroups ?? []).map((g: Record<string, unknown>) => ({
+      ...mapGroup(g),
+      ownerName: ownerMap[g.owner_id as string]?.name,
+      ownerAvatarUrl: ownerMap[g.owner_id as string]?.avatarUrl,
+    }));
   }
 
   // Attach member counts
@@ -106,11 +123,12 @@ export async function getGroupWithMembers(groupId: string): Promise<Group | null
     });
   }
 
-  const { data: owner } = await sb.from("users").select("name").eq("id", (group as Record<string, unknown>).owner_id as string).single();
+  const { data: owner } = await sb.from("users").select("name,avatar_url").eq("id", (group as Record<string, unknown>).owner_id as string).single();
 
   return {
     ...mapGroup(group as Record<string, unknown>),
     ownerName: (owner as Record<string, unknown>)?.name as string | undefined,
+    ownerAvatarUrl: (owner as Record<string, unknown>)?.avatar_url as string | undefined,
     memberCount: members.filter(m => m.status === "accepted").length,
     members,
   };

@@ -129,3 +129,13 @@ create table if not exists group_members (
 );
 
 create index if not exists group_members_user_id_idx on group_members(user_id);
+
+-- ── blocks ────────────────────────────────────────────────────────────────────
+create table if not exists blocks (
+  blocker_id text not null references users(id) on delete cascade,
+  blocked_id text not null references users(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (blocker_id, blocked_id)
+);
+
+create index if not exists blocks_blocker_id_idx on blocks(blocker_id);

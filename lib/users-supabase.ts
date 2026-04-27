@@ -300,3 +300,45 @@ export async function appendRecitation(
   });
   if (error) throw error;
 }
+
+// ── blocks ────────────────────────────────────────────────────────────────────
+
+export async function blockUser(blockerId: string, blockedId: string): Promise<void> {
+  const db = getSupabaseAdmin();
+  await db.from("blocks").upsert({ blocker_id: blockerId, blocked_id: blockedId }, { onConflict: "blocker_id,blocked_id" });
+}
+
+export async function unblockUser(blockerId: string, blockedId: string): Promise<void> {
+  const db = getSupabaseAdmin();
+  await db.from("blocks").delete().eq("blocker_id", blockerId).eq("blocked_id", blockedId);
+}
+
+export async function isBlocking(blockerId: string, blockedId: string): Promise<boolean> {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("blocks").select("blocker_id").eq("blocker_id", blockerId).eq("blocked_id", blockedId).maybeSingle();
+  return !!data;
+}
+
+export async function hasBlockRelationship(userIdA: string, userIdB: string): Promise<boolean> {
+  const db = getSupabaseAdmin();
+  const { data } = await db
+    .from("blocks")
+    .select("blocker_id")
+    .or(`and(blocker_id.eq.${userIdA},blocked_id.eq.${userIdB}),and(blocker_id.eq.${userIdB},blocked_id.eq.${userIdA})`)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+export async function getBlockedList(blockerId: string): Promise<{ id: string; name: string; avatarUrl?: string }[]> {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("blocks").select("blocked_id").eq("blocker_id", blockerId);
+  if (!data?.length) return [];
+  const ids = data.map((r: Record<string, unknown>) => r.blocked_id as string);
+  const { data: users } = await db.from("users").select("id,name,avatar_url").in("id", ids);
+  return (users ?? []).map((u: Record<string, unknown>) => ({
+    id: u.id as string,
+    name: u.name as string,
+    avatarUrl: u.avatar_url as string | undefined,
+  }));
+}
