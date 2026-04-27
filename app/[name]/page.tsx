@@ -59,6 +59,7 @@ export default async function AccountPage({ params }: Props) {
 
   return (
     <ProfileClient
+      key={urlName}
       urlName={urlName}
       isOwner={isOwner}
       initialProfile={initialProfile}
