@@ -56,6 +56,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   const [started, setStarted] = useState(!!autostart);
   const [focusedIdx, setFocusedIdx] = useState(0);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
+  const [forcedAbandon, setForcedAbandon] = useState(false);
   const pendingNavRef = useRef<(() => void) | null>(null);
   const beforeUnloadHandlerRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -118,11 +119,23 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       if (!document.fullscreenElement) setShowAbandonModal(true);
     };
 
+    // Mobile: switching apps / home button / screen lock → forced abandon on return
+    let leftPage = false;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") { leftPage = true; }
+      else if (leftPage) {
+        leftPage = false;
+        setForcedAbandon(true);
+        setShowAbandonModal(true);
+      }
+    };
+
     window.addEventListener("popstate", handlePopState);
     document.addEventListener("click", handleLinkClick, true);
     window.addEventListener("beforeunload", handleBeforeUnload);
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       kbd?.unlock?.();
@@ -131,6 +144,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       history.go(-1); // remove sentinel entry
     };
   }, [formalMode, started, showResults]);
@@ -349,31 +363,49 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
       {showAbandonModal && (
         <>
-          <div className="fixed inset-0 z-[100] bg-black/50" onClick={handleStay} />
+          <div className="fixed inset-0 z-[100] bg-black/50" onClick={forcedAbandon ? undefined : handleStay} />
           <div
             className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-80 rounded-2xl border shadow-xl p-8 flex flex-col gap-6"
             style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
           >
-            <div className="flex flex-col gap-2 text-center">
-              <h2 className="text-lg font-semibold" style={{ color: "var(--zen-ink)" }}>放棄測驗？</h2>
-              <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>離開後將無法繼續本次測驗</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleStay}
-                className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
-                style={{ borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }}
-              >
-                繼續作答
-              </button>
-              <button
-                onClick={handleAbandon}
-                className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
-                style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)" }}
-              >
-                放棄測驗
-              </button>
-            </div>
+            {forcedAbandon ? (
+              <>
+                <div className="flex flex-col gap-2 text-center">
+                  <h2 className="text-lg font-semibold" style={{ color: "#ef4444" }}>測驗已終止</h2>
+                  <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>偵測到離開頁面，本次測驗已作廢</p>
+                </div>
+                <button
+                  onClick={handleAbandon}
+                  className="w-full py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
+                  style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)" }}
+                >
+                  確認
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2 text-center">
+                  <h2 className="text-lg font-semibold" style={{ color: "var(--zen-ink)" }}>放棄測驗？</h2>
+                  <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>離開後將無法繼續本次測驗</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleStay}
+                    className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
+                    style={{ borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }}
+                  >
+                    繼續作答
+                  </button>
+                  <button
+                    onClick={handleAbandon}
+                    className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
+                    style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)" }}
+                  >
+                    放棄測驗
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
