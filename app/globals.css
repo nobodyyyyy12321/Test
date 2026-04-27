@@ -1,4 +1,5 @@
-html.formal-quiz-active aside {
+html.formal-quiz-active aside,
+html.formal-quiz-active #mobile-bottom-bar {
   display: none !important;
 }
 @media (min-width: 640px) {
