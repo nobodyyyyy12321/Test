@@ -268,6 +268,33 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     setUserAnswers(prev => { const next = [...prev]; next[idx] = value || null; return next; });
   };
 
+  const saveRecord = (answeredCnt: number, correctCnt: number) => {
+    if (!session?.user?.email || answeredCnt === 0) return;
+    const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
+    const recordEndpoint = ordered
+      ? "/api/user/gsat/record"
+      : id === "quoteChinese"
+      ? "/api/user/quote/record"
+      : "/api/user/english/record";
+    fetch(recordEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        answered: answeredCnt,
+        correct: correctCnt,
+        set: listTitle ? `個人試卷${listTitle}` : levels ? `${id}:${levels}` : id,
+        answers: compactAnswers,
+      }),
+    }).catch(() => {});
+    if (listId) {
+      fetch(`/api/lists/${listId}/result`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answered: answeredCnt, correct: correctCnt }),
+      }).catch(() => {});
+    }
+  };
+
   const checkAnswers = () => {
     setShowResults(true);
     if (timerEnabled && timerRunning) timerStop();
@@ -276,32 +303,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     const timestamp = new Date().toISOString();
     const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
     try { sessionStorage.setItem(`quiz_replay_${timestamp}`, JSON.stringify({ answers: compactAnswers })); } catch {}
-
-    if (session?.user?.email) {
-      const recordEndpoint = ordered
-        ? "/api/user/gsat/record"
-        : id === "quoteChinese"
-        ? "/api/user/quote/record"
-        : "/api/user/english/record";
-      fetch(recordEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          answered: answeredCount,
-          correct: correctCount,
-          set: listTitle ? `個人試卷${listTitle}` : levels ? `${id}:${levels}` : id,
-          answers: compactAnswers,
-        }),
-      }).catch(() => {});
-
-      if (listId) {
-        fetch(`/api/lists/${listId}/result`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answered: answeredCount, correct: correctCount }),
-        }).catch(() => {});
-      }
-    }
+    saveRecord(answeredCount, correctCount);
   };
 
   const resetQuiz = () => {
@@ -339,6 +341,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       window.removeEventListener("beforeunload", beforeUnloadHandlerRef.current);
       beforeUnloadHandlerRef.current = null;
     }
+    saveRecord(
+      userAnswers.filter(a => a !== null).length,
+      questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length,
+    );
     const nav = pendingNavRef.current ?? (() => { window.location.href = "/"; });
     pendingNavRef.current = null;
     if (document.fullscreenElement) {
