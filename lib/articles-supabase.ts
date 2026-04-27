@@ -49,7 +49,7 @@ function rowToArticle(row: Record<string, unknown>): Article {
   };
 }
 
-// ── public API (same shape as articles-firebase.ts) ──────────────────────────
+
 
 export async function getArticles(filters?: { type?: string; category?: string }): Promise<Article[]> {
   try {

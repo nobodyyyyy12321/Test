@@ -114,7 +114,7 @@ async function attachRecordsAndRecitations(user: User): Promise<User> {
   return user;
 }
 
-// ── public API (same shape as users-firebase.ts) ─────────────────────────────
+
 
 export async function searchUsersByName(
   query: string,

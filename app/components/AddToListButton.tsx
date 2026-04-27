@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import type { QuestionList } from "../../lib/lists-firebase";
+import type { QuestionList } from "../../lib/lists-supabase";
 
 type Props = {
   questionId: string;

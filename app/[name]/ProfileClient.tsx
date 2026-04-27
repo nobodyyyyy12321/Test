@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import NextImage from "next/image";
-import type { QuestionList, ListQuestion } from "../../lib/lists-firebase";
+import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
 
@@ -118,7 +118,13 @@ type Props = {
 export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile }: Props) {
   const { data: session, status } = useSession();
 
-  const [isOwner, setIsOwner] = useState(initialIsOwner);
+  const isOwner = React.useMemo(() => {
+    if (initialIsOwner) return true;
+    if (status === "loading" || !session?.user) return false;
+    const nameMatch = (session.user as any).name === urlName;
+    const emailMatch = Boolean(initialProfile.email && (session.user as any).email === initialProfile.email);
+    return nameMatch || emailMatch;
+  }, [initialIsOwner, session, status, urlName, initialProfile.email]);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   // ── profile state ──
@@ -202,15 +208,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [shareSharedGroupIds, setShareSharedGroupIds] = useState<Set<string>>(new Set());
   const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // client-side isOwner upgrade: only set true, never false
-  // compares session name OR email against the profile being viewed
-  useEffect(() => {
-    if (status === "loading") return;
-    if (!session?.user) return;
-    const nameMatch = (session.user as any).name === urlName;
-    const emailMatch = initialProfile.email && (session.user as any).email === initialProfile.email;
-    if (nameMatch || emailMatch) setIsOwner(true);
-  }, [status, session, urlName, initialProfile.email]);
 
   // ── load lists when tab activated ─────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
-import type { Question } from "../../../lib/questions-firebase";
+import type { Question } from "../../../lib/questions";
 import RenderContent from "../../components/RenderContent";
 import { useTimer } from "../../providers/TimerContext";
 

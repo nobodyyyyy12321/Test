@@ -1,4 +1,4 @@
-import { fetchQuestions } from "@/lib/questions-firebase";
+import { fetchQuestions } from "@/lib/questions";
 
 export async function GET(request: Request) {
   try {

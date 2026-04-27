@@ -1,6 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
-import { getListById } from "../../../lib/lists-firebase";
+import { getListById } from "../../../lib/lists-supabase";
 import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
 import TestClient from "./TestClient";
 

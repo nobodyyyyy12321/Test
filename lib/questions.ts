@@ -1,4 +1,4 @@
-import { getListById } from "./lists-firebase";
+import { getListById } from "./lists-supabase";
 import { fetchQuizQuestions } from "./questions-supabase";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
