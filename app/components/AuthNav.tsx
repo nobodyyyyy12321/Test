@@ -13,6 +13,7 @@ export default function AuthNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [domMounted, setDomMounted] = useState(false);
+  const [quizMode, setQuizMode] = useState<"practice" | "formal">("practice");
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
@@ -21,6 +22,8 @@ export default function AuthNav() {
     if (cached) setAvatarUrl(cached);
     const cachedName = localStorage.getItem("displayName");
     if (cachedName) setDisplayName(cachedName);
+    const savedMode = localStorage.getItem("quizMode");
+    if (savedMode === "formal" || savedMode === "practice") setQuizMode(savedMode);
   }, []);
 
   useEffect(() => {
@@ -135,6 +138,12 @@ export default function AuthNav() {
   const name = displayName || session.user.name || session.user.email || "使用者";
   const encodedName = encodeURIComponent(name);
 
+  const toggleMode = () => {
+    const next = quizMode === "practice" ? "formal" : "practice";
+    setQuizMode(next);
+    localStorage.setItem("quizMode", next);
+  };
+
   const handleSignOut = async () => {
     try {
       setLogoutError(null);
@@ -199,6 +208,22 @@ export default function AuthNav() {
               <Link href={`/${encodedName}`} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
               <Link href="/upload" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
               <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+              <button
+                onClick={toggleMode}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 border-t border-zinc-100 dark:border-zinc-800"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                <span className="opacity-60">作答模式</span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full border"
+                  style={quizMode === "formal"
+                    ? { borderColor: "#b19739", color: "#b19739", backgroundColor: "color-mix(in srgb, #b19739 10%, transparent)" }
+                    : { borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }
+                  }
+                >
+                  {quizMode === "formal" ? "正式" : "練習"}
+                </span>
+              </button>
               <button onClick={handleSignOut} className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }}>登出</button>
               {logoutError && (
                 <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
@@ -226,6 +251,22 @@ export default function AuthNav() {
             <Link href={`/${encodedName}`} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>個人頁面</Link>
             <Link href="/upload" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
             <Link href="/under-construction" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#b19739" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+            <button
+              onClick={toggleMode}
+              className="w-full flex items-center justify-between px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800"
+              style={{ color: "var(--zen-ink)" }}
+            >
+              <span className="opacity-60">作答模式</span>
+              <span
+                className="text-sm px-2.5 py-0.5 rounded-full border"
+                style={quizMode === "formal"
+                  ? { borderColor: "#b19739", color: "#b19739", backgroundColor: "color-mix(in srgb, #b19739 10%, transparent)" }
+                  : { borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }
+                }
+              >
+                {quizMode === "formal" ? "正式" : "練習"}
+              </span>
+            </button>
             <button onClick={handleSignOut} className="w-full text-center px-5 py-4 text-base font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }}>登出</button>
             {logoutError && (
               <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800">
