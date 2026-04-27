@@ -8,6 +8,8 @@ import type { Question } from "../../../lib/questions-firebase";
 import RenderContent from "../../components/RenderContent";
 import { useTimer } from "../../providers/TimerContext";
 
+const QUIZ_GUARD_STATE = { __quizGuard: true };
+
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
   if (userAns === null) return false;
   const qtype = question.type ?? "single";
@@ -53,6 +55,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   const [formalMode, setFormalMode] = useState(false);
   const [started, setStarted] = useState(!!autostart);
   const [focusedIdx, setFocusedIdx] = useState(0);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
+  const pendingNavRef = useRef<(() => void) | null>(null);
+  const beforeUnloadHandlerRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -60,6 +65,75 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     const isFormal = localStorage.getItem("quizMode") === "formal";
     if (isFormal) setFormalMode(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const active = formalMode && started && !showResults;
+    document.documentElement.classList.toggle("formal-quiz-active", active);
+    if (!active && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    return () => { document.documentElement.classList.remove("formal-quiz-active"); };
+  }, [formalMode, started, showResults]);
+
+  useEffect(() => {
+    if (!formalMode || !started || showResults) return;
+
+    const origPush = history.pushState.bind(history);
+
+    // Push sentinel so back-button fires popstate
+    origPush(QUIZ_GUARD_STATE, "");
+
+    const handlePopState = () => {
+      origPush(QUIZ_GUARD_STATE, ""); // re-block
+      pendingNavRef.current = () => { history.go(-2); };
+      setShowAbandonModal(true);
+    };
+
+    // Intercept anchor clicks in capture phase — avoids calling setState from pushState
+    const handleLinkClick = (e: MouseEvent) => {
+      const anchor = (e.target as Element).closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const attr = anchor.getAttribute("href");
+      if (!attr || attr.startsWith("#")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const dest = anchor.href;
+      pendingNavRef.current = () => { window.location.href = dest; };
+      setShowAbandonModal(true);
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    beforeUnloadHandlerRef.current = handleBeforeUnload;
+
+    // Lock Escape so it fires keydown without exiting fullscreen (Keyboard Lock API)
+    const kbd = (navigator as any).keyboard;
+    kbd?.lock?.(["Escape"]).catch(() => {});
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowAbandonModal(true);
+    };
+
+    // Fullscreen exit via browser UI (not Esc) → show modal
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) setShowAbandonModal(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    document.addEventListener("click", handleLinkClick, true);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      kbd?.unlock?.();
+      window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("click", handleLinkClick, true);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      history.go(-1); // remove sentinel entry
+    };
+  }, [formalMode, started, showResults]);
 
   useEffect(() => {
     // replay mode: load stored answers, fetch questions to match
@@ -245,11 +319,64 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleAbandon = () => {
+    setShowAbandonModal(false);
+    if (beforeUnloadHandlerRef.current) {
+      window.removeEventListener("beforeunload", beforeUnloadHandlerRef.current);
+      beforeUnloadHandlerRef.current = null;
+    }
+    const nav = pendingNavRef.current ?? (() => { window.location.href = "/"; });
+    pendingNavRef.current = null;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {}).finally(nav);
+    } else {
+      nav();
+    }
+  };
+
+  const handleStay = () => {
+    setShowAbandonModal(false);
+    pendingNavRef.current = null;
+    document.documentElement.requestFullscreen()
+      .then(() => (navigator as any).keyboard?.lock?.(["Escape"]).catch(() => {}))
+      .catch(() => {});
+  };
+
   const answeredCount = userAnswers.filter(a => a !== null).length;
   const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
+      {showAbandonModal && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/50" onClick={handleStay} />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-80 rounded-2xl border shadow-xl p-8 flex flex-col gap-6"
+            style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
+          >
+            <div className="flex flex-col gap-2 text-center">
+              <h2 className="text-lg font-semibold" style={{ color: "var(--zen-ink)" }}>放棄測驗？</h2>
+              <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>離開後將無法繼續本次測驗</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleStay}
+                className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
+                style={{ borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }}
+              >
+                繼續作答
+              </button>
+              <button
+                onClick={handleAbandon}
+                className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
+                style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)" }}
+              >
+                放棄測驗
+              </button>
+            </div>
+          </div>
+        </>
+      )}
       {formalMode && !started && (
         <div ref={overlayRef} className="fixed inset-0 sm:left-24 z-50 flex items-center justify-center" style={{ backgroundColor: "var(--zen-bg)" }}>
           <div className="flex flex-col items-center gap-8 px-8 py-12 rounded-2xl" style={{ backgroundColor: "var(--zen-paper)" }}>
@@ -261,6 +388,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                 if (overlayRef.current) overlayRef.current.style.display = "none";
                 setStarted(true);
                 if (timerEnabled) { timerReset(); timerStart(); }
+                document.documentElement.requestFullscreen().catch(() => {});
               }}
               className="px-10 py-3 rounded-full text-base font-medium transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#5fa870", color: "#fff" }}

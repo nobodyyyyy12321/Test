@@ -1,3 +1,12 @@
+html.formal-quiz-active aside {
+  display: none !important;
+}
+@media (min-width: 640px) {
+  html.formal-quiz-active #main-content {
+    padding-left: 0;
+  }
+}
+
 .home-search::placeholder {
   color: #b19739;
   opacity: 0.6;

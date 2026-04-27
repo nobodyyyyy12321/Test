@@ -99,7 +99,7 @@ export default function RootLayout({
             (typeof window !== "undefined" && window.location.pathname.startsWith("/feedback"))
           ) ? null : <GlobalUpOneLevelButton />}
 
-          <div className="sm:pl-24">
+          <div id="main-content" className="sm:pl-24">
             <LanguageGate>{children}</LanguageGate>
           </div>
           {/* 手機版底部列 */}
