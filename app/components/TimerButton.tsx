@@ -85,7 +85,7 @@ export default function TimerButton({ placement = "top" }: { placement?: "right"
 
   const panelPos = placement === "right"
     ? "left-full ml-3 top-1/2 -translate-y-1/2"
-    : "bottom-full mb-3 left-1/2 -translate-x-1/2";
+    : "fixed bottom-[72px] left-0 right-0 mx-0";
 
   const handleToggle = () => {
     if (enabled) {
@@ -106,7 +106,10 @@ export default function TimerButton({ placement = "top" }: { placement?: "right"
     <div className="relative flex items-center justify-center">
       {open && (
         <div
-          className={`absolute ${panelPos} w-48 rounded-xl border shadow-lg p-3 z-50 text-sm`}
+          className={placement === "top"
+            ? `fixed ${panelPos} w-screen rounded-none border-t shadow-lg px-6 py-4 z-50 text-sm`
+            : `absolute ${panelPos} w-48 rounded-xl border shadow-lg p-3 z-50 text-sm`
+          }
           style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
         >
           {/* Toggle row */}
