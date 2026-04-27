@@ -27,6 +27,6 @@ export async function POST(req: Request, { params }: Params) {
   const isMember = group.ownerId === user.id || group.members?.some(m => m.userId === user.id && m.status === "accepted");
   if (!isMember) return NextResponse.json({ error: "not in group" }, { status: 403 });
 
-  const count = await shareListWithGroup(listId, groupId);
+  const count = await shareListWithGroup(listId, groupId, user.id);
   return NextResponse.json({ ok: true, shared: count });
 }

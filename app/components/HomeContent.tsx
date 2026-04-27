@@ -262,7 +262,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               />
               {shareSearchLoading && <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
               {shareSearchResults.length > 0 && (
-                <div className="flex flex-col divide-y rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)", divideColor: "color-mix(in srgb, var(--zen-ink) 8%, transparent)" }}>
+                <div className="flex flex-col divide-y rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
                   {shareSearchResults.map(u => (
                     <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
                       <div className="flex items-center gap-2">

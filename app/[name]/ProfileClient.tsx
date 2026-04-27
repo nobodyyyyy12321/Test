@@ -1225,6 +1225,47 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           })}
                         </div>
                       )}
+                      {/* 我的群組 — 直接列出，不需搜尋 */}
+                      {(() => {
+                        const allGroups = [...ownedGroups, ...joinedGroups];
+                        if (allGroups.length === 0) return null;
+                        return (
+                          <div className="mb-2">
+                            <p className="text-xs opacity-50 mb-1.5" style={{ color: "var(--zen-ink)" }}>我的群組</p>
+                            <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                              {allGroups.map(g => (
+                                <div key={g.id} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
+                                    <span className="text-xs" style={{ color: "var(--zen-ink)" }}>{g.name}</span>
+                                    {g.memberCount != null && (
+                                      <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{g.memberCount} 人</span>
+                                    )}
+                                  </div>
+                                  {shareSharedGroupIds.has(g.id) ? (
+                                    <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const res = await fetch(`/api/groups/${g.id}/share-list`, {
+                                          method: "POST", headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ listId: list.id }),
+                                        });
+                                        const d = await res.json();
+                                        if (d.ok) setShareSharedGroupIds(prev => new Set(prev).add(g.id));
+                                        else setShareError(d.error ?? "分享失敗");
+                                      }}
+                                      className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80"
+                                      style={{ borderColor: "#b19739", color: "#b19739" }}
+                                    >分享</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
                       {(list.sharedWith ?? []).length > 0 && (
                         <ul className="flex flex-col gap-2 mt-1">

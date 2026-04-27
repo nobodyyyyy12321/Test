@@ -180,18 +180,25 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   return !error;
 }
 
-export async function shareListWithGroup(listId: string, groupId: string): Promise<number> {
+export async function shareListWithGroup(listId: string, groupId: string, senderId: string): Promise<number> {
   const sb = getSupabaseAdmin();
+
+  const { data: group } = await sb.from("groups").select("owner_id").eq("id", groupId).single();
+  const ownerId = (group as Record<string, unknown>)?.owner_id as string | undefined;
+
   const { data: members } = await sb
     .from("group_members")
     .select("user_id")
     .eq("group_id", groupId)
     .eq("status", "accepted");
 
-  if (!members?.length) return 0;
+  const memberIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string);
+  const allIds = Array.from(new Set([...(ownerId ? [ownerId] : []), ...memberIds]));
+  const recipientIds = allIds.filter(id => id !== senderId);
 
-  const userIds = members.map((m: Record<string, unknown>) => m.user_id as string);
-  const { data: users } = await sb.from("users").select("name").in("id", userIds);
+  if (!recipientIds.length) return 0;
+
+  const { data: users } = await sb.from("users").select("name").in("id", recipientIds);
 
   let count = 0;
   for (const u of users ?? []) {
