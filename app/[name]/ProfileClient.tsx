@@ -144,6 +144,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [listsLoading, setListsLoading] = useState(false);
   const [lists, setLists] = useState<QuestionList[]>([]);
   const [sharedLists, setSharedLists] = useState<QuestionList[]>([]);
+  type SharedCat = { id: string; categoryKey: string; categoryName: string; sharedByName?: string; sharedByAvatarUrl?: string; createdAt: string };
+  const [sharedCategories, setSharedCategories] = useState<SharedCat[]>([]);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -223,6 +225,10 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           setListsLoaded(true);
         })
         .finally(() => setListsLoading(false));
+      fetch("/api/categories/shared")
+        .then(r => r.json())
+        .then(d => setSharedCategories(d.sharedCategories ?? []))
+        .catch(() => {});
     } else {
       fetch(`/api/users/${encodeURIComponent(urlName)}/lists`)
         .then(r => r.json())
@@ -674,7 +680,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "following", label: "追蹤中" },
     { id: "blocked", label: "封鎖", ownerOnly: true },
   ];
-  const visibleTabs = tabs.filter(t => !t.ownerOnly || isOwner);
+  const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
   // ── group detail content (shared between desktop inline card and mobile sheet) ──
 
@@ -1348,6 +1354,40 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 })()}
               </div>
             )}
+          </div>
+        )}
+
+        {/* shared categories */}
+        {isOwner && sharedCategories.length > 0 && activeTab === "lists" && (
+          <div className="mt-8">
+            <p className="text-xs text-zinc-400 mb-3">分享給我的分類</p>
+            <ul className="flex flex-col gap-2">
+              {sharedCategories.map(cat => {
+                const href = cat.categoryKey.includes(":")
+                  ? `/test/${encodeURIComponent(cat.categoryKey.split(":")[0])}?levels=${encodeURIComponent(cat.categoryKey.split(":")[1])}&autostart=1`
+                  : `/test/${encodeURIComponent(cat.categoryKey)}?autostart=1`;
+                return (
+                  <li key={cat.id} className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {cat.sharedByAvatarUrl ? (
+                        <NextImage src={cat.sharedByAvatarUrl} alt={cat.sharedByName ?? ""} width={24} height={24} unoptimized className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <NextImage src="/avatar-placeholder.svg" alt={cat.sharedByName ?? ""} width={24} height={24} className="w-6 h-6 rounded-full shrink-0" />
+                      )}
+                      <span className="text-xs opacity-50 shrink-0" style={{ color: "var(--zen-ink)" }}>{cat.sharedByName}</span>
+                      <span className="text-sm font-medium truncate" style={{ color: "#b19739" }}>{cat.categoryName}</span>
+                    </div>
+                    <a
+                      href={href}
+                      className="shrink-0 text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
+                      style={{ borderColor: "#5fa870", color: "#5fa870" }}
+                    >
+                      作答
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 

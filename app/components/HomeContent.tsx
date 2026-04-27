@@ -10,7 +10,9 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
-type CtxMenu = { id: string; x: number; y: number; from: "pinned" | "grid" };
+type CtxMenu = { id: string; name: string; x: number; y: number; from: "pinned" | "grid" };
+type Group = { id: string; name: string };
+type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
@@ -26,6 +28,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
+  const [sharePanel, setSharePanel] = useState<{ categoryKey: string; categoryName: string } | null>(null);
+  const [shareInput, setShareInput] = useState("");
+  const [shareSearchResults, setShareSearchResults] = useState<ShareTarget[]>([]);
+  const [shareSearchLoading, setShareSearchLoading] = useState(false);
+  const [shareGroups, setShareGroups] = useState<Group[]>([]);
+  const [shareSharedIds, setShareSharedIds] = useState<Set<string>>(new Set());
+  const [shareSending, setSharingSending] = useState<string | null>(null);
+  const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,6 +105,32 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   }, [ctxMenu]);
 
   useEffect(() => {
+    if (!sharePanel || !loggedIn) return;
+    fetch("/api/groups")
+      .then(r => r.json())
+      .then(d => {
+        const owned: Group[] = (d.owned ?? []).map((g: Record<string, unknown>) => ({ id: g.id as string, name: g.name as string }));
+        const joined: Group[] = (d.joined ?? []).map((g: Record<string, unknown>) => ({ id: g.id as string, name: g.name as string }));
+        setShareGroups([...owned, ...joined]);
+      })
+      .catch(() => {});
+  }, [sharePanel, loggedIn]);
+
+  useEffect(() => {
+    if (shareDebounce.current) clearTimeout(shareDebounce.current);
+    if (!shareInput.trim()) { setShareSearchResults([]); setShareSearchLoading(false); return; }
+    setShareSearchLoading(true);
+    shareDebounce.current = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(shareInput.trim())}`)
+        .then(r => r.json())
+        .then(d => setShareSearchResults((d.users ?? []).map((u: Record<string, unknown>) => ({ type: "user" as const, id: u.id as string, name: u.name as string, avatarUrl: u.avatarUrl as string | undefined }))))
+        .catch(() => setShareSearchResults([]))
+        .finally(() => setShareSearchLoading(false));
+    }, 300);
+    return () => { if (shareDebounce.current) clearTimeout(shareDebounce.current); };
+  }, [shareInput]);
+
+  useEffect(() => {
     const sync = () => {
       const lang = localStorage.getItem("siteLanguage") || "zh-TW";
       setLanguage(lang);
@@ -142,9 +178,19 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
-  const openCtx = (e: React.MouseEvent, id: string, from: "pinned" | "grid") => {
+  const openCtx = (e: React.MouseEvent, id: string, name: string, from: "pinned" | "grid") => {
     e.preventDefault();
-    setCtxMenu({ id, x: e.clientX, y: e.clientY, from });
+    setCtxMenu({ id, name, x: e.clientX, y: e.clientY, from });
+  };
+
+  const handleShareTo = async (categoryKey: string, categoryName: string, target: { type: "user" | "group"; id: string; name: string }) => {
+    setSharingSending(target.id);
+    const body = target.type === "user"
+      ? { categoryKey, categoryName, targetUserName: target.name }
+      : { categoryKey, categoryName, groupId: target.id };
+    await fetch("/api/categories/share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setShareSharedIds(prev => new Set(prev).add(target.id));
+    setSharingSending(null);
   };
 
   return (
@@ -178,6 +224,93 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 取消釘選
               </button>
             )}
+            {loggedIn && (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { setSharePanel({ categoryKey: ctxMenu.id, categoryName: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-t border-zinc-100 dark:border-zinc-800"
+                style={{ color: "#5fa870" }}
+              >
+                分享
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* share panel */}
+      {sharePanel && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setSharePanel(null)} />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-80 max-h-[70vh] flex flex-col rounded-2xl border shadow-xl"
+            style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}>
+              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>分享「{sharePanel.categoryName}」</span>
+              <button onClick={() => setSharePanel(null)} className="text-lg opacity-40 hover:opacity-70 leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
+            </div>
+            <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto">
+              {/* user search */}
+              <input
+                className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                placeholder="搜尋帳號名稱"
+                value={shareInput}
+                onChange={e => setShareInput(e.target.value)}
+              />
+              {shareSearchLoading && <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
+              {shareSearchResults.length > 0 && (
+                <div className="flex flex-col divide-y rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)", divideColor: "color-mix(in srgb, var(--zen-ink) 8%, transparent)" }}>
+                  {shareSearchResults.map(u => (
+                    <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
+                      <div className="flex items-center gap-2">
+                        <Image src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                        <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                      </div>
+                      {shareSharedIds.has(u.id) ? (
+                        <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                      ) : (
+                        <button
+                          onClick={() => handleShareTo(sharePanel.categoryKey, sharePanel.categoryName, u)}
+                          disabled={shareSending === u.id}
+                          className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                          style={{ borderColor: "#b19739", color: "#b19739" }}
+                        >
+                          {shareSending === u.id ? "..." : "分享"}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* groups */}
+              {shareGroups.length > 0 && (
+                <>
+                  <p className="text-xs opacity-50 mt-1" style={{ color: "var(--zen-ink)" }}>我的群組</p>
+                  <div className="flex flex-col divide-y rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
+                    {shareGroups.map(g => (
+                      <div key={g.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
+                        <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{g.name}</span>
+                        {shareSharedIds.has(g.id) ? (
+                          <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                        ) : (
+                          <button
+                            onClick={() => handleShareTo(sharePanel.categoryKey, sharePanel.categoryName, { type: "group", id: g.id, name: g.name })}
+                            disabled={shareSending === g.id}
+                            className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                            style={{ borderColor: "#5fa870", color: "#5fa870" }}
+                          >
+                            {shareSending === g.id ? "..." : "分享"}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -230,7 +363,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       <div key={name} className="contents">
                         <div
                           className="relative"
-                          onContextMenu={e => openCtx(e, name, "pinned")}
+                          onContextMenu={e => openCtx(e, name, subject.name, "pinned")}
                         >
                           {subject.children?.length ? (
                             <button
@@ -277,7 +410,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           return (
                             <div
                               key={child.name}
-                              onContextMenu={e => openCtx(e, child.name, childPinned ? "pinned" : "grid")}
+                              onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid")}
                               style={{ opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
@@ -337,7 +470,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         <div key={key} className="contents">
                           <div
                             className="relative"
-                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, "grid") : undefined}
+                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, subject.name, "grid") : undefined}
                           >
                             {hasSub ? (
                               <button
@@ -387,7 +520,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               return (
                                 <div key={subKey} className="contents">
                                   <div
-                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, "grid") : undefined}
+                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid") : undefined}
                                     style={{ display: pinnedNames.includes(sub.name) ? "none" : undefined }}
                                   >
                                     <button
@@ -434,7 +567,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             return (
                               <div
                                 key={subKey}
-                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, "grid") : undefined}
+                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid") : undefined}
                               >
                                 <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
                                   {sub.name}

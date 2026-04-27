@@ -139,3 +139,16 @@ create table if not exists blocks (
 );
 
 create index if not exists blocks_blocker_id_idx on blocks(blocker_id);
+
+-- ── shared_categories ─────────────────────────────────────────────────────────
+create table if not exists shared_categories (
+  id            uuid primary key default gen_random_uuid(),
+  recipient_id  text not null references users(id) on delete cascade,
+  category_key  text not null,
+  category_name text not null,
+  shared_by_id  text not null references users(id) on delete cascade,
+  created_at    timestamptz default now(),
+  unique(recipient_id, category_key, shared_by_id)
+);
+
+create index if not exists shared_categories_recipient_idx on shared_categories(recipient_id);
