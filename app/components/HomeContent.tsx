@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -509,7 +509,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       )}
 
       {/* top-left brand */}
-      <div className="fixed top-8 left-6 sm:left-40 flex items-center gap-12 z-30">
+      <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
           <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Test</h1>
           <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#5fa870" }}>testtttt.io</span>

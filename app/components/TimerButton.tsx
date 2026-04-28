@@ -70,7 +70,7 @@ function ToggleSwitch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
-export default function TimerButton({ placement = "top" }: { placement?: "right" | "top" }) {
+export default function TimerButton({ placement = "top" }: { placement?: "right" | "top" | "bottom-right" }) {
   const {
     enabled, setEnabled,
     mode, setMode,
@@ -85,7 +85,9 @@ export default function TimerButton({ placement = "top" }: { placement?: "right"
 
   const panelPos = placement === "right"
     ? "left-full ml-3 top-1/2 -translate-y-1/2"
-    : "fixed bottom-[72px] left-0 right-0 mx-0";
+    : placement === "bottom-right"
+      ? "top-full mt-3 right-0"
+      : "fixed bottom-[72px] left-0 right-0 mx-0";
 
   const handleToggle = () => {
     if (enabled) {

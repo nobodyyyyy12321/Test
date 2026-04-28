@@ -59,23 +59,20 @@ export default function RootLayout({
       >
         <Providers>
           <TimerProvider>
-          <aside
-            className="hidden sm:flex fixed left-0 top-0 bottom-0 z-40 w-24 flex-col items-center justify-center gap-8"
-            style={{ backgroundColor: "var(--zen-bg)", borderRight: "1px solid color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}
-          >
-            <Link href="/" aria-label="回到首頁" className="inline-flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <aside className="hidden sm:flex fixed right-4 top-4 z-40 flex-row items-center gap-2">
+            <Link href="/" aria-label="回到首頁" className="inline-flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
                 <path d="M9 21V12h6v9" />
               </svg>
             </Link>
-            <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <ShareButton />
             </div>
-            <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <TimerButton placement="right" />
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+              <TimerButton placement="bottom-right" />
             </div>
-            <div className="flex items-center justify-center w-14 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <AuthNav />
             </div>
           </aside>
@@ -99,7 +96,7 @@ export default function RootLayout({
             (typeof window !== "undefined" && window.location.pathname.startsWith("/feedback"))
           ) ? null : <GlobalUpOneLevelButton />}
 
-          <div id="main-content" className="sm:pl-24">
+          <div id="main-content">
             <LanguageGate>{children}</LanguageGate>
           </div>
           {/* 手機版底部列 */}
