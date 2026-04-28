@@ -11,9 +11,10 @@ export default function PWARegister() {
       (screen.orientation as any).lock("portrait").catch(() => {});
     }
 
-    // Register service worker
+    // Register service worker — version query string busts old caches per build.
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => {
+      const buildId = process.env.NEXT_PUBLIC_BUILD_ID || "default";
+      navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(buildId)}`, { scope: "/" }).catch((error) => {
         console.error("Service worker registration failed:", error);
       });
     }
