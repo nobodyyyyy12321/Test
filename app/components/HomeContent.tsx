@@ -31,6 +31,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [userResults, setUserResults] = useState<UserResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
+  const [inboxOpen, setInboxOpen] = useState(true);
+  const [personalOpen, setPersonalOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
@@ -839,43 +841,73 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             {/* shared-with-me inbox */}
             {loggedIn && inboxCats.length > 0 && (
               <div className="mt-6 px-2">
-                <p className="text-xs text-zinc-400 mb-3">分享</p>
-                <div className="bookshelf-grid">
-                  {(() => {
-                    const unpinned = inboxCats.filter(c => !pinnedInboxIds.includes(c.id));
-                    let listIdx = 0, catIdx = 0;
-                    return unpinned.map(cat => {
-                      const key = cat.categoryKey;
-                      const isList = key.startsWith("list:");
-                      const href = isList
-                        ? `/test/list?listId=${key.slice(5)}`
-                        : key.includes(":")
-                          ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
-                          : `/test/${encodeURIComponent(key)}?autostart=1`;
-                      const color = isList
-                        ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
-                        : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
-                      return (
-                        <a
-                          key={cat.id}
-                          href={href}
-                          className="book-link bookshelf-btn"
-                          style={{ color }}
-                          onContextMenu={e => { e.preventDefault(); openCtx(e, cat.id, cat.categoryName, "inbox"); }}
-                        >
-                          {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
-                        </a>
-                      );
-                    });
-                  })()}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setInboxOpen(o => !o)}
+                  className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  aria-label={inboxOpen ? "收合" : "展開"}
+                >
+                  <span>分享</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: inboxOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                  >
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+                {inboxOpen && (
+                  <div className="bookshelf-grid">
+                    {(() => {
+                      const unpinned = inboxCats.filter(c => !pinnedInboxIds.includes(c.id));
+                      let listIdx = 0, catIdx = 0;
+                      return unpinned.map(cat => {
+                        const key = cat.categoryKey;
+                        const isList = key.startsWith("list:");
+                        const href = isList
+                          ? `/test/list?listId=${key.slice(5)}`
+                          : key.includes(":")
+                            ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
+                            : `/test/${encodeURIComponent(key)}?autostart=1`;
+                        const color = isList
+                          ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
+                          : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
+                        return (
+                          <a
+                            key={cat.id}
+                            href={href}
+                            className="book-link bookshelf-btn"
+                            style={{ color }}
+                            onContextMenu={e => { e.preventDefault(); openCtx(e, cat.id, cat.categoryName, "inbox"); }}
+                          >
+                            {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                          </a>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
               </div>
             )}
             {/* personal lists — mobile only */}
             {loggedIn && (
               <div className="sm:hidden mt-6 px-2">
-                <p className="text-xs text-zinc-400 mb-3">個人分類</p>
-                {homeListsLoading ? (
+                <button
+                  type="button"
+                  onClick={() => setPersonalOpen(o => !o)}
+                  className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  aria-label={personalOpen ? "收合" : "展開"}
+                >
+                  <span>個人分類</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: personalOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                  >
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+                {personalOpen && (homeListsLoading ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
                 ) : homeLists.length === 0 && homeListsLoaded && myCollections.length === 0 ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
@@ -953,7 +985,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       );
                     })()}
                   </>
-                )}
+                ))}
               </div>
             )}
             </div>
@@ -963,8 +995,22 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
           <div className="hidden sm:block flex-1 pt-2 px-2">
             {loggedIn && (
               <>
-                <p className="text-xs text-zinc-400 mb-3">個人分類</p>
-                {homeListsLoading ? (
+                <button
+                  type="button"
+                  onClick={() => setPersonalOpen(o => !o)}
+                  className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  aria-label={personalOpen ? "收合" : "展開"}
+                >
+                  <span>個人分類</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: personalOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                  >
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+                {personalOpen && (homeListsLoading ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
                 ) : homeLists.length === 0 && homeListsLoaded && myCollections.length === 0 ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
@@ -1042,7 +1088,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       );
                     })()}
                   </>
-                )}
+                ))}
               </>
             )}
           </div>
