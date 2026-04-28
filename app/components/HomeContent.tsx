@@ -13,6 +13,8 @@ type UserResult = { id: string; name: string; avatarUrl?: string };
 type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
+type HomeListQuestion = { questionId: string; collectionId: string; title: string; number: number; level?: number | null };
+type HomeList = { id: string; title: string; isPublic: boolean; questions: HomeListQuestion[] };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
@@ -38,6 +40,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [inboxCats, setInboxCats] = useState<{ id: string; categoryKey: string; categoryName: string; sharedByName?: string }[]>([]);
   const [inboxLoaded, setInboxLoaded] = useState(false);
   const [pinnedInboxIds, setPinnedInboxIds] = useState<string[]>([]);
+  const [homeLists, setHomeLists] = useState<HomeList[]>([]);
+  const [homeListsLoaded, setHomeListsLoaded] = useState(false);
+  const [homeListsLoading, setHomeListsLoading] = useState(false);
+  const [homeExpandedListId, setHomeExpandedListId] = useState<string | null>(null);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -152,6 +158,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [ctxMenu]);
+
+  useEffect(() => {
+    if (!loggedIn || homeListsLoaded) return;
+    setHomeListsLoading(true);
+    fetch("/api/lists")
+      .then(r => r.json())
+      .then(d => { setHomeLists(d.lists ?? []); setHomeListsLoaded(true); })
+      .catch(() => {})
+      .finally(() => setHomeListsLoading(false));
+  }, [loggedIn, homeListsLoaded]);
 
   useEffect(() => {
     if (!loggedIn || inboxLoaded) return;
@@ -764,11 +780,125 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 </div>
               </div>
             )}
+            {/* personal lists — mobile only */}
+            {loggedIn && (
+              <div className="sm:hidden mt-6 px-2">
+                <p className="text-xs text-zinc-400 mb-3">個人分類</p>
+                {homeListsLoading ? (
+                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
+                ) : homeLists.length === 0 && homeListsLoaded ? (
+                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
+                ) : (
+                  <>
+                    <div className="bookshelf-grid">
+                      {homeLists.map((list, li) => (
+                        <button
+                          key={list.id}
+                          type="button"
+                          className="book-link bookshelf-btn"
+                          style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+                          onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
+                        >
+                          {list.title}
+                        </button>
+                      ))}
+                    </div>
+                    {homeExpandedListId && (() => {
+                      const list = homeLists.find(l => l.id === homeExpandedListId);
+                      if (!list) return null;
+                      return (
+                        <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                            <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
+                            {list.questions.length > 0 && (
+                              <a
+                                href={`/test/list?listId=${list.id}`}
+                                className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                style={{ color: "var(--zen-ink)" }}
+                              >作答</a>
+                            )}
+                          </div>
+                          {list.questions.length === 0 ? (
+                            <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
+                          ) : (
+                            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                              {list.questions.map((q, i) => (
+                                <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
+                                  <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
+                                  <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+            )}
             </div>
           </div>
 
-          {/* Right 2/3 — reserved */}
-          <div className="hidden sm:block flex-1" />
+          {/* Right panel — personal lists (desktop) */}
+          <div className="hidden sm:block flex-1 pt-2 px-2">
+            {loggedIn && (
+              <>
+                <p className="text-xs text-zinc-400 mb-3">個人分類</p>
+                {homeListsLoading ? (
+                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
+                ) : homeLists.length === 0 && homeListsLoaded ? (
+                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
+                ) : (
+                  <>
+                    <div className="bookshelf-grid">
+                      {homeLists.map((list, li) => (
+                        <button
+                          key={list.id}
+                          type="button"
+                          className="book-link bookshelf-btn"
+                          style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+                          onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
+                        >
+                          {list.title}
+                        </button>
+                      ))}
+                    </div>
+                    {homeExpandedListId && (() => {
+                      const list = homeLists.find(l => l.id === homeExpandedListId);
+                      if (!list) return null;
+                      return (
+                        <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                            <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
+                            {list.questions.length > 0 && (
+                              <a
+                                href={`/test/list?listId=${list.id}`}
+                                className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                style={{ color: "var(--zen-ink)" }}
+                              >作答</a>
+                            )}
+                          </div>
+                          {list.questions.length === 0 ? (
+                            <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
+                          ) : (
+                            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                              {list.questions.map((q, i) => (
+                                <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
+                                  <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
+                                  <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <Footer language={language} />
