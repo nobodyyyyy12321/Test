@@ -91,6 +91,19 @@ create table if not exists follows (
 create index if not exists follows_follower_id_idx on follows(follower_id);
 create index if not exists follows_following_id_idx on follows(following_id);
 
+-- ── user_collection_refs ────────────────────────────────────────────────────
+-- Tracks quiz collection tables uploaded by individual users.
+create table if not exists user_collection_refs (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       text not null references users(id) on delete cascade,
+  collection_id text not null,
+  display_name  text not null,
+  created_at    timestamptz default now(),
+  unique(user_id, collection_id)
+);
+
+create index if not exists user_collection_refs_user_id_idx on user_collection_refs(user_id);
+
 -- ── articles ──────────────────────────────────────────────────────────────────
 create table if not exists articles (
   id            text primary key,
@@ -155,26 +168,3 @@ create table if not exists shared_categories (
 
 create index if not exists shared_categories_recipient_idx on shared_categories(recipient_id);
 
--- ── pcategories ───────────────────────────────────────────────────────────────
--- Personal categories uploaded by users, not yet on the homepage.
--- collections: array of collection keys (e.g. ["english", "jlpt:1,2"])
--- that define which question sets belong to this category.
-create table if not exists pcategories (
-  id          uuid primary key default gen_random_uuid(),
-  owner_id    text not null references users(id) on delete cascade,
-  name        text not null,
-  description text,
-  collections text[] not null default '{}',
-  language    text not null default 'zh-TW',
-  is_public   boolean default false,
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
-);
-
-create index if not exists pcategories_owner_idx on pcategories(owner_id);
-create index if not exists pcategories_public_idx on pcategories(is_public) where is_public = true;
-
-alter table pcategories add column if not exists language text not null default 'zh-TW';
-
-alter table users add column if not exists pinned_cats text[] default '{}';
-alter table users add column if not exists pinned_inbox_cats text[] default '{}';

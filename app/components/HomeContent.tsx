@@ -15,6 +15,7 @@ type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 type HomeListQuestion = { questionId: string; collectionId: string; title: string; number: number; level?: number | null };
 type HomeList = { id: string; title: string; isPublic: boolean; questions: HomeListQuestion[] };
+type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
@@ -44,6 +45,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [homeListsLoaded, setHomeListsLoaded] = useState(false);
   const [homeListsLoading, setHomeListsLoading] = useState(false);
   const [homeExpandedListId, setHomeExpandedListId] = useState<string | null>(null);
+  const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -203,6 +205,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     }, 300);
     return () => { if (shareDebounce.current) clearTimeout(shareDebounce.current); };
   }, [shareInput]);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    fetch("/api/my-collections")
+      .then(r => r.json())
+      .then(d => setMyCollections(d.collections ?? []))
+      .catch(() => {});
+  }, [loggedIn]);
 
   useEffect(() => {
     const sync = () => {
@@ -786,7 +796,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 <p className="text-xs text-zinc-400 mb-3">個人分類</p>
                 {homeListsLoading ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
-                ) : homeLists.length === 0 && homeListsLoaded ? (
+                ) : homeLists.length === 0 && homeListsLoaded && myCollections.length === 0 ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
                 ) : (
                   <>
@@ -801,6 +811,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         >
                           {list.title}
                         </button>
+                      ))}
+                      {myCollections.map((col, ci) => (
+                        <a
+                          key={col.id}
+                          href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+                          className="book-link bookshelf-btn"
+                          style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
+                        >
+                          {col.displayName}
+                        </a>
                       ))}
                     </div>
                     {homeExpandedListId && (() => {
@@ -847,7 +867,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 <p className="text-xs text-zinc-400 mb-3">個人分類</p>
                 {homeListsLoading ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
-                ) : homeLists.length === 0 && homeListsLoaded ? (
+                ) : homeLists.length === 0 && homeListsLoaded && myCollections.length === 0 ? (
                   <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
                 ) : (
                   <>
@@ -862,6 +882,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         >
                           {list.title}
                         </button>
+                      ))}
+                      {myCollections.map((col, ci) => (
+                        <a
+                          key={col.id}
+                          href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+                          className="book-link bookshelf-btn"
+                          style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
+                        >
+                          {col.displayName}
+                        </a>
                       ))}
                     </div>
                     {homeExpandedListId && (() => {

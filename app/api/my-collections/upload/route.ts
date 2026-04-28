@@ -1,0 +1,73 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { findUserByEmail, findUserByName } from "@/lib/users";
+import { upsertQuizQuestions } from "@/lib/questions-supabase";
+import { upsertUserCollection } from "@/lib/user-collections-supabase";
+
+type QuestionRow = {
+  number: number;
+  title: string;
+  type?: "single" | "multiple" | "fill";
+  options?: Record<string, string> | null;
+  answer?: string | string[] | null;
+  level?: number | null;
+  groupContent?: string | null;
+};
+
+type UploadPayload = {
+  language?: string;
+  categories?: unknown[];
+  collections?: Record<string, QuestionRow[]>;
+};
+
+async function getUser() {
+  const session = await auth();
+  const email = (session?.user as any)?.email as string | undefined;
+  const name = session?.user?.name ?? undefined;
+  if (!email && !name) return null;
+  return email ? findUserByEmail(email) : findUserByName(name!);
+}
+
+export async function POST(request: Request) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let payload: UploadPayload;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  if (!payload.collections || typeof payload.collections !== "object") {
+    return NextResponse.json({ error: "collections 欄位為必填" }, { status: 400 });
+  }
+
+  const results: Record<string, { upserted: number }> = {};
+  const errors: Record<string, string> = {};
+
+  for (const [collectionId, rows] of Object.entries(payload.collections)) {
+    if (!Array.isArray(rows)) continue;
+
+    const normalized = rows.filter(
+      r => Number.isFinite(r.number) && typeof r.title === "string"
+    );
+    if (normalized.length === 0) continue;
+
+    try {
+      const result = await upsertQuizQuestions(collectionId, normalized);
+      await upsertUserCollection(user.id, collectionId, collectionId);
+      results[collectionId] = result;
+    } catch (err: any) {
+      errors[collectionId] = err?.message ?? "未知錯誤";
+    }
+  }
+
+  const hasSuccess = Object.keys(results).length > 0;
+  if (!hasSuccess) {
+    const firstError = Object.values(errors)[0] ?? "沒有有效的 collection";
+    return NextResponse.json({ ok: false, error: firstError }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, results, errors: Object.keys(errors).length ? errors : undefined });
+}
