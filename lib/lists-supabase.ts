@@ -257,25 +257,37 @@ export async function addSharedResult(
 
 export async function shareListWithUser(listId: string, userName: string): Promise<void> {
   const db = getSupabaseAdmin();
-  const { data } = await db.from("lists").select("shared_with").eq("id", listId).maybeSingle();
+  const { data } = await db.from("lists").select("owner_id,title,shared_with").eq("id", listId).maybeSingle();
   if (!data) throw new Error("List not found");
-  const current: string[] = data.shared_with ?? [];
-  if (current.includes(userName)) return;
-  const { error } = await db
-    .from("lists")
-    .update({ shared_with: [...current, userName] })
-    .eq("id", listId);
-  if (error) throw error;
+  const r = data as Record<string, unknown>;
+  const current: string[] = (r.shared_with as string[]) ?? [];
+  if (!current.includes(userName)) {
+    const { error } = await db.from("lists").update({ shared_with: [...current, userName] }).eq("id", listId);
+    if (error) throw error;
+  }
+  // mirror into shared_categories so the recipient's inbox sees it
+  const { data: recipientRow } = await db.from("users").select("id").eq("name", userName).maybeSingle();
+  if (recipientRow) {
+    const recipientId = (recipientRow as Record<string, unknown>).id as string;
+    await db.from("shared_categories").upsert(
+      { shared_by_id: r.owner_id as string, recipient_id: recipientId, category_key: `list:${listId}`, category_name: r.title as string },
+      { onConflict: "recipient_id,category_key,shared_by_id" },
+    );
+  }
 }
 
 export async function unshareListWithUser(listId: string, userName: string): Promise<void> {
   const db = getSupabaseAdmin();
   const { data } = await db.from("lists").select("shared_with").eq("id", listId).maybeSingle();
   if (!data) throw new Error("List not found");
-  const current: string[] = data.shared_with ?? [];
-  const { error } = await db
-    .from("lists")
-    .update({ shared_with: current.filter((n) => n !== userName) })
-    .eq("id", listId);
+  const r = data as Record<string, unknown>;
+  const current: string[] = (r.shared_with as string[]) ?? [];
+  const { error } = await db.from("lists").update({ shared_with: current.filter((n) => n !== userName) }).eq("id", listId);
   if (error) throw error;
+  // remove from shared_categories mirror
+  const { data: recipientRow } = await db.from("users").select("id").eq("name", userName).maybeSingle();
+  if (recipientRow) {
+    const recipientId = (recipientRow as Record<string, unknown>).id as string;
+    await db.from("shared_categories").delete().eq("recipient_id", recipientId).eq("category_key", `list:${listId}`);
+  }
 }

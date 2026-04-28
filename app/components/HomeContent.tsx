@@ -35,6 +35,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [shareGroups, setShareGroups] = useState<Group[]>([]);
   const [shareSharedIds, setShareSharedIds] = useState<Set<string>>(new Set());
   const [shareSending, setSharingSending] = useState<string | null>(null);
+  const [inboxCats, setInboxCats] = useState<{ id: string; categoryKey: string; categoryName: string; sharedByName?: string }[]>([]);
+  const [inboxLoaded, setInboxLoaded] = useState(false);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
@@ -103,6 +105,15 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [ctxMenu]);
+
+  useEffect(() => {
+    if (!loggedIn || inboxLoaded) return;
+    fetch("/api/categories/shared")
+      .then(r => r.json())
+      .then(d => setInboxCats(d.sharedCategories ?? []))
+      .catch(() => {})
+      .finally(() => setInboxLoaded(true));
+  }, [loggedIn, inboxLoaded]);
 
   useEffect(() => {
     if (!sharePanel || !loggedIn) return;
@@ -624,6 +635,32 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     </ul>
                   </div>
                 )}
+              </div>
+            )}
+            {/* shared-with-me inbox */}
+            {loggedIn && inboxCats.length > 0 && (
+              <div className="mt-6 px-2">
+                <p className="text-xs text-zinc-400 mb-3">分享</p>
+                <div className="bookshelf-grid">
+                  {inboxCats.map((cat, ci) => {
+                    const key = cat.categoryKey;
+                    const href = key.startsWith("list:")
+                      ? `/test/list?listId=${key.slice(5)}`
+                      : key.includes(":")
+                        ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
+                        : `/test/${encodeURIComponent(key)}?autostart=1`;
+                    return (
+                      <a
+                        key={cat.id}
+                        href={href}
+                        className="book-link bookshelf-btn"
+                        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
+                      >
+                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
             )}
             </div>

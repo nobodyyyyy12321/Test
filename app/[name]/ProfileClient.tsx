@@ -144,8 +144,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [listsLoading, setListsLoading] = useState(false);
   const [lists, setLists] = useState<QuestionList[]>([]);
   const [sharedLists, setSharedLists] = useState<QuestionList[]>([]);
-  type SharedCat = { id: string; categoryKey: string; categoryName: string; sharedByName?: string; sharedByAvatarUrl?: string; createdAt: string };
-  const [sharedCategories, setSharedCategories] = useState<SharedCat[]>([]);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -225,10 +223,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           setListsLoaded(true);
         })
         .finally(() => setListsLoading(false));
-      fetch("/api/categories/shared")
-        .then(r => r.json())
-        .then(d => setSharedCategories(d.sharedCategories ?? []))
-        .catch(() => {});
     } else {
       fetch(`/api/users/${encodeURIComponent(urlName)}/lists`)
         .then(r => r.json())
@@ -1280,26 +1274,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </>
             )}
 
-            {/* shared-with-me lists + categories */}
-            {isOwner && (sharedLists.length > 0 || sharedCategories.length > 0) && (
+            {/* shared-with-me lists */}
+            {isOwner && sharedLists.length > 0 && (
               <div className="mt-8">
-                <p className="text-xs text-zinc-400 mb-3">分享給我的分類</p>
+                <p className="text-xs text-zinc-400 mb-3">分享給我的試卷</p>
                 <div className="bookshelf-grid">
-                  {sharedCategories.map((cat, ci) => {
-                    const href = cat.categoryKey.includes(":")
-                      ? `/test/${encodeURIComponent(cat.categoryKey.split(":")[0])}?levels=${encodeURIComponent(cat.categoryKey.split(":")[1])}&autostart=1`
-                      : `/test/${encodeURIComponent(cat.categoryKey)}?autostart=1`;
-                    return (
-                      <a
-                        key={`cat-${cat.id}`}
-                        href={href}
-                        className="book-link bookshelf-btn"
-                        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
-                      >
-                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
-                      </a>
-                    );
-                  })}
                   {sharedLists.map((list, li) => (
                     <div key={`list-${list.id}`} className="relative"
                       onContextMenu={e => {
