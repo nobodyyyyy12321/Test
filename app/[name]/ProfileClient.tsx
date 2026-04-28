@@ -59,6 +59,7 @@ type Group = { id: string; name: string; ownerId: string; ownerName?: string; ow
 type PendingInvite = { groupId: string; groupName: string; ownerName: string; invitedAt: string };
 
 type FollowUser = { id: string; name: string; avatarUrl?: string };
+type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
 
 type SocialLinks = { x?: string; facebook?: string; instagram?: string; website?: string };
 
@@ -206,6 +207,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [shareSearchLoading, setShareSearchLoading] = useState(false);
   const [shareSharedGroupIds, setShareSharedGroupIds] = useState<Set<string>>(new Set());
   const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
+  const [myCollectionsLoaded, setMyCollectionsLoaded] = useState(false);
 
 
   // ── load lists when tab activated ─────────────────────────────────────────
@@ -228,6 +231,20 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         .finally(() => setListsLoading(false));
     }
   }, [activeTab, listsLoaded, isOwner, urlName]);
+
+  useEffect(() => {
+    if (activeTab !== "lists" || !isOwner || myCollectionsLoaded) return;
+    fetch("/api/my-collections")
+      .then(r => r.json())
+      .then(d => {
+        setMyCollections(d.collections ?? []);
+        setMyCollectionsLoaded(true);
+      })
+      .catch(() => {
+        setMyCollections([]);
+        setMyCollectionsLoaded(true);
+      });
+  }, [activeTab, isOwner, myCollectionsLoaded]);
 
   // ── load records when tab activated ───────────────────────────────────────
 
@@ -1000,7 +1017,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           <div>
             {listsLoading ? (
               <p className="text-sm zen-subtle">載入中...</p>
-            ) : lists.length === 0 ? (
+            ) : lists.length === 0 && myCollections.length === 0 ? (
               <p className="text-sm zen-subtle opacity-50">
                 {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
               </p>
@@ -1069,6 +1086,16 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       </>
                     )}
                   </div>
+                ))}
+                {myCollections.map((col, ci) => (
+                  <a
+                    key={`my-${col.id}`}
+                    href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+                    className="book-link bookshelf-btn"
+                    style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
+                  >
+                    {col.displayName}
+                  </a>
                 ))}
               </div>
 
