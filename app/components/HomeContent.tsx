@@ -10,7 +10,7 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
-type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" };
+type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 
@@ -37,6 +37,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [shareSending, setSharingSending] = useState<string | null>(null);
   const [inboxCats, setInboxCats] = useState<{ id: string; categoryKey: string; categoryName: string; sharedByName?: string }[]>([]);
   const [inboxLoaded, setInboxLoaded] = useState(false);
+  const [pinnedInboxIds, setPinnedInboxIds] = useState<string[]>([]);
+  const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
@@ -56,11 +58,23 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   };
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("pinnedCats");
-      if (stored) setPinnedNames(JSON.parse(stored));
-    } catch {}
-  }, []);
+    if (!loggedIn) {
+      try {
+        const stored = localStorage.getItem("pinnedCats");
+        if (stored) setPinnedNames(JSON.parse(stored));
+        const storedInbox = localStorage.getItem("pinnedInboxCats");
+        if (storedInbox) setPinnedInboxIds(JSON.parse(storedInbox));
+      } catch {}
+      return;
+    }
+    fetch("/api/user/pins")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d.pinnedCats)) setPinnedNames(d.pinnedCats);
+        if (Array.isArray(d.pinnedInboxCats)) setPinnedInboxIds(d.pinnedInboxCats);
+      })
+      .catch(() => {});
+  }, [loggedIn]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -82,11 +96,27 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     };
   }, []);
 
+  const savePins = (cats: string[], inboxCatIds: string[]) => {
+    if (loggedIn) {
+      if (pinsDebounce.current) clearTimeout(pinsDebounce.current);
+      pinsDebounce.current = setTimeout(() => {
+        fetch("/api/user/pins", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinnedCats: cats, pinnedInboxCats: inboxCatIds }),
+        }).catch(() => {});
+      }, 500);
+    } else {
+      localStorage.setItem("pinnedCats", JSON.stringify(cats));
+      localStorage.setItem("pinnedInboxCats", JSON.stringify(inboxCatIds));
+    }
+  };
+
   const pin = (name: string) => {
     setPinnedNames(prev => {
       if (prev.includes(name)) return prev;
       const next = [...prev, name];
-      localStorage.setItem("pinnedCats", JSON.stringify(next));
+      savePins(next, pinnedInboxIds);
       return next;
     });
   };
@@ -94,7 +124,24 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const unpin = (name: string) => {
     setPinnedNames(prev => {
       const next = prev.filter(n => n !== name);
-      localStorage.setItem("pinnedCats", JSON.stringify(next));
+      savePins(next, pinnedInboxIds);
+      return next;
+    });
+  };
+
+  const pinInbox = (id: string) => {
+    setPinnedInboxIds(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [id, ...prev];
+      savePins(pinnedNames, next);
+      return next;
+    });
+  };
+
+  const unpinInbox = (id: string) => {
+    setPinnedInboxIds(prev => {
+      const next = prev.filter(n => n !== id);
+      savePins(pinnedNames, next);
       return next;
     });
   };
@@ -189,7 +236,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
-  const openCtx = (e: React.MouseEvent, id: string, name: string, from: "pinned" | "grid", href?: string) => {
+  const openCtx = (e: React.MouseEvent, id: string, name: string, from: CtxMenu["from"], href?: string) => {
     e.preventDefault();
     setCtxMenu({ id, name, href, x: e.clientX, y: e.clientY, from });
   };
@@ -230,7 +277,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               >
                 釘選
               </button>
-            ) : (
+            ) : ctxMenu.from === "pinned" ? (
               <button
                 type="button"
                 onMouseDown={e => e.stopPropagation()}
@@ -240,8 +287,28 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               >
                 取消釘選
               </button>
+            ) : ctxMenu.from === "inbox" ? (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { pinInbox(ctxMenu.id); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                釘選
+              </button>
+            ) : (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { unpinInbox(ctxMenu.id); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                取消釘選
+              </button>
             )}
-            {loggedIn && (
+            {loggedIn && (ctxMenu.from === "grid" || ctxMenu.from === "pinned") && (
               <button
                 type="button"
                 onMouseDown={e => e.stopPropagation()}
@@ -362,14 +429,39 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
-              {loggedIn && pinnedNames.length === 0 && (
+              {loggedIn && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
                   <line x1="12" y1="17" x2="12" y2="22"/>
                   <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
                 </svg>
               )}
-              {loggedIn && pinnedNames.length > 0 && (
+              {loggedIn && (pinnedNames.length > 0 || pinnedInboxIds.length > 0) && (
                 <div className="bookshelf-grid home-bookshelf-grid">
+                  {pinnedInboxIds.map((id, idx) => {
+                    const cat = inboxCats.find(c => c.id === id);
+                    if (!cat) return null;
+                    const key = cat.categoryKey;
+                    const isList = key.startsWith("list:");
+                    const href = isList
+                      ? `/test/list?listId=${key.slice(5)}`
+                      : key.includes(":")
+                        ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
+                        : `/test/${encodeURIComponent(key)}?autostart=1`;
+                    const color = isList
+                      ? (idx % 2 === 0 ? "#6ea8d8" : "#d87070")
+                      : (idx % 2 === 0 ? "#b19739" : "#5fa870");
+                    return (
+                      <a
+                        key={id}
+                        href={href}
+                        className="book-link bookshelf-btn"
+                        style={{ color }}
+                        onContextMenu={e => { e.preventDefault(); openCtx(e, id, cat.categoryName, "inbox-pinned"); }}
+                      >
+                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                      </a>
+                    );
+                  })}
                   {pinnedNames.map((name, pinnedIdx) => {
                     const found = findSubject(name);
                     if (!found) return null;
@@ -643,8 +735,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 <p className="text-xs text-zinc-400 mb-3">分享</p>
                 <div className="bookshelf-grid">
                   {(() => {
+                    const unpinned = inboxCats.filter(c => !pinnedInboxIds.includes(c.id));
                     let listIdx = 0, catIdx = 0;
-                    return inboxCats.map(cat => {
+                    return unpinned.map(cat => {
                       const key = cat.categoryKey;
                       const isList = key.startsWith("list:");
                       const href = isList
@@ -661,6 +754,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           href={href}
                           className="book-link bookshelf-btn"
                           style={{ color }}
+                          onContextMenu={e => { e.preventDefault(); openCtx(e, cat.id, cat.categoryName, "inbox"); }}
                         >
                           {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
                         </a>
