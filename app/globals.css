@@ -51,6 +51,12 @@ html.formal-quiz-active #mobile-bottom-bar {
   -webkit-tap-highlight-color: transparent;
 }
 
+@media (min-width: 640px) {
+  html {
+    scrollbar-gutter: stable;
+  }
+}
+
 @media (max-width: 639px) {
   ::-webkit-scrollbar {
     display: none;

@@ -7,6 +7,7 @@ import NextImage from "next/image";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
+import { PersonalListsView } from "../components/PersonalListsView";
 
 // ── locale helpers ────────────────────────────────────────────────────────────
 
@@ -209,6 +210,51 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [myCollectionsLoaded, setMyCollectionsLoaded] = useState(false);
+  const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
+  const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
+  const [colCtxMenuId, setColCtxMenuId] = useState<string | null>(null);
+  const [colCtxMenuPos, setColCtxMenuPos] = useState({ x: 0, y: 0 });
+
+  // ── pinned profile tabs (shown on home page) ─────────────────────────────
+  type PinnedTab = { name: string; tab: Tab; label: string };
+  const [pinnedTabs, setPinnedTabs] = useState<PinnedTab[]>([]);
+  const [tabCtxMenu, setTabCtxMenu] = useState<{ tab: Tab; label: string; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("pinnedProfileTabs");
+      if (stored) setPinnedTabs(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked"];
+      if (t && (valid as string[]).includes(t)) setActiveTab(t as Tab);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!tabCtxMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setTabCtxMenu(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [tabCtxMenu]);
+
+  const isTabPinned = (tab: Tab) => pinnedTabs.some(p => p.name === urlName && p.tab === tab);
+  const togglePinTab = (tab: Tab, label: string) => {
+    setPinnedTabs(prev => {
+      const exists = prev.some(p => p.name === urlName && p.tab === tab);
+      const next = exists
+        ? prev.filter(p => !(p.name === urlName && p.tab === tab))
+        : [...prev, { name: urlName, tab, label }];
+      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setTabCtxMenu(null);
+  };
 
 
   // ── load lists when tab activated ─────────────────────────────────────────
@@ -473,6 +519,24 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   // ── context menu close on Escape ─────────────────────────────────────────
 
   useEffect(() => {
+    if (!isOwner) return;
+    fetch("/api/user/pins")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d.pinnedListIds)) setPinnedListIds(d.pinnedListIds);
+        if (Array.isArray(d.pinnedCollectionIds)) setPinnedCollectionIds(d.pinnedCollectionIds);
+      })
+      .catch(() => {});
+  }, [isOwner]);
+
+  useEffect(() => {
+    if (!colCtxMenuId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setColCtxMenuId(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [colCtxMenuId]);
+
+  useEffect(() => {
     if (!contextMenuId) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setContextMenuId(null); };
     document.addEventListener("keydown", onKey);
@@ -559,6 +623,30 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   }
 
   // ── lists actions ─────────────────────────────────────────────────────────
+
+  const toggleListPin = (id: string) => {
+    setPinnedListIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [id, ...prev];
+      fetch("/api/user/pins", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinnedListIds: next }),
+      }).catch(() => {});
+      return next;
+    });
+  };
+
+  const toggleCollectionPin = (id: string) => {
+    setPinnedCollectionIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [id, ...prev];
+      fetch("/api/user/pins", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinnedCollectionIds: next }),
+      }).catch(() => {});
+      return next;
+    });
+  };
 
   const togglePublic = async (list: QuestionList) => {
     setLists(prev => prev.map(l => l.id === list.id ? { ...l, isPublic: !l.isPublic } : l));
@@ -804,7 +892,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
-      <main className="w-full max-w-2xl px-6 pt-10 pb-36 sm:pb-10">
+      <main className="w-full max-w-2xl md:max-w-4xl px-6 pt-10 pb-36 sm:pb-10">
 
         {/* header */}
         <div className="flex items-center justify-between mb-6">
@@ -812,12 +900,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             <NextImage
               src={avatarUrl || "/avatar-placeholder.svg"}
               alt="avatar"
-              width={56}
-              height={56}
+              width={96}
+              height={96}
               unoptimized
-              className="w-14 h-14 rounded-full object-cover"
+              className="w-14 h-14 md:w-24 md:h-24 rounded-full object-cover"
             />
-            <h1 className="text-2xl font-bold zen-title" style={{ color: "#b19739" }}>{urlName}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold zen-title" style={{ color: "#b19739" }}>{urlName}</h1>
           </div>
           <div className="flex items-center gap-2">
             {!isOwner && session?.user && (
@@ -879,6 +967,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               <button
                 key={t.id}
                 onClick={() => { setActiveTab(t.id); window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }}
+                onContextMenu={e => { e.preventDefault(); setTabCtxMenu({ tab: t.id, label: t.label, x: e.clientX, y: e.clientY }); }}
                 className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                   activeTab === t.id
                     ? "border-current"
@@ -1015,289 +1104,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* ── lists tab ───────────────────────────────────────────────────── */}
         {activeTab === "lists" && (
           <div>
-            {listsLoading ? (
-              <p className="text-sm zen-subtle">載入中...</p>
-            ) : lists.length === 0 && myCollections.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">
-                {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
-              </p>
-            ) : (
-              <>
-              <div className="bookshelf-grid">
-                {lists.map((list, li) => (
-                  <div key={list.id} className="relative"
-                    onContextMenu={isOwner && editingListId !== list.id ? e => {
-                      e.preventDefault();
-                      setContextMenuId(list.id);
-                      setContextMenuPos({ x: e.clientX, y: e.clientY });
-                    } : undefined}
-                  >
-                    <button
-                      type="button"
-                      className="book-link bookshelf-btn"
-                      style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-                      onClick={() => { setExpandedId(expandedId === list.id ? null : list.id); setShareOpenId(null); }}
-                    >
-                      {isOwner && editingListId === list.id ? (
-                        <input autoFocus value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
-                          onBlur={() => saveListEdit(list.id)}
-                          onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
-                          onClick={e => e.stopPropagation()}
-                          className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
-                          style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }} />
-                      ) : (
-                        <span>{list.title}</span>
-                      )}
-                    </button>
-                    {isOwner && contextMenuId === list.id && (
-                      <>
-                        <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
-                        <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-                          style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
-                          <button type="button"
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={() => { togglePublic(list); setContextMenuId(null); }}
-                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                            style={{ color: "var(--zen-ink)" }}>
-                            設為{list.isPublic ? "私人" : "公開"}
-                          </button>
-                          <button type="button"
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={() => { setEditingListId(list.id); setEditTitle(list.title); setContextMenuId(null); }}
-                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                            style={{ color: "var(--zen-ink)" }}>
-                            改名
-                          </button>
-                          <button type="button"
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); setExpandedId(null); setContextMenuId(null); }}
-                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                            style={{ color: "var(--zen-ink)" }}>
-                            分享
-                          </button>
-                          <button type="button"
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={() => { deleteList(list.id); setContextMenuId(null); }}
-                            className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                            刪除
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-                {myCollections.map((col, ci) => (
-                  <a
-                    key={`my-${col.id}`}
-                    href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-                    className="book-link bookshelf-btn"
-                    style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
-                  >
-                    {col.displayName}
-                  </a>
-                ))}
-              </div>
-
-              {/* questions panel */}
-              {expandedId && (() => {
-                const list = lists.find(l => l.id === expandedId);
-                if (!list) return null;
-                return (
-                  <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                      <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
-                      {list.questions.length > 0 && (
-                        <a href={`/test/list?listId=${list.id}`}
-                          className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                          style={{ color: "var(--zen-ink)" }}>
-                          作答
-                        </a>
-                      )}
-                    </div>
-                    {list.questions.length === 0 ? (
-                      <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
-                    ) : (
-                      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                        {list.questions.map((q: ListQuestion, i: number) => (
-                          <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
-                            <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
-                            <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
-                            <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
-                            {isOwner && (
-                              <button type="button"
-                                onClick={() => removeQuestion(list.id, q.questionId, q.collectionId)}
-                                className="text-xs text-red-400 hover:text-red-500 transition-colors">
-                                移除
-                              </button>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* share panel */}
-              {shareOpenId && (() => {
-                const list = lists.find(l => l.id === shareOpenId);
-                if (!list) return null;
-                return (
-                  <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                      <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
-                      <button type="button"
-                        onClick={() => { setShareOpenId(null); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); }}
-                        className="text-xs opacity-40 hover:opacity-70" style={{ color: "var(--zen-ink)" }}>✕</button>
-                    </div>
-                    <div className="px-4 py-3">
-                      <input
-                        value={shareInput}
-                        onChange={e => handleShareSearch(e.target.value)}
-                        placeholder="搜尋帳號或群組名稱"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none mb-2"
-                        style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                      />
-                      {shareSearchLoading && <p className="text-xs opacity-40 mb-2" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
-                      {!shareSearchLoading && shareInput.trim() && shareSearchResults.length === 0 && (
-                        <p className="text-xs opacity-40 mb-2" style={{ color: "var(--zen-ink)" }}>找不到帳號或群組</p>
-                      )}
-                      {shareSearchResults.length > 0 && (
-                        <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 mb-2">
-                          {shareSearchResults.map(r => {
-                            const alreadyShared = r.type === "user" && (list.sharedWith ?? []).includes(r.name);
-                            const groupShared = r.type === "group" && shareSharedGroupIds.has(r.id);
-                            return (
-                              <div key={`${r.type}-${r.id}`} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
-                                <div className="flex items-center gap-2">
-                                  {r.type === "user" ? (
-                                    <img src={r.avatarUrl || "/avatar-placeholder.svg"} className="w-6 h-6 rounded-full object-cover shrink-0" alt={r.name} />
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
-                                  )}
-                                  <span className="text-xs" style={{ color: "var(--zen-ink)" }}>{r.name}</span>
-                                  {r.type === "group" && r.memberCount != null && (
-                                    <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{r.memberCount} 人</span>
-                                  )}
-                                </div>
-                                {alreadyShared || groupShared ? (
-                                  <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
-                                ) : r.type === "user" ? (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      setShareLoading(true); setShareError(null);
-                                      const res = await fetch(`/api/lists/${list.id}/share`, {
-                                        method: "POST", headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ targetName: r.name }),
-                                      });
-                                      const j = await res.json();
-                                      if (res.ok) setLists(prev => prev.map(l => l.id === list.id ? { ...l, sharedWith: [...(l.sharedWith ?? []), r.name] } : l));
-                                      else setShareError(j.error ?? "失敗");
-                                      setShareLoading(false);
-                                    }}
-                                    disabled={shareLoading}
-                                    className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
-                                    style={{ borderColor: "#5fa870", color: "#5fa870" }}
-                                  >分享</button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      const res = await fetch(`/api/groups/${r.id}/share-list`, {
-                                        method: "POST", headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ listId: list.id }),
-                                      });
-                                      const d = await res.json();
-                                      if (d.ok) setShareSharedGroupIds(prev => new Set(prev).add(r.id));
-                                      else setShareError(d.error ?? "分享失敗");
-                                    }}
-                                    className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80"
-                                    style={{ borderColor: "#b19739", color: "#b19739" }}
-                                  >分享</button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {/* 我的群組 — 直接列出，不需搜尋 */}
-                      {(() => {
-                        const allGroups = [...ownedGroups, ...joinedGroups];
-                        if (allGroups.length === 0) return null;
-                        return (
-                          <div className="mb-2">
-                            <p className="text-xs opacity-50 mb-1.5" style={{ color: "var(--zen-ink)" }}>我的群組</p>
-                            <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700">
-                              {allGroups.map(g => (
-                                <div key={g.id} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
-                                    <span className="text-xs" style={{ color: "var(--zen-ink)" }}>{g.name}</span>
-                                    {g.memberCount != null && (
-                                      <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{g.memberCount} 人</span>
-                                    )}
-                                  </div>
-                                  {shareSharedGroupIds.has(g.id) ? (
-                                    <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        const res = await fetch(`/api/groups/${g.id}/share-list`, {
-                                          method: "POST", headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({ listId: list.id }),
-                                        });
-                                        const d = await res.json();
-                                        if (d.ok) setShareSharedGroupIds(prev => new Set(prev).add(g.id));
-                                        else setShareError(d.error ?? "分享失敗");
-                                      }}
-                                      className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80"
-                                      style={{ borderColor: "#b19739", color: "#b19739" }}
-                                    >分享</button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      {shareError && <p className="text-xs text-red-500 mb-2">{shareError}</p>}
-                      {(list.sharedWith ?? []).length > 0 && (
-                        <ul className="flex flex-col gap-2 mt-1">
-                          {(list.sharedWith ?? []).map(n => {
-                            const results = (list.sharedResults ?? {})[n] ?? [];
-                            return (
-                              <li key={n} className="text-xs" style={{ color: "var(--zen-ink)" }}>
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">{n}</span>
-                                  <button type="button" onClick={() => removeShare(list.id, n)}
-                                    className="text-red-400 hover:text-red-500 transition-colors">移除</button>
-                                </div>
-                                {results.length > 0 ? (
-                                  <ul className="mt-1 flex flex-col gap-0.5 pl-2 border-l border-zinc-200 dark:border-zinc-700">
-                                    {results.map((r: any, i: number) => (
-                                      <li key={i} className="flex items-center gap-2 text-zinc-400">
-                                        <span>{r.correct}/{r.answered}</span>
-                                        <span>{new Date(r.timestamp).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="mt-0.5 pl-2 text-zinc-400">尚未作答</p>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-              </>
-            )}
+            <PersonalListsView
+              isOwner={isOwner}
+              loading={listsLoading}
+              lists={lists}
+              setLists={setLists}
+              myCollections={myCollections}
+              pinnedListIds={pinnedListIds}
+              setPinnedListIds={setPinnedListIds}
+              pinnedCollectionIds={pinnedCollectionIds}
+              setPinnedCollectionIds={setPinnedCollectionIds}
+            />
 
           </div>
         )}
@@ -1570,6 +1387,27 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         )}
 
       </main>
+
+      {/* ── tab right-click menu ─────────────────────────────────────────── */}
+      {tabCtxMenu && typeof window !== "undefined" && createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setTabCtxMenu(null)} onContextMenu={e => { e.preventDefault(); setTabCtxMenu(null); }} />
+          <div
+            className="fixed z-50 w-32 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ top: tabCtxMenu.y, left: tabCtxMenu.x }}
+          >
+            <button
+              type="button"
+              onClick={() => togglePinTab(tabCtxMenu.tab, tabCtxMenu.label)}
+              className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}
+            >
+              {isTabPinned(tabCtxMenu.tab) ? "從首頁移除" : "顯示在首頁"}
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }

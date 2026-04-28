@@ -8,17 +8,15 @@ import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
+import { PersonalListsView, type MyCollection } from "./PersonalListsView";
+import type { QuestionList } from "../../lib/lists-supabase";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
-type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list"; isPublic?: boolean };
+type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned"; };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
-type HomeListQuestion = { questionId: string; collectionId: string; title: string; number: number; level?: number | null };
-type HomeList = { id: string; title: string; isPublic: boolean; questions: HomeListQuestion[]; sharedWith?: string[] };
-type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
 type SharePanelState =
-  | { kind: "category"; categoryKey: string; categoryName: string }
-  | { kind: "list"; listId: string; listTitle: string };
+  | { kind: "category"; categoryKey: string; categoryName: string };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
@@ -36,8 +34,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
-  const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
   const [sharePanel, setSharePanel] = useState<SharePanelState | null>(null);
   const [shareInput, setShareInput] = useState("");
   const [shareSearchResults, setShareSearchResults] = useState<ShareTarget[]>([]);
@@ -48,10 +44,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [inboxCats, setInboxCats] = useState<{ id: string; categoryKey: string; categoryName: string; sharedByName?: string }[]>([]);
   const [inboxLoaded, setInboxLoaded] = useState(false);
   const [pinnedInboxIds, setPinnedInboxIds] = useState<string[]>([]);
-  const [homeLists, setHomeLists] = useState<HomeList[]>([]);
+  const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
+  const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
+  type PinnedProfileTab = { name: string; tab: string; label: string };
+  const [pinnedProfileTabs, setPinnedProfileTabs] = useState<PinnedProfileTab[]>([]);
+  const [profileTabCtxMenu, setProfileTabCtxMenu] = useState<{ name: string; tab: string; label: string; x: number; y: number } | null>(null);
+  const [homeLists, setHomeLists] = useState<QuestionList[]>([]);
   const [homeListsLoaded, setHomeListsLoaded] = useState(false);
   const [homeListsLoading, setHomeListsLoading] = useState(false);
-  const [homeExpandedListId, setHomeExpandedListId] = useState<string | null>(null);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,12 +73,31 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   };
 
   useEffect(() => {
+    try {
+      const storedTabs = localStorage.getItem("pinnedProfileTabs");
+      if (storedTabs) setPinnedProfileTabs(JSON.parse(storedTabs));
+    } catch {}
+  }, []);
+
+  const unpinProfileTab = (name: string, tab: string) => {
+    setPinnedProfileTabs(prev => {
+      const next = prev.filter(p => !(p.name === name && p.tab === tab));
+      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  useEffect(() => {
     if (!loggedIn) {
       try {
         const stored = localStorage.getItem("pinnedCats");
         if (stored) setPinnedNames(JSON.parse(stored));
         const storedInbox = localStorage.getItem("pinnedInboxCats");
         if (storedInbox) setPinnedInboxIds(JSON.parse(storedInbox));
+        const storedCols = localStorage.getItem("pinnedCollectionIds");
+        if (storedCols) setPinnedCollectionIds(JSON.parse(storedCols));
+        const storedLists = localStorage.getItem("pinnedListIds");
+        if (storedLists) setPinnedListIds(JSON.parse(storedLists));
       } catch {}
       return;
     }
@@ -87,6 +106,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       .then(d => {
         if (Array.isArray(d.pinnedCats)) setPinnedNames(d.pinnedCats);
         if (Array.isArray(d.pinnedInboxCats)) setPinnedInboxIds(d.pinnedInboxCats);
+        if (Array.isArray(d.pinnedCollectionIds)) setPinnedCollectionIds(d.pinnedCollectionIds);
+        if (Array.isArray(d.pinnedListIds)) setPinnedListIds(d.pinnedListIds);
       })
       .catch(() => {});
   }, [loggedIn]);
@@ -111,19 +132,21 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     };
   }, []);
 
-  const savePins = (cats: string[], inboxCatIds: string[]) => {
+  const savePins = (cats: string[], inboxCatIds: string[], colIds: string[], listIds: string[]) => {
     if (loggedIn) {
       if (pinsDebounce.current) clearTimeout(pinsDebounce.current);
       pinsDebounce.current = setTimeout(() => {
         fetch("/api/user/pins", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pinnedCats: cats, pinnedInboxCats: inboxCatIds }),
+          body: JSON.stringify({ pinnedCats: cats, pinnedInboxCats: inboxCatIds, pinnedCollectionIds: colIds, pinnedListIds: listIds }),
         }).catch(() => {});
       }, 500);
     } else {
       localStorage.setItem("pinnedCats", JSON.stringify(cats));
       localStorage.setItem("pinnedInboxCats", JSON.stringify(inboxCatIds));
+      localStorage.setItem("pinnedCollectionIds", JSON.stringify(colIds));
+      localStorage.setItem("pinnedListIds", JSON.stringify(listIds));
     }
   };
 
@@ -131,7 +154,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     setPinnedNames(prev => {
       if (prev.includes(name)) return prev;
       const next = [...prev, name];
-      savePins(next, pinnedInboxIds);
+      savePins(next, pinnedInboxIds, pinnedCollectionIds, pinnedListIds);
       return next;
     });
   };
@@ -139,7 +162,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const unpin = (name: string) => {
     setPinnedNames(prev => {
       const next = prev.filter(n => n !== name);
-      savePins(next, pinnedInboxIds);
+      savePins(next, pinnedInboxIds, pinnedCollectionIds, pinnedListIds);
       return next;
     });
   };
@@ -148,7 +171,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     setPinnedInboxIds(prev => {
       if (prev.includes(id)) return prev;
       const next = [id, ...prev];
-      savePins(pinnedNames, next);
+      savePins(pinnedNames, next, pinnedCollectionIds, pinnedListIds);
       return next;
     });
   };
@@ -156,7 +179,23 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const unpinInbox = (id: string) => {
     setPinnedInboxIds(prev => {
       const next = prev.filter(n => n !== id);
-      savePins(pinnedNames, next);
+      savePins(pinnedNames, next, pinnedCollectionIds, pinnedListIds);
+      return next;
+    });
+  };
+
+  const unpinCollection = (id: string) => {
+    setPinnedCollectionIds(prev => {
+      const next = prev.filter(n => n !== id);
+      savePins(pinnedNames, pinnedInboxIds, next, pinnedListIds);
+      return next;
+    });
+  };
+
+  const unpinList = (id: string) => {
+    setPinnedListIds(prev => {
+      const next = prev.filter(n => n !== id);
+      savePins(pinnedNames, pinnedInboxIds, pinnedCollectionIds, next);
       return next;
     });
   };
@@ -283,53 +322,36 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const handleShareTo = async (target: { type: "user" | "group"; id: string; name: string }) => {
     if (!sharePanel) return;
     setSharingSending(target.id);
-    let url: string;
-    let body: Record<string, unknown>;
-    if (sharePanel.kind === "category") {
-      url = "/api/categories/share";
-      body = target.type === "user"
-        ? { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, targetUserName: target.name }
-        : { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, groupId: target.id };
-    } else {
-      url = `/api/lists/${sharePanel.listId}/share`;
-      body = target.type === "user" ? { targetName: target.name } : { groupId: target.id };
-    }
-    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const body = target.type === "user"
+      ? { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, targetUserName: target.name }
+      : { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, groupId: target.id };
+    await fetch("/api/categories/share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setShareSharedIds(prev => new Set(prev).add(target.id));
-    if (sharePanel.kind === "list" && target.type === "user") {
-      setHomeLists(prev => prev.map(l => l.id === sharePanel.listId ? { ...l, sharedWith: [...(l.sharedWith ?? []), target.name] } : l));
-    }
     setSharingSending(null);
-  };
-
-  const togglePublic = async (list: HomeList) => {
-    setHomeLists(prev => prev.map(l => l.id === list.id ? { ...l, isPublic: !l.isPublic } : l));
-    await fetch(`/api/lists/${list.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isPublic: !list.isPublic }),
-    });
-  };
-
-  const saveListEdit = async (id: string) => {
-    if (!editTitle.trim()) return;
-    setHomeLists(prev => prev.map(l => l.id === id ? { ...l, title: editTitle.trim() } : l));
-    setEditingListId(null);
-    await fetch(`/api/lists/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editTitle.trim() }),
-    });
-  };
-
-  const deleteList = async (id: string) => {
-    setHomeLists(prev => prev.filter(l => l.id !== id));
-    if (homeExpandedListId === id) setHomeExpandedListId(null);
-    await fetch(`/api/lists/${id}`, { method: "DELETE" });
   };
 
   return (
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
+      {/* profile-tab pin context menu */}
+      {profileTabCtxMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={() => setProfileTabCtxMenu(null)} />
+          <div
+            className="fixed z-50 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ left: profileTabCtxMenu.x, top: profileTabCtxMenu.y, minWidth: "5rem" }}
+          >
+            <button
+              type="button"
+              onMouseDown={e => e.stopPropagation()}
+              onClick={() => { unpinProfileTab(profileTabCtxMenu.name, profileTabCtxMenu.tab); setProfileTabCtxMenu(null); }}
+              className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}
+            >
+              從首頁移除
+            </button>
+          </div>
+        </>
+      )}
       {/* context menu */}
       {ctxMenu && (
         <>
@@ -338,44 +360,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             className="fixed z-50 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
             style={{ left: ctxMenu.x, top: ctxMenu.y, minWidth: "5rem" }}
           >
-            {ctxMenu.from === "list" ? (
-              <>
-                <button
-                  type="button"
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={() => { const list = homeLists.find(l => l.id === ctxMenu.id); if (list) togglePublic(list); setCtxMenu(null); }}
-                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  style={{ color: "var(--zen-ink)" }}
-                >
-                  設為{ctxMenu.isPublic ? "私人" : "公開"}
-                </button>
-                <button
-                  type="button"
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={() => { setEditingListId(ctxMenu.id); setEditTitle(ctxMenu.name); setCtxMenu(null); }}
-                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  style={{ color: "var(--zen-ink)" }}
-                >
-                  改名
-                </button>
-                <button
-                  type="button"
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={() => { setSharePanel({ kind: "list", listId: ctxMenu.id, listTitle: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
-                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  style={{ color: "var(--zen-ink)" }}
-                >
-                  分享
-                </button>
-                <button
-                  type="button"
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={() => { deleteList(ctxMenu.id); setCtxMenu(null); }}
-                  className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                >
-                  刪除
-                </button>
-              </>
+            {ctxMenu.from === "list-pinned" ? (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { unpinList(ctxMenu.id); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                取消釘選
+              </button>
             ) : ctxMenu.from === "grid" ? (
               <button
                 type="button"
@@ -405,6 +399,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 style={{ color: "var(--zen-ink)" }}
               >
                 釘選
+              </button>
+            ) : ctxMenu.from === "my-collection-pinned" ? (
+              <button
+                type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { unpinCollection(ctxMenu.id); setCtxMenu(null); }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                取消釘選
               </button>
             ) : (
               <button
@@ -441,7 +445,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}>
-              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>分享「{sharePanel.kind === "category" ? sharePanel.categoryName : sharePanel.listTitle}」</span>
+              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>分享「{sharePanel.categoryName}」</span>
               <button onClick={() => setSharePanel(null)} className="text-lg opacity-40 hover:opacity-70 leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
             </div>
             <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto">
@@ -462,7 +466,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         <Image src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                         <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                       </div>
-                      {(shareSharedIds.has(u.id) || (sharePanel.kind === "list" && (homeLists.find(l => l.id === sharePanel.listId)?.sharedWith ?? []).includes(u.name))) ? (
+                      {shareSharedIds.has(u.id) ? (
                         <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
                       ) : (
                         <button
@@ -538,14 +542,55 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
-              {loggedIn && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && (
+              {loggedIn && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && pinnedProfileTabs.length === 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
                   <line x1="12" y1="17" x2="12" y2="22"/>
                   <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
                 </svg>
               )}
-              {loggedIn && (pinnedNames.length > 0 || pinnedInboxIds.length > 0) && (
+              {loggedIn && (pinnedNames.length > 0 || pinnedInboxIds.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0 || pinnedProfileTabs.length > 0) && (
                 <div className="bookshelf-grid home-bookshelf-grid">
+                  {pinnedProfileTabs.map((p, idx) => (
+                    <a
+                      key={`profile-tab-${p.name}-${p.tab}`}
+                      href={`/${encodeURIComponent(p.name)}?tab=${encodeURIComponent(p.tab)}`}
+                      className="book-link bookshelf-btn"
+                      style={{ color: idx % 2 === 0 ? "#c4825a" : "#7b9ca0" }}
+                      onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
+                    >
+                      {p.label}
+                    </a>
+                  ))}
+                  {pinnedListIds.map((id, idx) => {
+                    const list = homeLists.find(l => l.id === id);
+                    if (!list) return null;
+                    return (
+                      <a
+                        key={id}
+                        href={`/test/list?listId=${list.id}`}
+                        className="book-link bookshelf-btn"
+                        style={{ color: idx % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+                        onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list-pinned" }); }}
+                      >
+                        {list.title}
+                      </a>
+                    );
+                  })}
+                  {pinnedCollectionIds.map((id, idx) => {
+                    const col = myCollections.find(c => c.id === id);
+                    if (!col) return null;
+                    return (
+                      <a
+                        key={id}
+                        href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+                        className="book-link bookshelf-btn"
+                        style={{ color: idx % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
+                        onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: col.id, name: col.displayName, x: e.clientX, y: e.clientY, from: "my-collection-pinned" }); }}
+                      >
+                        {col.displayName}
+                      </a>
+                    );
+                  })}
                   {pinnedInboxIds.map((id, idx) => {
                     const cat = inboxCats.find(c => c.id === id);
                     if (!cat) return null;
@@ -629,7 +674,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             <div
                               key={child.name}
                               onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid", child.href)}
-                              style={{ opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
                                 <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color }}>
@@ -673,22 +717,20 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
                   <div className="bookshelf-grid home-bookshelf-grid">
-                    {subjects
-                      .map((subject, i) => ({ subject, i }))
-                      .filter(({ subject }) => !(loggedIn && pinnedNames.includes(subject.name)))
-                      .map(({ subject, i }, visibleIdx) => {
+                    {subjects.map((subject, i) => {
                       const key = `${language}-${i}-${subject.href || subject.name}`;
                       const isOpen = !!query || openKey === key || openKey === subject.name;
                       const hasSub = !!subject.children?.length;
                       const hasDrop = !!subject.dropdown?.length;
-                      const color = colors[visibleIdx % colors.length];
+                      const color = colors[i % colors.length];
                       const btnStyle = { color };
+                      const isPinned = loggedIn && pinnedNames.includes(subject.name);
 
                       return (
                         <div key={key} className="contents">
                           <div
                             className="relative"
-                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, subject.name, "grid", subject.href) : undefined}
+                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, subject.name, isPinned ? "pinned" : "grid", subject.href) : undefined}
                           >
                             {hasSub ? (
                               <button
@@ -735,11 +777,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             const subKey = `${key}-${j}`;
                             if (sub.dropdown?.length) {
                               const isDropOpen = openDropKey === subKey;
+                              const subDropPinned = pinnedNames.includes(sub.name);
                               return (
                                 <div key={subKey} className="contents">
                                   <div
-                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid", sub.href) : undefined}
-                                    style={{ display: pinnedNames.includes(sub.name) ? "none" : undefined }}
+                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, subDropPinned ? "pinned" : "grid", sub.href) : undefined}
                                   >
                                     <button
                                       type="button"
@@ -781,11 +823,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 </div>
                               );
                             }
-                            if (pinnedNames.includes(sub.name)) return null;
+                            const subPinned = pinnedNames.includes(sub.name);
                             return (
                               <div
                                 key={subKey}
-                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid", sub.href) : undefined}
+                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, subPinned ? "pinned" : "grid", sub.href) : undefined}
                               >
                                 <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
                                   {sub.name}
@@ -859,11 +901,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 {inboxOpen && (
                   <div className="bookshelf-grid">
                     {(() => {
-                      const unpinned = inboxCats.filter(c => !pinnedInboxIds.includes(c.id));
                       let listIdx = 0, catIdx = 0;
-                      return unpinned.map(cat => {
+                      return inboxCats.map(cat => {
                         const key = cat.categoryKey;
                         const isList = key.startsWith("list:");
+                        const isPinned = pinnedInboxIds.includes(cat.id);
                         const href = isList
                           ? `/test/list?listId=${key.slice(5)}`
                           : key.includes(":")
@@ -878,7 +920,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             href={href}
                             className="book-link bookshelf-btn"
                             style={{ color }}
-                            onContextMenu={e => { e.preventDefault(); openCtx(e, cat.id, cat.categoryName, "inbox"); }}
+                            onContextMenu={e => { e.preventDefault(); openCtx(e, cat.id, cat.categoryName, isPinned ? "inbox-pinned" : "inbox"); }}
                           >
                             {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
                           </a>
@@ -907,85 +949,19 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     <path d="m6 9 6 6 6-6"/>
                   </svg>
                 </button>
-                {personalOpen && (homeListsLoading ? (
-                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
-                ) : homeLists.length === 0 && homeListsLoaded && myCollections.length === 0 ? (
-                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
-                ) : (
-                  <>
-                    <div className="bookshelf-grid">
-                      {homeLists.map((list, li) => (
-                        <div
-                          key={list.id}
-                          className="relative"
-                          onContextMenu={editingListId !== list.id ? e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list", isPublic: list.isPublic }); } : undefined}
-                        >
-                          <button
-                            type="button"
-                            className="book-link bookshelf-btn"
-                            style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-                            onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
-                          >
-                            {editingListId === list.id ? (
-                              <input
-                                autoFocus
-                                value={editTitle}
-                                onChange={e => setEditTitle(e.target.value)}
-                                onBlur={() => saveListEdit(list.id)}
-                                onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
-                                onClick={e => e.stopPropagation()}
-                                className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
-                                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                              />
-                            ) : (
-                              list.title
-                            )}
-                          </button>
-                        </div>
-                      ))}
-                      {myCollections.map((col, ci) => (
-                        <a
-                          key={col.id}
-                          href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-                          className="book-link bookshelf-btn"
-                          style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
-                        >
-                          {col.displayName}
-                        </a>
-                      ))}
-                    </div>
-                    {homeExpandedListId && (() => {
-                      const list = homeLists.find(l => l.id === homeExpandedListId);
-                      if (!list) return null;
-                      return (
-                        <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                            <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
-                            {list.questions.length > 0 && (
-                              <a
-                                href={`/test/list?listId=${list.id}`}
-                                className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                                style={{ color: "var(--zen-ink)" }}
-                              >作答</a>
-                            )}
-                          </div>
-                          {list.questions.length === 0 ? (
-                            <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
-                          ) : (
-                            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                              {list.questions.map((q, i) => (
-                                <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
-                                  <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
-                                  <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </>
-                ))}
+                {personalOpen && (
+                  <PersonalListsView
+                    isOwner={true}
+                    loading={homeListsLoading}
+                    lists={homeLists}
+                    setLists={setHomeLists}
+                    myCollections={myCollections}
+                    pinnedListIds={pinnedListIds}
+                    setPinnedListIds={setPinnedListIds}
+                    pinnedCollectionIds={pinnedCollectionIds}
+                    setPinnedCollectionIds={setPinnedCollectionIds}
+                  />
+                )}
               </div>
             )}
             </div>
@@ -1010,85 +986,19 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     <path d="m6 9 6 6 6-6"/>
                   </svg>
                 </button>
-                {personalOpen && (homeListsLoading ? (
-                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
-                ) : homeLists.length === 0 && homeListsLoaded && myCollections.length === 0 ? (
-                  <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無試卷</p>
-                ) : (
-                  <>
-                    <div className="bookshelf-grid">
-                      {homeLists.map((list, li) => (
-                        <div
-                          key={list.id}
-                          className="relative"
-                          onContextMenu={editingListId !== list.id ? e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list", isPublic: list.isPublic }); } : undefined}
-                        >
-                          <button
-                            type="button"
-                            className="book-link bookshelf-btn"
-                            style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-                            onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
-                          >
-                            {editingListId === list.id ? (
-                              <input
-                                autoFocus
-                                value={editTitle}
-                                onChange={e => setEditTitle(e.target.value)}
-                                onBlur={() => saveListEdit(list.id)}
-                                onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
-                                onClick={e => e.stopPropagation()}
-                                className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
-                                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                              />
-                            ) : (
-                              list.title
-                            )}
-                          </button>
-                        </div>
-                      ))}
-                      {myCollections.map((col, ci) => (
-                        <a
-                          key={col.id}
-                          href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-                          className="book-link bookshelf-btn"
-                          style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
-                        >
-                          {col.displayName}
-                        </a>
-                      ))}
-                    </div>
-                    {homeExpandedListId && (() => {
-                      const list = homeLists.find(l => l.id === homeExpandedListId);
-                      if (!list) return null;
-                      return (
-                        <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                            <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
-                            {list.questions.length > 0 && (
-                              <a
-                                href={`/test/list?listId=${list.id}`}
-                                className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                                style={{ color: "var(--zen-ink)" }}
-                              >作答</a>
-                            )}
-                          </div>
-                          {list.questions.length === 0 ? (
-                            <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
-                          ) : (
-                            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                              {list.questions.map((q, i) => (
-                                <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
-                                  <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
-                                  <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </>
-                ))}
+                {personalOpen && (
+                  <PersonalListsView
+                    isOwner={true}
+                    loading={homeListsLoading}
+                    lists={homeLists}
+                    setLists={setHomeLists}
+                    myCollections={myCollections}
+                    pinnedListIds={pinnedListIds}
+                    setPinnedListIds={setPinnedListIds}
+                    pinnedCollectionIds={pinnedCollectionIds}
+                    setPinnedCollectionIds={setPinnedCollectionIds}
+                  />
+                )}
               </>
             )}
           </div>
