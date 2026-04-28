@@ -10,12 +10,15 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
-type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" };
+type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list"; isPublic?: boolean };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 type HomeListQuestion = { questionId: string; collectionId: string; title: string; number: number; level?: number | null };
-type HomeList = { id: string; title: string; isPublic: boolean; questions: HomeListQuestion[] };
+type HomeList = { id: string; title: string; isPublic: boolean; questions: HomeListQuestion[]; sharedWith?: string[] };
 type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
+type SharePanelState =
+  | { kind: "category"; categoryKey: string; categoryName: string }
+  | { kind: "list"; listId: string; listTitle: string };
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
@@ -31,7 +34,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
-  const [sharePanel, setSharePanel] = useState<{ categoryKey: string; categoryName: string } | null>(null);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [sharePanel, setSharePanel] = useState<SharePanelState | null>(null);
   const [shareInput, setShareInput] = useState("");
   const [shareSearchResults, setShareSearchResults] = useState<ShareTarget[]>([]);
   const [shareSearchLoading, setShareSearchLoading] = useState(false);
@@ -273,14 +278,52 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return m[2] ? `${m[1]}:${m[2]}` : m[1];
   };
 
-  const handleShareTo = async (categoryKey: string, categoryName: string, target: { type: "user" | "group"; id: string; name: string }) => {
+  const handleShareTo = async (target: { type: "user" | "group"; id: string; name: string }) => {
+    if (!sharePanel) return;
     setSharingSending(target.id);
-    const body = target.type === "user"
-      ? { categoryKey, categoryName, targetUserName: target.name }
-      : { categoryKey, categoryName, groupId: target.id };
-    await fetch("/api/categories/share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    let url: string;
+    let body: Record<string, unknown>;
+    if (sharePanel.kind === "category") {
+      url = "/api/categories/share";
+      body = target.type === "user"
+        ? { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, targetUserName: target.name }
+        : { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, groupId: target.id };
+    } else {
+      url = `/api/lists/${sharePanel.listId}/share`;
+      body = target.type === "user" ? { targetName: target.name } : { groupId: target.id };
+    }
+    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setShareSharedIds(prev => new Set(prev).add(target.id));
+    if (sharePanel.kind === "list" && target.type === "user") {
+      setHomeLists(prev => prev.map(l => l.id === sharePanel.listId ? { ...l, sharedWith: [...(l.sharedWith ?? []), target.name] } : l));
+    }
     setSharingSending(null);
+  };
+
+  const togglePublic = async (list: HomeList) => {
+    setHomeLists(prev => prev.map(l => l.id === list.id ? { ...l, isPublic: !l.isPublic } : l));
+    await fetch(`/api/lists/${list.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPublic: !list.isPublic }),
+    });
+  };
+
+  const saveListEdit = async (id: string) => {
+    if (!editTitle.trim()) return;
+    setHomeLists(prev => prev.map(l => l.id === id ? { ...l, title: editTitle.trim() } : l));
+    setEditingListId(null);
+    await fetch(`/api/lists/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: editTitle.trim() }),
+    });
+  };
+
+  const deleteList = async (id: string) => {
+    setHomeLists(prev => prev.filter(l => l.id !== id));
+    if (homeExpandedListId === id) setHomeExpandedListId(null);
+    await fetch(`/api/lists/${id}`, { method: "DELETE" });
   };
 
   return (
@@ -293,7 +336,45 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             className="fixed z-50 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
             style={{ left: ctxMenu.x, top: ctxMenu.y, minWidth: "5rem" }}
           >
-            {ctxMenu.from === "grid" ? (
+            {ctxMenu.from === "list" ? (
+              <>
+                <button
+                  type="button"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { const list = homeLists.find(l => l.id === ctxMenu.id); if (list) togglePublic(list); setCtxMenu(null); }}
+                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  設為{ctxMenu.isPublic ? "私人" : "公開"}
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { setEditingListId(ctxMenu.id); setEditTitle(ctxMenu.name); setCtxMenu(null); }}
+                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  改名
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { setSharePanel({ kind: "list", listId: ctxMenu.id, listTitle: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
+                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  分享
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { deleteList(ctxMenu.id); setCtxMenu(null); }}
+                  className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  刪除
+                </button>
+              </>
+            ) : ctxMenu.from === "grid" ? (
               <button
                 type="button"
                 onMouseDown={e => e.stopPropagation()}
@@ -338,7 +419,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               <button
                 type="button"
                 onMouseDown={e => e.stopPropagation()}
-                onClick={() => { const key = ctxMenu.href ? hrefToCategoryKey(ctxMenu.href) : ctxMenu.id; setSharePanel({ categoryKey: key, categoryName: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
+                onClick={() => { const key = ctxMenu.href ? hrefToCategoryKey(ctxMenu.href) : ctxMenu.id; setSharePanel({ kind: "category", categoryKey: key, categoryName: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
                 className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-t border-zinc-100 dark:border-zinc-800"
                 style={{ color: "#5fa870" }}
               >
@@ -358,7 +439,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}>
-              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>分享「{sharePanel.categoryName}」</span>
+              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>分享「{sharePanel.kind === "category" ? sharePanel.categoryName : sharePanel.listTitle}」</span>
               <button onClick={() => setSharePanel(null)} className="text-lg opacity-40 hover:opacity-70 leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
             </div>
             <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto">
@@ -379,11 +460,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         <Image src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                         <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                       </div>
-                      {shareSharedIds.has(u.id) ? (
+                      {(shareSharedIds.has(u.id) || (sharePanel.kind === "list" && (homeLists.find(l => l.id === sharePanel.listId)?.sharedWith ?? []).includes(u.name))) ? (
                         <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
                       ) : (
                         <button
-                          onClick={() => handleShareTo(sharePanel.categoryKey, sharePanel.categoryName, u)}
+                          onClick={() => handleShareTo(u)}
                           disabled={shareSending === u.id}
                           className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
                           style={{ borderColor: "#b19739", color: "#b19739" }}
@@ -407,7 +488,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
                         ) : (
                           <button
-                            onClick={() => handleShareTo(sharePanel.categoryKey, sharePanel.categoryName, { type: "group", id: g.id, name: g.name })}
+                            onClick={() => handleShareTo({ type: "group", id: g.id, name: g.name })}
                             disabled={shareSending === g.id}
                             className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
                             style={{ borderColor: "#5fa870", color: "#5fa870" }}
@@ -802,15 +883,33 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <>
                     <div className="bookshelf-grid">
                       {homeLists.map((list, li) => (
-                        <button
+                        <div
                           key={list.id}
-                          type="button"
-                          className="book-link bookshelf-btn"
-                          style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-                          onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
+                          className="relative"
+                          onContextMenu={editingListId !== list.id ? e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list", isPublic: list.isPublic }); } : undefined}
                         >
-                          {list.title}
-                        </button>
+                          <button
+                            type="button"
+                            className="book-link bookshelf-btn"
+                            style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+                            onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
+                          >
+                            {editingListId === list.id ? (
+                              <input
+                                autoFocus
+                                value={editTitle}
+                                onChange={e => setEditTitle(e.target.value)}
+                                onBlur={() => saveListEdit(list.id)}
+                                onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
+                                onClick={e => e.stopPropagation()}
+                                className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
+                                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                              />
+                            ) : (
+                              list.title
+                            )}
+                          </button>
+                        </div>
                       ))}
                       {myCollections.map((col, ci) => (
                         <a
@@ -873,15 +972,33 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <>
                     <div className="bookshelf-grid">
                       {homeLists.map((list, li) => (
-                        <button
+                        <div
                           key={list.id}
-                          type="button"
-                          className="book-link bookshelf-btn"
-                          style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-                          onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
+                          className="relative"
+                          onContextMenu={editingListId !== list.id ? e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list", isPublic: list.isPublic }); } : undefined}
                         >
-                          {list.title}
-                        </button>
+                          <button
+                            type="button"
+                            className="book-link bookshelf-btn"
+                            style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+                            onClick={() => setHomeExpandedListId(homeExpandedListId === list.id ? null : list.id)}
+                          >
+                            {editingListId === list.id ? (
+                              <input
+                                autoFocus
+                                value={editTitle}
+                                onChange={e => setEditTitle(e.target.value)}
+                                onBlur={() => saveListEdit(list.id)}
+                                onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
+                                onClick={e => e.stopPropagation()}
+                                className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
+                                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                              />
+                            ) : (
+                              list.title
+                            )}
+                          </button>
+                        </div>
                       ))}
                       {myCollections.map((col, ci) => (
                         <a

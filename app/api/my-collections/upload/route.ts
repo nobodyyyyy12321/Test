@@ -14,11 +14,34 @@ type QuestionRow = {
   groupContent?: string | null;
 };
 
+type CategoryNode = {
+  name: string;
+  href?: string;
+  children?: CategoryNode[];
+};
+
 type UploadPayload = {
   language?: string;
-  categories?: unknown[];
+  categories?: CategoryNode[];
   collections?: Record<string, QuestionRow[]>;
 };
+
+/** Recursively search category tree for a node whose href contains /test/<collectionId> */
+function findCategoryName(nodes: CategoryNode[], collectionId: string): string | null {
+  for (const node of nodes) {
+    if (node.href) {
+      try {
+        const pathname = new URL(node.href, "http://x").pathname;
+        if (pathname === `/test/${collectionId}`) return node.name;
+      } catch {}
+    }
+    if (node.children) {
+      const found = findCategoryName(node.children, collectionId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 async function getUser() {
   const session = await auth();
@@ -56,7 +79,9 @@ export async function POST(request: Request) {
 
     try {
       const result = await upsertQuizQuestions(collectionId, normalized);
-      await upsertUserCollection(user.id, collectionId, collectionId);
+      const displayName =
+        findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
+      await upsertUserCollection(user.id, collectionId, displayName);
       results[collectionId] = result;
     } catch (err: any) {
       errors[collectionId] = err?.message ?? "未知錯誤";
