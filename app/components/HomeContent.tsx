@@ -10,7 +10,7 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
-type CtxMenu = { id: string; name: string; x: number; y: number; from: "pinned" | "grid" };
+type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 
@@ -178,9 +178,15 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
-  const openCtx = (e: React.MouseEvent, id: string, name: string, from: "pinned" | "grid") => {
+  const openCtx = (e: React.MouseEvent, id: string, name: string, from: "pinned" | "grid", href?: string) => {
     e.preventDefault();
-    setCtxMenu({ id, name, x: e.clientX, y: e.clientY, from });
+    setCtxMenu({ id, name, href, x: e.clientX, y: e.clientY, from });
+  };
+
+  const hrefToCategoryKey = (href: string): string => {
+    const m = href.match(/\/test\/([^?]+)(?:\?.*?levels=([^&]+))?/);
+    if (!m) return href;
+    return m[2] ? `${m[1]}:${m[2]}` : m[1];
   };
 
   const handleShareTo = async (categoryKey: string, categoryName: string, target: { type: "user" | "group"; id: string; name: string }) => {
@@ -228,7 +234,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               <button
                 type="button"
                 onMouseDown={e => e.stopPropagation()}
-                onClick={() => { setSharePanel({ categoryKey: ctxMenu.id, categoryName: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
+                onClick={() => { const key = ctxMenu.href ? hrefToCategoryKey(ctxMenu.href) : ctxMenu.id; setSharePanel({ categoryKey: key, categoryName: ctxMenu.name }); setShareInput(""); setShareSearchResults([]); setShareSharedIds(new Set()); setCtxMenu(null); }}
                 className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-t border-zinc-100 dark:border-zinc-800"
                 style={{ color: "#5fa870" }}
               >
@@ -363,7 +369,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       <div key={name} className="contents">
                         <div
                           className="relative"
-                          onContextMenu={e => openCtx(e, name, subject.name, "pinned")}
+                          onContextMenu={e => openCtx(e, name, subject.name, "pinned", subject.href)}
                         >
                           {subject.children?.length ? (
                             <button
@@ -410,7 +416,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                           return (
                             <div
                               key={child.name}
-                              onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid")}
+                              onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid", child.href)}
                               style={{ opacity: childPinned ? 0.4 : 1 }}
                             >
                               {child.href ? (
@@ -470,7 +476,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         <div key={key} className="contents">
                           <div
                             className="relative"
-                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, subject.name, "grid") : undefined}
+                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, subject.name, "grid", subject.href) : undefined}
                           >
                             {hasSub ? (
                               <button
@@ -520,7 +526,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               return (
                                 <div key={subKey} className="contents">
                                   <div
-                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid") : undefined}
+                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid", sub.href) : undefined}
                                     style={{ display: pinnedNames.includes(sub.name) ? "none" : undefined }}
                                   >
                                     <button
@@ -567,7 +573,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             return (
                               <div
                                 key={subKey}
-                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid") : undefined}
+                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, "grid", sub.href) : undefined}
                               >
                                 <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
                                   {sub.name}
