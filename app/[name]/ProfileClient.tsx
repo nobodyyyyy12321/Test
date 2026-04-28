@@ -1026,7 +1026,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     <button
                       type="button"
                       className="book-link bookshelf-btn"
-                      style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0", height: "auto", minHeight: "3.25rem", whiteSpace: "normal", justifyContent: "flex-start" }}
+                      style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
                       onClick={() => { setExpandedId(expandedId === list.id ? null : list.id); setShareOpenId(null); }}
                     >
                       {isOwner && editingListId === list.id ? (
@@ -1280,11 +1280,26 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </>
             )}
 
-            {/* shared-with-me (lists + categories merged) */}
+            {/* shared-with-me lists + categories */}
             {isOwner && (sharedLists.length > 0 || sharedCategories.length > 0) && (
               <div className="mt-8">
                 <p className="text-xs text-zinc-400 mb-3">分享給我的分類</p>
                 <div className="bookshelf-grid">
+                  {sharedCategories.map((cat, ci) => {
+                    const href = cat.categoryKey.includes(":")
+                      ? `/test/${encodeURIComponent(cat.categoryKey.split(":")[0])}?levels=${encodeURIComponent(cat.categoryKey.split(":")[1])}&autostart=1`
+                      : `/test/${encodeURIComponent(cat.categoryKey)}?autostart=1`;
+                    return (
+                      <a
+                        key={`cat-${cat.id}`}
+                        href={href}
+                        className="book-link bookshelf-btn"
+                        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
+                      >
+                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                      </a>
+                    );
+                  })}
                   {sharedLists.map((list, li) => (
                     <div key={`list-${list.id}`} className="relative"
                       onContextMenu={e => {
@@ -1335,21 +1350,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       )}
                     </div>
                   ))}
-                  {sharedCategories.map((cat, ci) => {
-                    const href = cat.categoryKey.includes(":")
-                      ? `/test/${encodeURIComponent(cat.categoryKey.split(":")[0])}?levels=${encodeURIComponent(cat.categoryKey.split(":")[1])}&autostart=1`
-                      : `/test/${encodeURIComponent(cat.categoryKey)}?autostart=1`;
-                    return (
-                      <a
-                        key={`cat-${cat.id}`}
-                        href={href}
-                        className="book-link bookshelf-btn"
-                        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
-                      >
-                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
-                      </a>
-                    );
-                  })}
                 </div>
 
                 {expandedId && (() => {
