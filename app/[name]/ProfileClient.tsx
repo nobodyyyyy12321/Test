@@ -143,7 +143,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [listsLoaded, setListsLoaded] = useState(false);
   const [listsLoading, setListsLoading] = useState(false);
   const [lists, setLists] = useState<QuestionList[]>([]);
-  const [sharedLists, setSharedLists] = useState<QuestionList[]>([]);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -219,7 +218,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         .then(r => r.json())
         .then(d => {
           setLists(d.lists ?? []);
-          setSharedLists(d.sharedLists ?? []);
           setListsLoaded(true);
         })
         .finally(() => setListsLoading(false));
@@ -1274,96 +1272,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </>
             )}
 
-            {/* shared-with-me lists */}
-            {isOwner && sharedLists.length > 0 && (
-              <div className="mt-8">
-                <p className="text-xs text-zinc-400 mb-3">分享給我的試卷</p>
-                <div className="bookshelf-grid">
-                  {sharedLists.map((list, li) => (
-                    <div key={`list-${list.id}`} className="relative"
-                      onContextMenu={e => {
-                        e.preventDefault();
-                        setContextMenuId(list.id);
-                        setContextMenuPos({ x: e.clientX, y: e.clientY });
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="book-link bookshelf-btn"
-                        style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-                        onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}
-                      >
-                        {list.title}{list.ownerName ? ` [${list.ownerName}]` : ""}
-                      </button>
-                      {contextMenuId === list.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
-                          <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-                            style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
-                            <button type="button"
-                              onMouseDown={e => e.stopPropagation()}
-                              onClick={async () => {
-                                setContextMenuId(null);
-                                const res = await fetch(`/api/lists/${list.id}/copy`, { method: "POST" });
-                                if (res.ok) {
-                                  const d = await res.json();
-                                  setLists(prev => [d.list, ...prev]);
-                                }
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                              style={{ color: "var(--zen-ink)" }}>
-                              複製
-                            </button>
-                            <button type="button"
-                              onMouseDown={e => e.stopPropagation()}
-                              onClick={async () => {
-                                setContextMenuId(null);
-                                const res = await fetch(`/api/lists/${list.id}/unsubscribe`, { method: "DELETE" });
-                                if (res.ok) setSharedLists(prev => prev.filter(l => l.id !== list.id));
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                              刪除
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {expandedId && (() => {
-                  const list = sharedLists.find(l => l.id === expandedId);
-                  if (!list) return null;
-                  return (
-                    <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                        <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}{list.ownerName ? ` [${list.ownerName}]` : ""}</span>
-                        {list.questions.length > 0 && (
-                          <a href={`/test/list?listId=${list.id}`}
-                            className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                            style={{ color: "var(--zen-ink)" }}>
-                            作答
-                          </a>
-                        )}
-                      </div>
-                      {list.questions.length === 0 ? (
-                        <p className="px-4 py-3 text-xs text-zinc-400">清單是空的</p>
-                      ) : (
-                        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                          {list.questions.map((q: ListQuestion, i: number) => (
-                            <li key={`${q.questionId}-${i}`} className="flex items-center gap-3 px-4 py-2">
-                              <span className="text-xs text-zinc-400 w-6 shrink-0 text-right">{q.number}</span>
-                              <span className="flex-1 text-sm" style={{ color: "var(--zen-ink)" }}>{q.title}</span>
-                              <span className="text-xs text-zinc-400">{getCollectionLabel(q.collectionId, q.level)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
           </div>
         )}
 

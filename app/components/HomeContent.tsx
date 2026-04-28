@@ -642,24 +642,31 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               <div className="mt-6 px-2">
                 <p className="text-xs text-zinc-400 mb-3">分享</p>
                 <div className="bookshelf-grid">
-                  {inboxCats.map((cat, ci) => {
-                    const key = cat.categoryKey;
-                    const href = key.startsWith("list:")
-                      ? `/test/list?listId=${key.slice(5)}`
-                      : key.includes(":")
-                        ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
-                        : `/test/${encodeURIComponent(key)}?autostart=1`;
-                    return (
-                      <a
-                        key={cat.id}
-                        href={href}
-                        className="book-link bookshelf-btn"
-                        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
-                      >
-                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
-                      </a>
-                    );
-                  })}
+                  {(() => {
+                    let listIdx = 0, catIdx = 0;
+                    return inboxCats.map(cat => {
+                      const key = cat.categoryKey;
+                      const isList = key.startsWith("list:");
+                      const href = isList
+                        ? `/test/list?listId=${key.slice(5)}`
+                        : key.includes(":")
+                          ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
+                          : `/test/${encodeURIComponent(key)}?autostart=1`;
+                      const color = isList
+                        ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
+                        : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
+                      return (
+                        <a
+                          key={cat.id}
+                          href={href}
+                          className="book-link bookshelf-btn"
+                          style={{ color }}
+                        >
+                          {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                        </a>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             )}

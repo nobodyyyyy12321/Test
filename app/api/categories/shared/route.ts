@@ -8,6 +8,6 @@ export async function GET() {
   if (!session?.user?.email) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const me = await findUserByEmail(session.user.email);
   if (!me) return NextResponse.json({ sharedCategories: [] });
-  const sharedCategories = await getSharedCategoriesForUser(me.id);
+  const sharedCategories = await getSharedCategoriesForUser(me.id, me.name);
   return NextResponse.json({ sharedCategories });
 }
