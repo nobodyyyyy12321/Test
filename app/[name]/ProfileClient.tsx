@@ -613,28 +613,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     }, 300);
   };
 
-  const addShare = async (listId: string) => {
-    const target = shareInput.trim();
-    if (!target) return;
-    setShareLoading(true);
-    setShareError(null);
-    const res = await fetch(`/api/lists/${listId}/share`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetName: target }),
-    });
-    const j = await res.json();
-    if (!res.ok) {
-      setShareError(j.error ?? "失敗");
-    } else {
-      setLists(prev => prev.map(l =>
-        l.id === listId ? { ...l, sharedWith: [...(l.sharedWith ?? []), target] } : l
-      ));
-      setShareInput("");
-    }
-    setShareLoading(false);
-  };
-
   const removeShare = async (listId: string, targetName: string) => {
     await fetch(`/api/lists/${listId}/share`, {
       method: "DELETE",
@@ -1037,7 +1015,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             ) : (
               <>
               <div className="bookshelf-grid">
-                {lists.map(list => (
+                {lists.map((list, li) => (
                   <div key={list.id} className="relative"
                     onContextMenu={isOwner && editingListId !== list.id ? e => {
                       e.preventDefault();
@@ -1048,7 +1026,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     <button
                       type="button"
                       className="book-link bookshelf-btn"
-                      style={{ color: "#5fa870", height: "auto", minHeight: "3.25rem", whiteSpace: "normal", justifyContent: "flex-start" }}
+                      style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0", height: "auto", minHeight: "3.25rem", whiteSpace: "normal", justifyContent: "flex-start" }}
                       onClick={() => { setExpandedId(expandedId === list.id ? null : list.id); setShareOpenId(null); }}
                     >
                       {isOwner && editingListId === list.id ? (
@@ -1302,13 +1280,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </>
             )}
 
-            {/* shared-with-me lists */}
-            {isOwner && sharedLists.length > 0 && (
+            {/* shared-with-me (lists + categories merged) */}
+            {isOwner && (sharedLists.length > 0 || sharedCategories.length > 0) && (
               <div className="mt-8">
-                <p className="text-xs text-zinc-400 mb-3">分享給我的試卷</p>
+                <p className="text-xs text-zinc-400 mb-3">分享給我的分類</p>
                 <div className="bookshelf-grid">
-                  {sharedLists.map(list => (
-                    <div key={list.id} className="relative"
+                  {sharedLists.map((list, li) => (
+                    <div key={`list-${list.id}`} className="relative"
                       onContextMenu={e => {
                         e.preventDefault();
                         setContextMenuId(list.id);
@@ -1318,13 +1296,10 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       <button
                         type="button"
                         className="book-link bookshelf-btn"
-                        style={{ color: "#5fa870", height: "auto", minHeight: "3.25rem", whiteSpace: "normal", justifyContent: "flex-start" }}
+                        style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
                         onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}
                       >
-                        <div className="flex flex-col items-start gap-0.5">
-                          <span>{list.title}</span>
-                          <span className="text-xs" style={{ opacity: 0.5 }}>{list.ownerName}</span>
-                        </div>
+                        {list.title}{list.ownerName ? ` [${list.ownerName}]` : ""}
                       </button>
                       {contextMenuId === list.id && (
                         <>
@@ -1360,6 +1335,21 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       )}
                     </div>
                   ))}
+                  {sharedCategories.map((cat, ci) => {
+                    const href = cat.categoryKey.includes(":")
+                      ? `/test/${encodeURIComponent(cat.categoryKey.split(":")[0])}?levels=${encodeURIComponent(cat.categoryKey.split(":")[1])}&autostart=1`
+                      : `/test/${encodeURIComponent(cat.categoryKey)}?autostart=1`;
+                    return (
+                      <a
+                        key={`cat-${cat.id}`}
+                        href={href}
+                        className="book-link bookshelf-btn"
+                        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
+                      >
+                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                      </a>
+                    );
+                  })}
                 </div>
 
                 {expandedId && (() => {
@@ -1368,7 +1358,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                   return (
                     <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                        <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
+                        <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}{list.ownerName ? ` [${list.ownerName}]` : ""}</span>
                         {list.questions.length > 0 && (
                           <a href={`/test/list?listId=${list.id}`}
                             className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -1395,39 +1385,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 })()}
               </div>
             )}
-          </div>
-        )}
-
-        {/* shared categories */}
-        {isOwner && sharedCategories.length > 0 && activeTab === "lists" && (
-          <div className="mt-8">
-            <p className="text-xs text-zinc-400 mb-3">分享給我的分類</p>
-            <ul className="flex flex-col gap-2">
-              {sharedCategories.map(cat => {
-                const href = cat.categoryKey.includes(":")
-                  ? `/test/${encodeURIComponent(cat.categoryKey.split(":")[0])}?levels=${encodeURIComponent(cat.categoryKey.split(":")[1])}&autostart=1`
-                  : `/test/${encodeURIComponent(cat.categoryKey)}?autostart=1`;
-                return (
-                  <li key={cat.id} className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {cat.sharedByAvatarUrl ? (
-                        <NextImage src={cat.sharedByAvatarUrl} alt={cat.sharedByName ?? ""} width={24} height={24} unoptimized className="w-6 h-6 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <NextImage src="/avatar-placeholder.svg" alt={cat.sharedByName ?? ""} width={24} height={24} className="w-6 h-6 rounded-full shrink-0" />
-                      )}
-                      <span className="text-sm font-medium truncate" style={{ color: "#b19739" }}>{cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}</span>
-                    </div>
-                    <a
-                      href={href}
-                      className="shrink-0 text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
-                      style={{ borderColor: "#5fa870", color: "#5fa870" }}
-                    >
-                      作答
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
           </div>
         )}
 
