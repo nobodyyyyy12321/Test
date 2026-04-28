@@ -94,7 +94,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
               {lists.map((list, i) => (
                 <Link
                   key={list.id}
-                  href={`/test/list?listId=${list.id}`}
+                  href={`/test/list?listId=${list.id}&autostart=1`}
                   className="book-link bookshelf-btn"
                   style={{ color: colors[i % 2] }}
                 >

@@ -557,7 +557,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     return (
                       <a
                         key={id}
-                        href={`/test/list?listId=${list.id}`}
+                        href={`/test/list?listId=${list.id}&autostart=1`}
                         className="book-link bookshelf-btn"
                         style={{ color: idx % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list-pinned" }); }}
@@ -587,7 +587,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     const key = cat.categoryKey;
                     const isList = key.startsWith("list:");
                     const href = isList
-                      ? `/test/list?listId=${key.slice(5)}`
+                      ? `/test/list?listId=${key.slice(5)}&autostart=1`
                       : key.includes(":")
                         ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
                         : `/test/${encodeURIComponent(key)}?autostart=1`;
@@ -897,7 +897,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         const isList = key.startsWith("list:");
                         const isPinned = pinnedInboxIds.includes(cat.id);
                         const href = isList
-                          ? `/test/list?listId=${key.slice(5)}`
+                          ? `/test/list?listId=${key.slice(5)}&autostart=1`
                           : key.includes(":")
                             ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
                             : `/test/${encodeURIComponent(key)}?autostart=1`;

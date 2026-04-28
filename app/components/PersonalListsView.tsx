@@ -193,13 +193,11 @@ export function PersonalListsView({
               setContextMenuPos({ x: e.clientX, y: e.clientY });
             } : undefined}
           >
-            <button
-              type="button"
-              className="book-link bookshelf-btn"
-              style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-              onClick={() => { setExpandedId(expandedId === list.id ? null : list.id); setShareOpenId(null); }}
-            >
-              {isOwner && editingListId === list.id ? (
+            {isOwner && editingListId === list.id ? (
+              <div
+                className="book-link bookshelf-btn"
+                style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+              >
                 <input autoFocus value={editTitle}
                   onChange={e => setEditTitle(e.target.value)}
                   onBlur={() => saveListEdit(list.id)}
@@ -207,10 +205,16 @@ export function PersonalListsView({
                   onClick={e => e.stopPropagation()}
                   className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
                   style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }} />
-              ) : (
+              </div>
+            ) : (
+              <a
+                href={`/test/list?listId=${list.id}&autostart=1`}
+                className="book-link bookshelf-btn"
+                style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+              >
                 <span>{list.title}</span>
-              )}
-            </button>
+              </a>
+            )}
             {isOwner && contextMenuId === list.id && (
               <>
                 <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
@@ -298,7 +302,7 @@ export function PersonalListsView({
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
               <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>{list.title}</span>
               {list.questions.length > 0 && (
-                <a href={`/test/list?listId=${list.id}`}
+                <a href={`/test/list?listId=${list.id}&autostart=1`}
                   className="text-xs px-3 py-1 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                   style={{ color: "var(--zen-ink)" }}>
                   作答
