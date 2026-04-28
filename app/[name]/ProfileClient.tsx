@@ -1415,8 +1415,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       ) : (
                         <NextImage src="/avatar-placeholder.svg" alt={cat.sharedByName ?? ""} width={24} height={24} className="w-6 h-6 rounded-full shrink-0" />
                       )}
-                      <span className="text-xs opacity-50 shrink-0" style={{ color: "var(--zen-ink)" }}>{cat.sharedByName}</span>
-                      <span className="text-sm font-medium truncate" style={{ color: "#b19739" }}>{cat.categoryName}</span>
+                      <span className="text-sm font-medium truncate" style={{ color: "#b19739" }}>{cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}</span>
                     </div>
                     <a
                       href={href}
