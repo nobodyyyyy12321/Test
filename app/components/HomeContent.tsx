@@ -9,6 +9,7 @@ import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 import { PersonalListsView, type MyCollection } from "./PersonalListsView";
+import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
 import type { QuestionList } from "../../lib/lists-supabase";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
@@ -542,25 +543,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
-              {loggedIn && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && pinnedProfileTabs.length === 0 && (
+              {loggedIn && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
                   <line x1="12" y1="17" x2="12" y2="22"/>
                   <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
                 </svg>
               )}
-              {loggedIn && (pinnedNames.length > 0 || pinnedInboxIds.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0 || pinnedProfileTabs.length > 0) && (
+              {loggedIn && (pinnedNames.length > 0 || pinnedInboxIds.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0) && (
                 <div className="bookshelf-grid home-bookshelf-grid">
-                  {pinnedProfileTabs.map((p, idx) => (
-                    <a
-                      key={`profile-tab-${p.name}-${p.tab}`}
-                      href={`/${encodeURIComponent(p.name)}?tab=${encodeURIComponent(p.tab)}`}
-                      className="book-link bookshelf-btn"
-                      style={{ color: idx % 2 === 0 ? "#c4825a" : "#7b9ca0" }}
-                      onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
-                    >
-                      {p.label}
-                    </a>
-                  ))}
                   {pinnedListIds.map((id, idx) => {
                     const list = homeLists.find(l => l.id === id);
                     if (!list) return null;
@@ -962,6 +952,15 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     setPinnedCollectionIds={setPinnedCollectionIds}
                   />
                 )}
+                {pinnedProfileTabs.map(p => (
+                  <PinnedProfileTabSection
+                    key={`mobile-${p.name}-${p.tab}`}
+                    name={p.name}
+                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
+                    label={p.label}
+                    onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
+                  />
+                ))}
               </div>
             )}
             </div>
@@ -999,6 +998,15 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     setPinnedCollectionIds={setPinnedCollectionIds}
                   />
                 )}
+                {pinnedProfileTabs.map(p => (
+                  <PinnedProfileTabSection
+                    key={`desktop-${p.name}-${p.tab}`}
+                    name={p.name}
+                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
+                    label={p.label}
+                    onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
+                  />
+                ))}
               </>
             )}
           </div>
