@@ -744,6 +744,36 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setShowUserMenu(false);
   };
 
+  const handleSignOut = async () => {
+    try {
+      localStorage.removeItem("avatarUrl");
+      localStorage.removeItem("displayName");
+      const csrfRes = await fetch("/api/auth/csrf", { method: "GET", credentials: "include" });
+      if (!csrfRes.ok) throw new Error(`csrf_http_${csrfRes.status}`);
+      const csrfJson = await csrfRes.json();
+      const csrfToken = csrfJson?.csrfToken;
+      if (!csrfToken) throw new Error("csrf_missing");
+
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "/api/auth/signout";
+      const csrfInput = document.createElement("input");
+      csrfInput.type = "hidden";
+      csrfInput.name = "csrfToken";
+      csrfInput.value = csrfToken;
+      const callbackInput = document.createElement("input");
+      callbackInput.type = "hidden";
+      callbackInput.name = "callbackUrl";
+      callbackInput.value = "/";
+      form.appendChild(csrfInput);
+      form.appendChild(callbackInput);
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   // ── tabs config ───────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
@@ -753,7 +783,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "groups", label: "群組", ownerOnly: true },
     { id: "followers", label: "追蹤者" },
     { id: "following", label: "追蹤中" },
-    { id: "blocked", label: "封鎖", ownerOnly: true },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
@@ -895,6 +924,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       <main className="w-full max-w-2xl md:max-w-4xl px-6 pt-10 pb-36 sm:pb-10">
 
         {/* header */}
+        {activeTab !== "blocked" && (
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <NextImage
@@ -908,6 +938,15 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             <h1 className="text-2xl md:text-3xl font-bold zen-title" style={{ color: "#b19739" }}>{urlName}</h1>
           </div>
           <div className="flex items-center gap-2">
+            {isOwner && (
+              <button
+                onClick={handleSignOut}
+                className="text-xs px-3 py-1.5 rounded-full border transition-colors"
+                style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
+              >
+                登出
+              </button>
+            )}
             {!isOwner && session?.user && (
               <>
                 <button
@@ -958,8 +997,10 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             )}
           </div>
         </div>
+        )}
 
         {/* tab bar */}
+        {activeTab !== "blocked" && (
         <div className="flex gap-1 mb-8 border-b border-zinc-200 dark:border-zinc-700 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleTabs.map((t, i) => {
             const tabColor = i % 2 === 0 ? "#5fa870" : "#b19739";
@@ -980,6 +1021,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             );
           })}
         </div>
+        )}
 
         {/* ── profile tab ─────────────────────────────────────────────────── */}
         {activeTab === "profile" && (
@@ -1358,7 +1400,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
         {/* ── blocked tab ─────────────────────────────────────────────────── */}
         {activeTab === "blocked" && (
-          <div>
+          <div className="pt-[calc(2rem+3cm)]">
             {blockedLoading ? (
               <p className="text-sm zen-subtle">載入中...</p>
             ) : blockedUsers.length === 0 ? (

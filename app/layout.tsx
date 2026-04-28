@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Noto_Serif_SC, Noto_Serif_TC } from "next/font/googl
 import Link from "next/link";
 import "./globals.css";
 import AuthNav from "./components/AuthNav";
+import DesktopSettingsButton from "./components/DesktopSettingsButton";
 import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
 import PWARegister from "./components/PWARegister";
@@ -72,6 +73,7 @@ export default function RootLayout({
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <TimerButton placement="bottom-right" />
             </div>
+            <DesktopSettingsButton />
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <AuthNav />
             </div>
