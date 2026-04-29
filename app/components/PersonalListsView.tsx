@@ -553,23 +553,21 @@ export function PersonalListsView({
             style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
           />
         )}
+        {isOwner && setTree && tree && addingUnderFolderId === undefined && (
+          <button type="button"
+            onClick={() => { setAddingUnderFolderId(null); setNewFolderName(""); }}
+            className="book-link bookshelf-btn text-xs opacity-50 hover:opacity-80 transition-opacity"
+            style={{ color: "var(--zen-ink)" }}
+          >
+            + 新增資料夾
+          </button>
+        )}
       </div>
     );
   };
 
   return (
     <>
-      {isOwner && setTree && tree && addingUnderFolderId === undefined && (
-        <div className="mb-3 flex items-center gap-2">
-          <button type="button"
-            onClick={() => { setAddingUnderFolderId(null); setNewFolderName(""); }}
-            className="text-xs opacity-50 hover:opacity-80 transition-opacity"
-            style={{ color: "var(--zen-ink)" }}
-          >
-            + 新增資料夾
-          </button>
-        </div>
-      )}
       {renderTopLevel()}
       {movePicker && (
         <>
