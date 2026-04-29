@@ -39,7 +39,7 @@ type Props = {
 
 export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Props) {
   const { data: session } = useSession();
-  const isOwner = !!session?.user?.name && session.user.name === name;
+  const isOwner = !!session?.user?.name;
 
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
