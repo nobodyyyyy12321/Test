@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import type { QuestionList, ListQuestion } from "../../../../lib/lists-supabase";
 import { getCollectionLabel } from "../../../components/collectionLabels";
 
@@ -9,11 +8,58 @@ type Props = { list: QuestionList };
 
 export default function ListEditClient({ list }: Props) {
   const [questions, setQuestions] = useState<ListQuestion[]>(list.questions);
+  const [title, setTitle] = useState<string>(list.title);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState<string>(list.title);
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [isPublic, setIsPublic] = useState<boolean>(list.isPublic);
+  const [savingPublic, setSavingPublic] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
   const [removingKey, setRemovingKey] = useState<string | null>(null);
   const reorderDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startEditTitle = () => {
+    setDraftTitle(title);
+    setEditingTitle(true);
+  };
+
+  const commitTitle = async () => {
+    const trimmed = draftTitle.trim();
+    setEditingTitle(false);
+    if (!trimmed || trimmed === title) {
+      setDraftTitle(title);
+      return;
+    }
+    setTitle(trimmed);
+    setSavingTitle(true);
+    try {
+      await fetch(`/api/lists/${list.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+    } finally {
+      setSavingTitle(false);
+    }
+  };
+
+  const togglePublic = async () => {
+    if (savingPublic) return;
+    const next = !isPublic;
+    setIsPublic(next);
+    setSavingPublic(true);
+    try {
+      await fetch(`/api/lists/${list.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: next }),
+      });
+    } finally {
+      setSavingPublic(false);
+    }
+  };
 
   const persistOrder = (next: ListQuestion[]) => {
     if (reorderDebounce.current) clearTimeout(reorderDebounce.current);
@@ -45,10 +91,6 @@ export default function ListEditClient({ list }: Props) {
     });
   };
 
-  const move = (index: number, direction: -1 | 1) => {
-    reorder(index, index + direction);
-  };
-
   const removeQuestion = async (q: ListQuestion) => {
     const key = `${q.questionId}|${q.collectionId}`;
     setRemovingKey(key);
@@ -67,21 +109,50 @@ export default function ListEditClient({ list }: Props) {
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-8 py-10">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href="/"
-            className="text-sm opacity-50 hover:opacity-80 transition-opacity"
+        {editingTitle ? (
+          <input
+            autoFocus
+            value={draftTitle}
+            onChange={e => setDraftTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); commitTitle(); }
+              if (e.key === "Escape") { setEditingTitle(false); setDraftTitle(title); }
+            }}
+            className="text-xl font-medium min-w-0 flex-1 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-600 outline-none"
+            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+          />
+        ) : (
+          <h1
+            onClick={startEditTitle}
+            title="點擊改名"
+            className="text-xl font-medium truncate min-w-0 cursor-text rounded px-1 -mx-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             style={{ color: "var(--zen-ink)" }}
           >
-            ← 返回
-          </Link>
-          <h1 className="text-xl font-medium truncate" style={{ color: "var(--zen-ink)" }}>
-            編輯「{list.title}」
+            {title}
           </h1>
-        </div>
+        )}
         <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>
-          {savingOrder ? "儲存中..." : `${questions.length} 題`}
+          {savingTitle ? "儲存中..." : savingOrder ? "儲存中..." : `${questions.length} 題`}
         </span>
+      </div>
+
+      <div className="mb-6 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>權限</span>
+          <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>
+            {isPublic ? "公開：其他人可看到此清單" : "私人：僅自己可見"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={togglePublic}
+          disabled={savingPublic}
+          className="text-xs px-3 py-1.5 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-40"
+          style={{ borderColor: isPublic ? "#5fa870" : "#b19739", color: isPublic ? "#5fa870" : "#b19739" }}
+        >
+          {savingPublic ? "..." : isPublic ? "設為私人" : "設為公開"}
+        </button>
       </div>
 
       {questions.length === 0 ? (
@@ -135,36 +206,14 @@ export default function ListEditClient({ list }: Props) {
                 <span className="text-xs opacity-40 shrink-0" style={{ color: "var(--zen-ink)" }}>
                   {getCollectionLabel(q.collectionId, q.level)}
                 </span>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => move(i, -1)}
-                    disabled={i === 0}
-                    className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-                    style={{ color: "var(--zen-ink)" }}
-                    aria-label="上移"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => move(i, 1)}
-                    disabled={i === questions.length - 1}
-                    className="text-xs px-2 py-1 rounded opacity-60 hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed transition-opacity"
-                    style={{ color: "var(--zen-ink)" }}
-                    aria-label="下移"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeQuestion(q)}
-                    className="text-xs px-2 py-1 rounded text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    aria-label="移除"
-                  >
-                    移除
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => removeQuestion(q)}
+                  className="text-xs px-2 py-1 rounded text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
+                  aria-label="移除"
+                >
+                  移除
+                </button>
               </li>
             );
           })}

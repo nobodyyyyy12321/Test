@@ -87,6 +87,63 @@ async function doUpsert(collectionId: string, rows: object[]): Promise<void> {
   }
 }
 
+export async function fetchAllQuizQuestionsFresh(
+  collectionId: string
+): Promise<QuizQuestionRow[]> {
+  const out: QuizQuestionRow[] = [];
+  let offset = 0;
+  while (true) {
+    const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc&limit=1000&offset=${offset}`;
+    const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
+    if (!res.ok) {
+      if (res.status === 404) return out;
+      throw new Error(await res.text());
+    }
+    const page: QuizQuestionRow[] = await res.json();
+    out.push(...page);
+    if (page.length < 1000) break;
+    offset += 1000;
+  }
+  return out;
+}
+
+export async function updateQuizQuestion(
+  collectionId: string,
+  number: number,
+  updates: {
+    title?: string;
+    type?: string;
+    options?: Record<string, string> | null;
+    answer?: string | string[] | null;
+    level?: number | null;
+    group_content?: string | null;
+  }
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (updates.title !== undefined) row.title = updates.title;
+  if (updates.type !== undefined) row.type = updates.type;
+  if (updates.options !== undefined) row.options = updates.options;
+  if (updates.answer !== undefined) row.answer = updates.answer;
+  if (updates.level !== undefined) row.level = updates.level;
+  if (updates.group_content !== undefined) row.group_content = updates.group_content;
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
+    { method: "PATCH", headers: HEADERS, body: JSON.stringify(row) }
+  );
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export async function deleteQuizQuestion(
+  collectionId: string,
+  number: number
+): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
+    { method: "DELETE", headers: HEADERS }
+  );
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export async function upsertQuizQuestions(
   collectionId: string,
   questions: Array<{

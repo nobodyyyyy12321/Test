@@ -33,8 +33,6 @@ export function PersonalListsView({
   pinnedCollectionIds,
   setPinnedCollectionIds,
 }: Props) {
-  const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
@@ -73,26 +71,6 @@ export function PersonalListsView({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [colCtxMenuId]);
-
-  const togglePublic = async (list: QuestionList) => {
-    setLists(prev => prev.map(l => l.id === list.id ? { ...l, isPublic: !l.isPublic } : l));
-    await fetch(`/api/lists/${list.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isPublic: !list.isPublic }),
-    });
-  };
-
-  const saveListEdit = async (id: string) => {
-    if (!editTitle.trim()) return;
-    setLists(prev => prev.map(l => l.id === id ? { ...l, title: editTitle.trim() } : l));
-    setEditingListId(null);
-    await fetch(`/api/lists/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editTitle.trim() }),
-    });
-  };
 
   const deleteList = async (id: string) => {
     setLists(prev => prev.filter(l => l.id !== id));
@@ -188,34 +166,19 @@ export function PersonalListsView({
       <div className="bookshelf-grid">
         {lists.map((list, li) => (
           <div key={list.id} className="relative"
-            onContextMenu={isOwner && editingListId !== list.id ? e => {
+            onContextMenu={isOwner ? e => {
               e.preventDefault();
               setContextMenuId(list.id);
               setContextMenuPos({ x: e.clientX, y: e.clientY });
             } : undefined}
           >
-            {isOwner && editingListId === list.id ? (
-              <div
-                className="book-link bookshelf-btn"
-                style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-              >
-                <input autoFocus value={editTitle}
-                  onChange={e => setEditTitle(e.target.value)}
-                  onBlur={() => saveListEdit(list.id)}
-                  onKeyDown={e => { if (e.key === "Enter") saveListEdit(list.id); if (e.key === "Escape") setEditingListId(null); }}
-                  onClick={e => e.stopPropagation()}
-                  className="w-full px-2 py-0.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 outline-none"
-                  style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }} />
-              </div>
-            ) : (
-              <a
-                href={`/test/list?listId=${list.id}&autostart=1`}
-                className="book-link bookshelf-btn"
-                style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-              >
-                <span>{list.title}</span>
-              </a>
-            )}
+            <a
+              href={`/test/list?listId=${list.id}&autostart=1`}
+              className="book-link bookshelf-btn"
+              style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+            >
+              <span>{list.title}</span>
+            </a>
             {isOwner && contextMenuId === list.id && (
               <>
                 <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
@@ -223,26 +186,11 @@ export function PersonalListsView({
                   style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
                   <button type="button"
                     onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { togglePublic(list); setContextMenuId(null); }}
+                    onClick={() => { setContextMenuId(null); window.location.href = `/lists/${list.id}/edit`; }}
                     className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    設為{list.isPublic ? "私人" : "公開"}
-                  </button>
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { setEditingListId(list.id); setEditTitle(list.title); setContextMenuId(null); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    改名
-                  </button>
-                  <a
-                    href={`/lists/${list.id}/edit`}
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => setContextMenuId(null)}
-                    className="block w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                     style={{ color: "var(--zen-ink)" }}>
                     編輯
-                  </a>
+                  </button>
                   <button type="button"
                     onMouseDown={e => e.stopPropagation()}
                     onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); setExpandedId(null); setContextMenuId(null); }}

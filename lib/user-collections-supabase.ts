@@ -66,3 +66,23 @@ export async function deleteUserCollection(userId: string, collectionId: string)
   );
   if (!res.ok) throw new Error(await res.text());
 }
+
+export async function userOwnsCollection(userId: string, collectionId: string): Promise<boolean> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`,
+    { headers: HEADERS, cache: "no-store" }
+  );
+  if (!res.ok) return false;
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+export async function getUserCollectionDisplayName(userId: string, collectionId: string): Promise<string | null> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=display_name&limit=1`,
+    { headers: HEADERS, cache: "no-store" }
+  );
+  if (!res.ok) return null;
+  const rows: Array<{ display_name: string }> = await res.json();
+  return rows[0]?.display_name ?? null;
+}
