@@ -204,10 +204,9 @@ export default function FeedbackPage() {
   const t = dict[language as LanguageCode] || dict["zh-TW"];
 
   return (
-<div className="flex items-start min-h-screen bg-transparent px-6 pt-0 font-sans dark:bg-black">
+<div className="flex items-center justify-center min-h-screen bg-transparent px-6 py-16 font-sans dark:bg-black">
   {/* 確保 main 沒有設定固定高度，使用 h-fit 確保高度緊貼內容 */}
-  <main className="w-full max-w-2xl zen-card p-8 mx-auto mt-6 h-fit">
-        <h1 className="text-3xl font-bold zen-title mb-2">{t.title}</h1>
+  <main className="w-full max-w-2xl zen-card p-8 mx-auto mt-12 h-fit">
         <p className="zen-subtle mb-8">{t.desc}</p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
