@@ -57,10 +57,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
-  const sessionName = session?.user?.name ?? null;
-  const visiblePinnedProfileTabs = sessionName
-    ? pinnedProfileTabs.filter(p => p.name === sessionName)
-    : [];
+  const visiblePinnedProfileTabs = pinnedProfileTabs;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subjects = useFilteredCategories(categories, query);
 
