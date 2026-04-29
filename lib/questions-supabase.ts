@@ -145,16 +145,48 @@ export async function deleteQuizQuestion(
 }
 
 /**
- * Delete all rows in a collection table. Table itself is left in place.
- * Returns false silently if the table doesn't exist (404).
+ * Drop a collection's underlying table entirely. Requires this Postgres function:
+ *
+ *   create or replace function drop_collection_table_if_exists(p_table_name text)
+ *   returns void
+ *   language plpgsql
+ *   security definer
+ *   as $$
+ *   begin
+ *     execute format('drop table if exists public.%I cascade', p_table_name);
+ *     perform pg_notify('pgrst', 'reload schema');
+ *   end
+ *   $$;
+ *
+ * If the RPC isn't installed yet, falls back to deleting every row in the table
+ * (table shell remains, but data is gone).
  */
 export async function deleteAllQuizQuestions(collectionId: string): Promise<void> {
-  // Supabase REST requires a filter on DELETE — use a wide range that matches every row.
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=gte.-9999999999`,
+  // 1) try drop-table RPC — fully removes the collection from Supabase
+  const dropRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/drop_collection_table_if_exists`, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({ p_table_name: collectionId }),
+  });
+  if (dropRes.ok) return;
+
+  // 404 means the RPC isn't installed → fall back to row-level delete
+  if (dropRes.status !== 404) {
+    const errText = await dropRes.text().catch(() => "");
+    // If RPC exists but fails, surface a clear error rather than silently retrying
+    if (!errText.includes("Could not find the function")) {
+      throw new Error(`drop_collection_table_if_exists failed: ${errText}`);
+    }
+  }
+
+  // 2) fallback: delete every row. Supabase REST requires a filter; "not.is.null" on a non-null column matches all rows.
+  const delRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=not.is.null`,
     { method: "DELETE", headers: HEADERS }
   );
-  if (!res.ok && res.status !== 404) throw new Error(await res.text());
+  if (!delRes.ok && delRes.status !== 404) {
+    throw new Error(`delete-all-rows failed for ${collectionId}: ${await delRes.text()}`);
+  }
 }
 
 /**

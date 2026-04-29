@@ -73,14 +73,18 @@ export async function DELETE(req: Request) {
 
   await deleteUserCollection(user.id, collectionId);
 
-  // If no other user still references this collection, also wipe the questions
-  // so the collection effectively disappears from the database.
+  // If no other user still references this collection, also drop the underlying
+  // collection table so it disappears from Supabase entirely.
   const remaining = await countCollectionRefs(collectionId);
+  let tableDeleteError: string | null = null;
   if (remaining === 0) {
-    await deleteAllQuizQuestions(collectionId).catch(err => {
+    try {
+      await deleteAllQuizQuestions(collectionId);
+    } catch (err) {
+      tableDeleteError = err instanceof Error ? err.message : String(err);
       console.error("deleteAllQuizQuestions failed:", err);
-    });
+    }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, tableDeleteError });
 }

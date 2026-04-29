@@ -54,15 +54,21 @@ export async function upsertUserCollection(
   displayName: string,
   fromGrid: boolean = false
 ): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?on_conflict=user_id,collection_id`,
-    {
-      method: "POST",
-      headers: { ...HEADERS, Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify({ user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid }),
+  const url = `${SUPABASE_URL}/rest/v1/user_collection_refs?on_conflict=user_id,collection_id`;
+  const headers = { ...HEADERS, Prefer: "resolution=merge-duplicates" };
+  const fullBody = { user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
+  let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fullBody) });
+  if (!res.ok) {
+    const text = await res.text();
+    // legacy DB without the from_grid column — retry without it.
+    if (text.includes("from_grid")) {
+      const fallbackBody = { user_id: userId, collection_id: collectionId, display_name: displayName };
+      res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
+      if (!res.ok) throw new Error(await res.text());
+      return;
     }
-  );
-  if (!res.ok) throw new Error(await res.text());
+    throw new Error(text);
+  }
 }
 
 export async function deleteUserCollection(userId: string, collectionId: string): Promise<void> {
