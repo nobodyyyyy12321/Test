@@ -31,7 +31,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [userResults, setUserResults] = useState<UserResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
-  const [inboxOpen, setInboxOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
@@ -868,57 +867,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 )}
               </div>
             )}
-            {/* shared-with-me inbox */}
-            {loggedIn && inboxCats.length > 0 && (
-              <div className="mt-6 px-2">
-                <button
-                  type="button"
-                  onClick={() => setInboxOpen(o => !o)}
-                  className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-                  aria-label={inboxOpen ? "收合" : "展開"}
-                >
-                  <span>分享</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ transform: inboxOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                  >
-                    <path d="m6 9 6 6 6-6"/>
-                  </svg>
-                </button>
-                {inboxOpen && (
-                  <div className="bookshelf-grid">
-                    {(() => {
-                      let listIdx = 0, catIdx = 0;
-                      return inboxCats.map(cat => {
-                        const key = cat.categoryKey;
-                        const isList = key.startsWith("list:");
-                        const isPinned = pinnedInboxIds.includes(cat.id);
-                        const href = isList
-                          ? `/test/list?listId=${key.slice(5)}&autostart=1`
-                          : key.includes(":")
-                            ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
-                            : `/test/${encodeURIComponent(key)}?autostart=1`;
-                        const color = isList
-                          ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
-                          : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
-                        return (
-                          <a
-                            key={cat.id}
-                            href={href}
-                            className="book-link bookshelf-btn"
-                            style={{ color }}
-                            onContextMenu={e => { e.preventDefault(); openCtx(e, cat.id, cat.categoryName, isPinned ? "inbox-pinned" : "inbox"); }}
-                          >
-                            {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
-                          </a>
-                        );
-                      });
-                    })()}
-                  </div>
-                )}
-              </div>
-            )}
             {/* pinned profile tabs — mobile only */}
             {loggedIn && visiblePinnedProfileTabs.length > 0 && (
               <div className="sm:hidden">
@@ -926,7 +874,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <PinnedProfileTabSection
                     key={`mobile-${p.name}-${p.tab}`}
                     name={p.name}
-                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
+                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
                     label={p.label}
                     onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
                   />
@@ -943,7 +891,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 <PinnedProfileTabSection
                   key={`desktop-${p.name}-${p.tab}`}
                   name={p.name}
-                  tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
+                  tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
                   label={p.label}
                   onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
                 />

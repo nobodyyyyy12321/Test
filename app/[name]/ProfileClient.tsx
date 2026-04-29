@@ -54,7 +54,9 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared";
+
+type SharedCategory = { id: string; categoryKey: string; categoryName: string; sharedByName?: string };
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
 type Group = { id: string; name: string; ownerId: string; ownerName?: string; ownerAvatarUrl?: string; createdAt: string; memberCount?: number; members?: GroupMember[] };
@@ -181,6 +183,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [blockedUsers, setBlockedUsers] = useState<FollowUser[]>([]);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
+  // ── shared-with-me state ──
+  const [sharedLoaded, setSharedLoaded] = useState(false);
+  const [sharedLoading, setSharedLoading] = useState(false);
+  const [sharedCats, setSharedCats] = useState<SharedCategory[]>([]);
+
   // ── groups state ──
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [groupsLoading, setGroupsLoading] = useState(false);
@@ -232,7 +239,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (typeof window === "undefined") return;
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
-      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked"];
+      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "shared"];
       if (t && (valid as string[]).includes(t)) setActiveTab(t as Tab);
     } catch {}
   }, []);
@@ -361,6 +368,20 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       })
       .finally(() => setBlockedLoading(false));
   }, [activeTab, blockedLoaded, isOwner]);
+
+  // ── load shared-with-me tab ──────────────────────────────────────────────
+
+  useEffect(() => {
+    if (activeTab !== "shared" || sharedLoaded || !isOwner) return;
+    setSharedLoading(true);
+    fetch("/api/categories/shared")
+      .then(r => r.json())
+      .then(d => {
+        setSharedCats((d.sharedCategories ?? []) as SharedCategory[]);
+        setSharedLoaded(true);
+      })
+      .finally(() => setSharedLoading(false));
+  }, [activeTab, sharedLoaded, isOwner]);
 
   // ── load groups when tab activated ───────────────────────────────────────
 
@@ -780,6 +801,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
     { id: "profile", label: "個人檔案" },
     { id: "lists", label: "個人分類" },
+    { id: "shared", label: "分享給我", ownerOnly: true },
     { id: "record", label: "紀錄", ownerOnly: true },
     { id: "groups", label: "群組", ownerOnly: true },
     { id: "followers", label: "追蹤者" },
@@ -1395,6 +1417,45 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+        )}
+
+        {/* ── shared-with-me tab ──────────────────────────────────────────── */}
+        {activeTab === "shared" && (
+          <div>
+            {sharedLoading ? (
+              <p className="text-sm zen-subtle">載入中...</p>
+            ) : sharedCats.length === 0 ? (
+              <p className="text-sm zen-subtle opacity-50">尚無分享項目</p>
+            ) : (
+              <div className="bookshelf-grid">
+                {(() => {
+                  let listIdx = 0, catIdx = 0;
+                  return sharedCats.map(cat => {
+                    const key = cat.categoryKey;
+                    const isList = key.startsWith("list:");
+                    const href = isList
+                      ? `/test/list?listId=${key.slice(5)}&autostart=1`
+                      : key.includes(":")
+                        ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
+                        : `/test/${encodeURIComponent(key)}?autostart=1`;
+                    const color = isList
+                      ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
+                      : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
+                    return (
+                      <a
+                        key={cat.id}
+                        href={href}
+                        className="book-link bookshelf-btn"
+                        style={{ color }}
+                      >
+                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                      </a>
+                    );
+                  });
+                })()}
+              </div>
             )}
           </div>
         )}

@@ -8,10 +8,11 @@ import type { QuestionList } from "../../lib/lists-supabase";
 import { PersonalListsView, type MyCollection } from "./PersonalListsView";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared";
 
 type UserItem = { id: string; name: string; avatarUrl?: string };
 type GroupItem = { id: string; name: string; ownerName?: string; ownerAvatarUrl?: string; memberCount?: number };
+type SharedCategory = { id: string; categoryKey: string; categoryName: string; sharedByName?: string };
 type QuizRecord = {
   answered: number;
   correct: number;
@@ -54,6 +55,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
   const [joinedGroups, setJoinedGroups] = useState<GroupItem[]>([]);
   const [records, setRecords] = useState<QuizRecord[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<UserItem[]>([]);
+  const [sharedCats, setSharedCats] = useState<SharedCategory[]>([]);
 
   useEffect(() => {
     if (!open || loaded) return;
@@ -111,6 +113,16 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
         fetch("/api/users/blocked")
           .then(r => r.json())
           .then(d => setBlockedUsers((d.blocked ?? []) as UserItem[]))
+          .catch(() => {})
+          .finally(finish);
+      } else {
+        finish();
+      }
+    } else if (tab === "shared") {
+      if (isOwner) {
+        fetch("/api/categories/shared")
+          .then(r => r.json())
+          .then(d => setSharedCats((d.sharedCategories ?? []) as SharedCategory[]))
           .catch(() => {})
           .finally(finish);
       } else {
@@ -263,6 +275,37 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
                 </li>
               ))}
             </ul>
+          )
+        ) : tab === "shared" ? (
+          !isOwner ? (
+            <Link href={profileHref} className="inline-block text-sm px-4 py-2 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors" style={{ color: "var(--zen-ink)" }}>
+              前往「{label}」
+            </Link>
+          ) : sharedCats.length === 0 ? (
+            <p className="text-sm zen-subtle opacity-50">尚無分享項目</p>
+          ) : (
+            <div className="bookshelf-grid">
+              {(() => {
+                let listIdx = 0, catIdx = 0;
+                return sharedCats.map(cat => {
+                  const key = cat.categoryKey;
+                  const isList = key.startsWith("list:");
+                  const href = isList
+                    ? `/test/list?listId=${key.slice(5)}&autostart=1`
+                    : key.includes(":")
+                      ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
+                      : `/test/${encodeURIComponent(key)}?autostart=1`;
+                  const color = isList
+                    ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
+                    : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
+                  return (
+                    <a key={cat.id} href={href} className="book-link bookshelf-btn" style={{ color }}>
+                      {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
+                    </a>
+                  );
+                });
+              })()}
+            </div>
           )
         ) : (
           <Link
