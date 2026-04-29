@@ -1489,9 +1489,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       : key.includes(":")
                         ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
                         : `/test/${encodeURIComponent(key)}?autostart=1`;
-                    const color = isList
-                      ? (listIdx++ % 2 === 0 ? "#6ea8d8" : "#d87070")
-                      : (catIdx++ % 2 === 0 ? "#b19739" : "#5fa870");
+                    const color = "#5fa870";
+                    if (isList) listIdx++; else catIdx++;
                     return (
                       <a
                         key={cat.id}

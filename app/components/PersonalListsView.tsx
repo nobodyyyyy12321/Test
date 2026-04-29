@@ -305,7 +305,7 @@ export function PersonalListsView({
     >
       <a href={`/test/list?listId=${list.id}&autostart=1`}
         className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
-        style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}>
+        style={{ color: "#6ea8d8" }}>
         <span>{list.title}</span>
       </a>
       {isOwner && contextMenuId === list.id && (
@@ -347,7 +347,7 @@ export function PersonalListsView({
     >
       <a href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
         className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
-        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}>
+        style={{ color: "#20b2aa" }}>
         {col.displayName}
       </a>
       {isOwner && colCtxMenuId === col.id && (
@@ -395,7 +395,7 @@ export function PersonalListsView({
       >
         <a href={href}
           className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
-          style={{ color: ri % 2 === 0 ? "#b19739" : "#5fa870" }}>
+          style={{ color: "#20b2aa" }}>
           {ref.name}
         </a>
         {isOwner && refCtxMenuId === ref.id && (
@@ -427,7 +427,7 @@ export function PersonalListsView({
   ): React.ReactNode => {
     const isExpanded = openFolderIds.has(folder.id);
     const isRenaming = renamingFolderId === folder.id;
-    const color = fi % 2 === 0 ? "#9b7dd4" : "#c4825a";
+    const color = "#b19739";
     return (
       <div key={`folder-${folder.id}`} className="contents">
         <div className="relative"
