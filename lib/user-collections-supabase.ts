@@ -93,6 +93,16 @@ export async function getUserCollectionDisplayName(userId: string, collectionId:
   return rows[0]?.display_name ?? null;
 }
 
+export async function getUserCollectionRef(userId: string, collectionId: string): Promise<UserCollectionRef | null> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&limit=1`,
+    { headers: HEADERS, cache: "no-store" }
+  );
+  if (!res.ok) return null;
+  const rows: Row[] = await res.json();
+  return rows[0] ? rowToRef(rows[0]) : null;
+}
+
 export async function countCollectionRefs(collectionId: string): Promise<number> {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/user_collection_refs?collection_id=eq.${encodeURIComponent(collectionId)}&select=id`,

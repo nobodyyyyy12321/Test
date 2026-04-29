@@ -1,10 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
 import { findUserByEmail, findUserByName } from "../../../../lib/users";
-import {
-  userOwnsCollection,
-  getUserCollectionDisplayName,
-} from "../../../../lib/user-collections-supabase";
+import { getUserCollectionRef } from "../../../../lib/user-collections-supabase";
 import { fetchAllQuizQuestionsFresh } from "../../../../lib/questions-supabase";
 import CollectionEditClient from "./CollectionEditClient";
 
@@ -27,18 +24,16 @@ export default async function CollectionEditPage({ params }: Props) {
       : null;
   if (!user) redirect("/auth/login");
 
-  const owns = await userOwnsCollection(user.id, collectionId);
-  if (!owns) notFound();
+  const ref = await getUserCollectionRef(user.id, collectionId).catch(() => null);
+  // hide page for: not-owned, or grid-added (read-only references to system collections)
+  if (!ref || ref.fromGrid) notFound();
 
-  const [displayName, questions] = await Promise.all([
-    getUserCollectionDisplayName(user.id, collectionId).catch(() => null),
-    fetchAllQuizQuestionsFresh(collectionId).catch(() => []),
-  ]);
+  const questions = await fetchAllQuizQuestionsFresh(collectionId).catch(() => []);
 
   return (
     <CollectionEditClient
       collectionId={collectionId}
-      displayName={displayName ?? collectionId}
+      displayName={ref.displayName}
       initialQuestions={questions}
     />
   );
