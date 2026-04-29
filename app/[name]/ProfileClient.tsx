@@ -8,6 +8,7 @@ import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
 import { PersonalListsView } from "../components/PersonalListsView";
+import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
 // ── locale helpers ────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ type PendingInvite = { groupId: string; groupName: string; ownerName: string; in
 type FollowUser = { id: string; name: string; avatarUrl?: string };
 type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
 
-type SocialLinks = { x?: string; facebook?: string; instagram?: string; website?: string };
+type SocialLinks = { x?: string; facebook?: string; instagram?: string; threads?: string; website?: string };
 
 type QuizRecord = {
   answered: number;
@@ -659,6 +660,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     switch (platform) {
       case "facebook": return `https://facebook.com/${clean}`;
       case "instagram": return `https://instagram.com/${clean}`;
+      case "threads": return `https://www.threads.net/@${clean}`;
       case "x": return `https://x.com/${clean}`;
       case "website": return `https://${clean}`;
       default: return null;
@@ -1131,7 +1133,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 <label className="block text-xs text-zinc-400 mb-1">社群連結</label>
                 {editing ? (
                   <div className="flex flex-col gap-2">
-                    {(["facebook", "instagram", "x", "website"] as const).map(p => (
+                    {(["facebook", "instagram", "threads", "x", "website"] as const).map(p => (
                       <input key={p}
                         className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm outline-none"
                         style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
@@ -1141,15 +1143,24 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1">
-                    {(["facebook", "instagram", "x", "website"] as const).map(p => {
+                  <div className="flex flex-row flex-wrap gap-3">
+                    {(["facebook", "instagram", "threads", "x", "website"] as const).map(p => {
                       const val = (socialLinks as any)[p];
                       if (!val) return null;
                       const href = makeSocialHref(p, val);
+                      const tooltip = p === "website" ? val : `${p}: ${val}`;
                       return (
-                        <a key={p} href={href || undefined} target="_blank" rel="noreferrer"
-                          className="text-sm text-accent hover:underline">
-                          {p === "website" ? val : `${p}: ${val}`}
+                        <a
+                          key={p}
+                          href={href || undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={tooltip}
+                          title={tooltip}
+                          className="inline-flex items-center justify-center shrink-0 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                          style={{ color: "var(--zen-ink)", width: 48, height: 48, aspectRatio: "1 / 1" }}
+                        >
+                          <SocialIcon platform={p} size={24} />
                         </a>
                       );
                     })}
