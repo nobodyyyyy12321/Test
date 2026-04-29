@@ -463,7 +463,7 @@ export function PersonalListsView({
           {isOwner && setTree && folderCtxMenuId === folder.id && (
             <>
               <div className="fixed inset-0 z-40" onMouseDown={() => setFolderCtxMenuId(null)} />
-              <div className="fixed z-50 w-32 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+              <div className="fixed z-50 w-44 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
                 style={{ left: folderCtxMenuPos.x, top: folderCtxMenuPos.y }}>
                 <button type="button" onMouseDown={e => e.stopPropagation()}
                   onClick={() => { setRenameDraft(folder.name); setRenamingFolderId(folder.id); setFolderCtxMenuId(null); }}
