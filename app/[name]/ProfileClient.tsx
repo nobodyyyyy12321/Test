@@ -227,13 +227,23 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   type PinnedTab = { name: string; tab: Tab; label: string };
   const [pinnedTabs, setPinnedTabs] = useState<PinnedTab[]>([]);
   const [tabCtxMenu, setTabCtxMenu] = useState<{ tab: Tab; label: string; x: number; y: number } | null>(null);
+  const isLoggedIn = !!session?.user;
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("pinnedProfileTabs");
-      if (stored) setPinnedTabs(JSON.parse(stored));
-    } catch {}
-  }, []);
+    if (isLoggedIn) {
+      fetch("/api/user/pins")
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d && Array.isArray(d.pinnedProfileTabs)) setPinnedTabs(d.pinnedProfileTabs);
+        })
+        .catch(() => {});
+    } else {
+      try {
+        const stored = localStorage.getItem("pinnedProfileTabs");
+        if (stored) setPinnedTabs(JSON.parse(stored));
+      } catch {}
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -252,13 +262,24 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   }, [tabCtxMenu]);
 
   const isTabPinned = (tab: Tab) => pinnedTabs.some(p => p.name === urlName && p.tab === tab);
+  const persistPinnedTabs = (next: PinnedTab[]) => {
+    if (isLoggedIn) {
+      fetch("/api/user/pins", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinnedProfileTabs: next }),
+      }).catch(() => {});
+    } else {
+      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+    }
+  };
   const togglePinTab = (tab: Tab, label: string) => {
     setPinnedTabs(prev => {
       const exists = prev.some(p => p.name === urlName && p.tab === tab);
       const next = exists
         ? prev.filter(p => !(p.name === urlName && p.tab === tab))
         : [...prev, { name: urlName, tab, label }];
-      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+      persistPinnedTabs(next);
       return next;
     });
     setTabCtxMenu(null);

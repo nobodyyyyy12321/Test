@@ -19,12 +19,14 @@ create table if not exists users (
   pinned_inbox_cats   text[] default '{}',
   pinned_collection_ids text[] default '{}',
   pinned_list_ids     text[] default '{}',
+  pinned_profile_tabs jsonb default '[]',
   created_at          timestamptz default now()
 );
 
 -- Migration for existing databases:
 -- alter table users add column if not exists pinned_collection_ids text[] default '{}';
 -- alter table users add column if not exists pinned_list_ids text[] default '{}';
+-- alter table users add column if not exists pinned_profile_tabs jsonb default '[]';
 
 -- ── quiz_records ────────────────────────────────────────────────────────────
 create table if not exists quiz_records (

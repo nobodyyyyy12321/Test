@@ -72,17 +72,27 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return null;
   };
 
-  useEffect(() => {
-    try {
-      const storedTabs = localStorage.getItem("pinnedProfileTabs");
-      if (storedTabs) setPinnedProfileTabs(JSON.parse(storedTabs));
-    } catch {}
-  }, []);
+  const profileTabsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveProfileTabs = (tabs: PinnedProfileTab[]) => {
+    if (loggedIn) {
+      if (profileTabsDebounce.current) clearTimeout(profileTabsDebounce.current);
+      profileTabsDebounce.current = setTimeout(() => {
+        fetch("/api/user/pins", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinnedProfileTabs: tabs }),
+        }).catch(() => {});
+      }, 500);
+    } else {
+      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(tabs)); } catch {}
+    }
+  };
 
   const unpinProfileTab = (name: string, tab: string) => {
     setPinnedProfileTabs(prev => {
       const next = prev.filter(p => !(p.name === name && p.tab === tab));
-      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+      saveProfileTabs(next);
       return next;
     });
   };
@@ -97,7 +107,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       const next = [...prev];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
-      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+      saveProfileTabs(next);
       return next;
     });
   };
@@ -113,6 +123,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         if (storedCols) setPinnedCollectionIds(JSON.parse(storedCols));
         const storedLists = localStorage.getItem("pinnedListIds");
         if (storedLists) setPinnedListIds(JSON.parse(storedLists));
+        const storedTabs = localStorage.getItem("pinnedProfileTabs");
+        if (storedTabs) setPinnedProfileTabs(JSON.parse(storedTabs));
       } catch {}
       return;
     }
@@ -123,6 +135,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         if (Array.isArray(d.pinnedInboxCats)) setPinnedInboxIds(d.pinnedInboxCats);
         if (Array.isArray(d.pinnedCollectionIds)) setPinnedCollectionIds(d.pinnedCollectionIds);
         if (Array.isArray(d.pinnedListIds)) setPinnedListIds(d.pinnedListIds);
+        if (Array.isArray(d.pinnedProfileTabs)) setPinnedProfileTabs(d.pinnedProfileTabs);
       })
       .catch(() => {});
   }, [loggedIn]);
