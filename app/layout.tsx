@@ -37,14 +37,17 @@ const notoSerifSc = Noto_Serif_SC({
   subsets: ["latin"],
 });
 
+const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "default";
+const FAVICON = `/icons/favicon.png?v=${BUILD_ID}`;
+
 export const metadata: Metadata = {
   title: "Test",
   description: "多方位測驗平台",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icons/favicon.png", type: "image/png" }],
-    shortcut: [{ url: "/icons/favicon.png", type: "image/png" }],
-    apple: [{ url: "/icons/favicon.png", type: "image/png" }],
+    icon: [{ url: FAVICON, type: "image/png" }],
+    shortcut: [{ url: FAVICON, type: "image/png" }],
+    apple: [{ url: FAVICON, type: "image/png" }],
   },
 };
 

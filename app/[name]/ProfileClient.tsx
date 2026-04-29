@@ -8,6 +8,7 @@ import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
 import { PersonalListsView } from "../components/PersonalListsView";
+import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
 // ── locale helpers ────────────────────────────────────────────────────────────
 
@@ -802,7 +803,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             {/* owner row (for joined groups) */}
             {isGroupMember && !isGroupOwner && activeGroup.ownerName && (
               <div className="flex items-center gap-2">
-                <NextImage src={activeGroup.ownerAvatarUrl || "/avatar-placeholder.svg"} alt={activeGroup.ownerName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                <NextImage src={activeGroup.ownerAvatarUrl || AVATAR_PLACEHOLDER} alt={activeGroup.ownerName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                 <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{activeGroup.ownerName}</span>
                 <span className="text-xs opacity-40 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>群主</span>
               </div>
@@ -817,7 +818,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               {activeGroup.members?.map(m => (
                 <div key={m.userId} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <NextImage src={m.avatarUrl || "/avatar-placeholder.svg"} alt={m.userName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                    <NextImage src={m.avatarUrl || AVATAR_PLACEHOLDER} alt={m.userName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                     <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{m.userName}</span>
                     {m.status === "pending" && (
                       <span className="text-xs opacity-50 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>待接受</span>
@@ -855,7 +856,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       return (
                         <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
                           <div className="flex items-center gap-2">
-                            <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                            <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                             <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                           </div>
                           {alreadyMember ? (
@@ -928,7 +929,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <NextImage
-              src={avatarUrl || "/avatar-placeholder.svg"}
+              src={avatarUrl || AVATAR_PLACEHOLDER}
               alt="avatar"
               width={96}
               height={96}
@@ -1008,7 +1009,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               <button
                 key={t.id}
                 onClick={() => { setActiveTab(t.id); window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }}
-                onContextMenu={e => { e.preventDefault(); setTabCtxMenu({ tab: t.id, label: t.label, x: e.clientX, y: e.clientY }); }}
+                onContextMenu={e => { e.preventDefault(); if (isOwner) setTabCtxMenu({ tab: t.id, label: t.label, x: e.clientX, y: e.clientY }); }}
                 className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                   activeTab === t.id
                     ? "border-current"
@@ -1030,7 +1031,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               {/* avatar (large, editing mode) */}
               {editing && (
                 <div className="flex items-center gap-4">
-                  <NextImage src={avatarUrl || "/avatar-placeholder.svg"} alt="avatar" width={96} height={96} unoptimized className="w-24 h-24 rounded-md object-cover" />
+                  <NextImage src={avatarUrl || AVATAR_PLACEHOLDER} alt="avatar" width={96} height={96} unoptimized className="w-24 h-24 rounded-md object-cover" />
                   <div>
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} />
@@ -1227,7 +1228,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {followers.map(u => (
                   <li key={u.id}>
                     <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
                       <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                     </a>
                   </li>
@@ -1321,7 +1322,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                         {g.ownerAvatarUrl ? (
                           <NextImage src={g.ownerAvatarUrl} alt={g.ownerName ?? ""} width={18} height={18} className="rounded-full object-cover" style={{ width: 18, height: 18 }} />
                         ) : (
-                          <NextImage src="/avatar-placeholder.svg" alt={g.ownerName ?? ""} width={18} height={18} className="rounded-full" style={{ width: 18, height: 18 }} />
+                          <NextImage src={AVATAR_PLACEHOLDER} alt={g.ownerName ?? ""} width={18} height={18} className="rounded-full" style={{ width: 18, height: 18 }} />
                         )}
                         <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.ownerName ?? ""}</span>
                       </span>
@@ -1388,7 +1389,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {following.map(u => (
                   <li key={u.id}>
                     <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
                       <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                     </a>
                   </li>
@@ -1410,7 +1411,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 {blockedUsers.map(u => (
                   <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <div className="flex items-center gap-3 min-w-0">
-                      <NextImage src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
                       <span className="text-sm font-medium truncate" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                     </div>
                     <button

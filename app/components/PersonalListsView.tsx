@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import { getCollectionLabel } from "./collectionLabels";
+import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
 export type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
 
@@ -367,7 +368,7 @@ export function PersonalListsView({
                         <div className="flex items-center gap-2">
                           {r.type === "user" ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={r.avatarUrl || "/avatar-placeholder.svg"} className="w-6 h-6 rounded-full object-cover shrink-0" alt={r.name} />
+                            <img src={r.avatarUrl || AVATAR_PLACEHOLDER} className="w-6 h-6 rounded-full object-cover shrink-0" alt={r.name} />
                           ) : (
                             <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
                           )}

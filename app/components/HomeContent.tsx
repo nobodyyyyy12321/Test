@@ -10,6 +10,7 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 import { PersonalListsView, type MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
+import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import type { QuestionList } from "../../lib/lists-supabase";
 
 type UserResult = { id: string; name: string; avatarUrl?: string };
@@ -58,6 +59,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
+  const sessionName = session?.user?.name ?? null;
+  const visiblePinnedProfileTabs = sessionName
+    ? pinnedProfileTabs.filter(p => p.name === sessionName)
+    : [];
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subjects = useFilteredCategories(categories, query);
 
@@ -464,7 +469,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   {shareSearchResults.map(u => (
                     <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
                       <div className="flex items-center gap-2">
-                        <Image src={u.avatarUrl || "/avatar-placeholder.svg"} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                        <Image src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                         <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                       </div>
                       {shareSharedIds.has(u.id) ? (
@@ -854,7 +859,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                           >
                             <Image
-                              src={u.avatarUrl || "/avatar-placeholder.svg"}
+                              src={u.avatarUrl || AVATAR_PLACEHOLDER}
                               alt={u.name}
                               width={32}
                               height={32}
@@ -952,7 +957,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     setPinnedCollectionIds={setPinnedCollectionIds}
                   />
                 )}
-                {pinnedProfileTabs.map(p => (
+                {visiblePinnedProfileTabs.map(p => (
                   <PinnedProfileTabSection
                     key={`mobile-${p.name}-${p.tab}`}
                     name={p.name}
@@ -998,7 +1003,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     setPinnedCollectionIds={setPinnedCollectionIds}
                   />
                 )}
-                {pinnedProfileTabs.map(p => (
+                {visiblePinnedProfileTabs.map(p => (
                   <PinnedProfileTabSection
                     key={`desktop-${p.name}-${p.tab}`}
                     name={p.name}
