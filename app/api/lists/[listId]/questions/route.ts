@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
 import { findUserByEmail, findUserByName } from "../../../../../lib/users";
-import { getListById, addQuestionToList, addQuestionsToList, removeQuestionFromList } from "../../../../../lib/lists-supabase";
+import { getListById, addQuestionToList, addQuestionsToList, removeQuestionFromList, reorderQuestionsInList } from "../../../../../lib/lists-supabase";
 import type { Session } from "next-auth";
 
 async function getSessionUser() {
@@ -42,6 +42,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ listId
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("PATCH /api/lists/[listId]/questions error:", e);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request, { params }: { params: Promise<{ listId: string }> }) {
+  try {
+    const { listId } = await params;
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const list = await getListById(listId);
+    if (!list || list.ownerId !== user.id) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { items } = await req.json();
+    if (!Array.isArray(items)) return NextResponse.json({ error: "items array required" }, { status: 400 });
+    const cleaned = items
+      .map((it: unknown) => it as { questionId?: unknown; collectionId?: unknown })
+      .filter(it => typeof it.questionId === "string" && typeof it.collectionId === "string")
+      .map(it => ({ questionId: it.questionId as string, collectionId: it.collectionId as string }));
+    await reorderQuestionsInList(listId, cleaned);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("PUT /api/lists/[listId]/questions error:", e);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

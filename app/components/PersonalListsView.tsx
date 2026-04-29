@@ -235,6 +235,14 @@ export function PersonalListsView({
                     style={{ color: "var(--zen-ink)" }}>
                     改名
                   </button>
+                  <a
+                    href={`/lists/${list.id}/edit`}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={() => setContextMenuId(null)}
+                    className="block w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}>
+                    編輯
+                  </a>
                   <button type="button"
                     onMouseDown={e => e.stopPropagation()}
                     onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); setExpandedId(null); setContextMenuId(null); }}

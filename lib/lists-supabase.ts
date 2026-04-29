@@ -192,6 +192,33 @@ export async function removeQuestionFromList(
   if (error) throw error;
 }
 
+export async function reorderQuestionsInList(
+  listId: string,
+  items: { questionId: string; collectionId: string }[]
+): Promise<void> {
+  const db = getSupabaseAdmin();
+  // Two-phase update to avoid unique-position collisions if such a constraint exists:
+  // first push everything to negative positions, then write the final order.
+  await Promise.all(
+    items.map((q, i) =>
+      db.from("list_questions")
+        .update({ position: -1 - i })
+        .eq("list_id", listId)
+        .eq("question_id", q.questionId)
+        .eq("collection_id", q.collectionId)
+    )
+  );
+  await Promise.all(
+    items.map((q, i) =>
+      db.from("list_questions")
+        .update({ position: i })
+        .eq("list_id", listId)
+        .eq("question_id", q.questionId)
+        .eq("collection_id", q.collectionId)
+    )
+  );
+}
+
 export async function getListsSharedWithUser(userName: string): Promise<QuestionList[]> {
   const db = getSupabaseAdmin();
   const { data } = await db
