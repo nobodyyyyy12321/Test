@@ -8,7 +8,7 @@ const HEADERS = {
 };
 
 // Required migration:
-//   ALTER TABLE user_collection_refs ADD COLUMN IF NOT EXISTS from_grid boolean NOT NULL DEFAULT false;
+//   ALTER TABLE pcategories ADD COLUMN IF NOT EXISTS from_grid boolean NOT NULL DEFAULT false;
 export type UserCollectionRef = {
   id: string;
   userId: string;
@@ -40,7 +40,7 @@ function rowToRef(row: Row): UserCollectionRef {
 
 export async function getUserCollections(userId: string): Promise<UserCollectionRef[]> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`,
+    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`,
     { headers: HEADERS, cache: "no-store" }
   );
   if (!res.ok) return [];
@@ -54,7 +54,7 @@ export async function upsertUserCollection(
   displayName: string,
   fromGrid: boolean = false
 ): Promise<void> {
-  const url = `${SUPABASE_URL}/rest/v1/user_collection_refs?on_conflict=user_id,collection_id`;
+  const url = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,collection_id`;
   const headers = { ...HEADERS, Prefer: "resolution=merge-duplicates" };
   const fullBody = { user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
   let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fullBody) });
@@ -71,17 +71,23 @@ export async function upsertUserCollection(
   }
 }
 
-export async function deleteUserCollection(userId: string, collectionId: string): Promise<void> {
+/**
+ * Delete the user's pcategories row for this collection.
+ * Returns true if a row was actually deleted, false otherwise.
+ */
+export async function deleteUserCollection(userId: string, collectionId: string): Promise<boolean> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`,
-    { method: "DELETE", headers: HEADERS }
+    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`,
+    { method: "DELETE", headers: { ...HEADERS, Prefer: "return=representation" } }
   );
   if (!res.ok) throw new Error(await res.text());
+  const rows = await res.json().catch(() => []);
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 export async function userOwnsCollection(userId: string, collectionId: string): Promise<boolean> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`,
+    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`,
     { headers: HEADERS, cache: "no-store" }
   );
   if (!res.ok) return false;
@@ -91,7 +97,7 @@ export async function userOwnsCollection(userId: string, collectionId: string): 
 
 export async function getUserCollectionDisplayName(userId: string, collectionId: string): Promise<string | null> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=display_name&limit=1`,
+    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=display_name&limit=1`,
     { headers: HEADERS, cache: "no-store" }
   );
   if (!res.ok) return null;
@@ -101,7 +107,7 @@ export async function getUserCollectionDisplayName(userId: string, collectionId:
 
 export async function getUserCollectionRef(userId: string, collectionId: string): Promise<UserCollectionRef | null> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&limit=1`,
+    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&limit=1`,
     { headers: HEADERS, cache: "no-store" }
   );
   if (!res.ok) return null;
@@ -111,7 +117,7 @@ export async function getUserCollectionRef(userId: string, collectionId: string)
 
 export async function countCollectionRefs(collectionId: string): Promise<number> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_collection_refs?collection_id=eq.${encodeURIComponent(collectionId)}&select=id`,
+    `${SUPABASE_URL}/rest/v1/pcategories?collection_id=eq.${encodeURIComponent(collectionId)}&select=id`,
     { headers: { ...HEADERS, Prefer: "count=exact" }, cache: "no-store" }
   );
   if (!res.ok) return 0;

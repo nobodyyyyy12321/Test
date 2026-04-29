@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
+import type { PersonalTree, ItemKind } from "../../lib/personal-tree";
 import { getCollectionLabel } from "./collectionLabels";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
@@ -20,6 +21,8 @@ type Props = {
   setPinnedListIds: React.Dispatch<React.SetStateAction<string[]>>;
   pinnedCollectionIds: string[];
   setPinnedCollectionIds: React.Dispatch<React.SetStateAction<string[]>>;
+  tree?: PersonalTree;
+  setTree?: React.Dispatch<React.SetStateAction<PersonalTree>>;
 };
 
 export function PersonalListsView({
@@ -32,7 +35,24 @@ export function PersonalListsView({
   setPinnedListIds,
   pinnedCollectionIds,
   setPinnedCollectionIds,
+  tree,
+  setTree,
 }: Props) {
+  const [refCtxMenuId, setRefCtxMenuId] = useState<string | null>(null);
+  const [refCtxMenuPos, setRefCtxMenuPos] = useState({ x: 0, y: 0 });
+  const [folderCtxMenuId, setFolderCtxMenuId] = useState<string | null>(null);
+  const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
+  const [movePicker, setMovePicker] = useState<{ kind: ItemKind; id: string; name: string; x: number; y: number } | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [addingUnderFolderId, setAddingUnderFolderId] = useState<string | null | undefined>(undefined);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [openFolderIds, setOpenFolderIds] = useState<Set<string>>(new Set());
+  const toggleFolderOpen = (id: string) => setOpenFolderIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
@@ -166,11 +186,82 @@ export function PersonalListsView({
     }
   };
 
+  // ── tree mutations ────────────────────────────────────────────────────────
+  const patchTree = async (body: Record<string, unknown>) => {
+    if (!setTree) return;
+    try {
+      const res = await fetch("/api/user/personal-tree", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (d?.tree) setTree(d.tree as PersonalTree);
+    } catch {}
+  };
+
+  const moveItemToFolder = async (kind: ItemKind, id: string, folderId: string | null) => {
+    if (kind === "ref" && tree) {
+      setTree?.(prev => ({
+        ...prev,
+        categoryRefs: prev.categoryRefs.map(r => r.id === id ? { ...r, folderId } : r),
+      }));
+    } else if (kind === "folder" && tree) {
+      setTree?.(prev => ({
+        ...prev,
+        folders: prev.folders.map(f => f.id === id ? { ...f, parentId: folderId } : f),
+      }));
+    } else if ((kind === "list" || kind === "collection") && tree) {
+      setTree?.(prev => ({
+        ...prev,
+        leafPlacement: {
+          ...prev.leafPlacement,
+          [kind]: { ...prev.leafPlacement[kind], [id]: { folderId, sort: prev.leafPlacement[kind][id]?.sort ?? 0 } },
+        },
+      }));
+    }
+    await patchTree({ op: "setItemFolder", kind, id, folderId });
+  };
+
+  const createFolder = async (name: string, parentId: string | null) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await patchTree({ op: "addFolder", name: trimmed, parentId });
+  };
+
+  const renameFolderById = async (id: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (tree) {
+      setTree?.(prev => ({
+        ...prev,
+        folders: prev.folders.map(f => f.id === id ? { ...f, name: trimmed } : f),
+      }));
+    }
+    await patchTree({ op: "renameFolder", id, name: trimmed });
+  };
+
+  const deleteFolderById = async (id: string) => {
+    await patchTree({ op: "deleteFolder", id });
+  };
+
+  const removeRefById = async (id: string) => {
+    if (tree) {
+      setTree?.(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== id) }));
+    }
+    await patchTree({ op: "removeCategoryRef", id });
+  };
+
+  // helper to get an item's current folder id for state lookups
+  const getListFolder = (id: string) => tree?.leafPlacement.list[id]?.folderId ?? null;
+  const getCollectionFolder = (id: string) => tree?.leafPlacement.collection[id]?.folderId ?? null;
+
   if (loading) {
     return <p className="text-sm zen-subtle">載入中...</p>;
   }
 
-  if (lists.length === 0 && myCollections.length === 0) {
+  const treeRefs = tree?.categoryRefs ?? [];
+  if (lists.length === 0 && myCollections.length === 0 && treeRefs.length === 0) {
     return (
       <p className="text-sm zen-subtle opacity-50">
         {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
@@ -178,104 +269,328 @@ export function PersonalListsView({
     );
   }
 
+  // Build folder pickable list (excluding self & descendants when moving a folder).
+  const pickableFolders = (excludeFolderId?: string): { id: string | null; label: string }[] => {
+    const all = tree?.folders ?? [];
+    const exclude = new Set<string>();
+    if (excludeFolderId) {
+      const collect = (fid: string) => {
+        exclude.add(fid);
+        for (const f of all) if (f.parentId === fid) collect(f.id);
+      };
+      collect(excludeFolderId);
+    }
+    const labelOf = (id: string): string => {
+      const f = all.find(x => x.id === id);
+      if (!f) return "";
+      return f.parentId ? `${labelOf(f.parentId)} / ${f.name}` : f.name;
+    };
+    return [
+      { id: null, label: "根目錄" },
+      ...all.filter(f => !exclude.has(f.id)).map(f => ({ id: f.id, label: labelOf(f.id) })),
+    ];
+  };
+
+  const openMovePicker = (e: React.MouseEvent, kind: ItemKind, id: string, name: string) => {
+    setMovePicker({ kind, id, name, x: e.clientX, y: e.clientY });
+  };
+
+  const renderListTile = (list: QuestionList, li: number, asSubItem = false) => (
+    <div key={list.id} className="relative"
+      onContextMenu={isOwner ? e => {
+        e.preventDefault();
+        setContextMenuId(list.id);
+        setContextMenuPos({ x: e.clientX, y: e.clientY });
+      } : undefined}
+    >
+      <a href={`/test/list?listId=${list.id}&autostart=1`}
+        className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
+        style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}>
+        <span>{list.title}</span>
+      </a>
+      {isOwner && contextMenuId === list.id && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
+          <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
+            <button type="button" onMouseDown={e => e.stopPropagation()}
+              onClick={() => { setContextMenuId(null); window.location.href = `/lists/${list.id}/edit`; }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}>編輯</button>
+            <button type="button" onMouseDown={e => e.stopPropagation()}
+              onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); setExpandedId(null); setContextMenuId(null); }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}>分享</button>
+            <button type="button" onMouseDown={e => e.stopPropagation()}
+              onClick={() => { toggleListPin(list.id); setContextMenuId(null); }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}>{pinnedListIds.includes(list.id) ? "取消釘選" : "釘選"}</button>
+            {setTree && tree && (
+              <button type="button" onMouseDown={e => e.stopPropagation()}
+                onClick={(e) => { setContextMenuId(null); openMovePicker(e, "list", list.id, list.title); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}>移到資料夾</button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const renderColTile = (col: MyCollection, ci: number, asSubItem = false) => (
+    <div key={`my-${col.id}`} className="relative"
+      onContextMenu={isOwner ? e => {
+        e.preventDefault();
+        setColCtxMenuId(col.id);
+        setColCtxMenuPos({ x: e.clientX, y: e.clientY });
+      } : undefined}
+    >
+      <a href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+        className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
+        style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}>
+        {col.displayName}
+      </a>
+      {isOwner && colCtxMenuId === col.id && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
+          <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}>
+            {!col.fromGrid && (
+              <button type="button" onMouseDown={e => e.stopPropagation()}
+                onClick={() => { setColCtxMenuId(null); window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`; }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}>編輯</button>
+            )}
+            <button type="button" onMouseDown={e => e.stopPropagation()}
+              onClick={() => { setColShareId(colShareId === col.id ? null : col.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setColShareSentIds(new Set()); setColCtxMenuId(null); }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}>分享</button>
+            <button type="button" onMouseDown={e => e.stopPropagation()}
+              onClick={() => { toggleCollectionPin(col.id); setColCtxMenuId(null); }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              style={{ color: "var(--zen-ink)" }}>{pinnedCollectionIds.includes(col.id) ? "取消釘選" : "釘選"}</button>
+            {setTree && tree && (
+              <button type="button" onMouseDown={e => e.stopPropagation()}
+                onClick={(e) => { setColCtxMenuId(null); openMovePicker(e, "collection", col.id, col.displayName); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}>移到資料夾</button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const renderRefTile = (ref: { id: string; key: string; name: string }, ri: number, asSubItem = false) => {
+    const href = ref.key.includes(":")
+      ? `/test/${encodeURIComponent(ref.key.split(":")[0])}?levels=${encodeURIComponent(ref.key.split(":")[1])}&autostart=1`
+      : `/test/${encodeURIComponent(ref.key)}?autostart=1`;
+    return (
+      <div key={`ref-${ref.id}`} className="relative"
+        onContextMenu={isOwner ? e => {
+          e.preventDefault();
+          setRefCtxMenuId(ref.id);
+          setRefCtxMenuPos({ x: e.clientX, y: e.clientY });
+        } : undefined}
+      >
+        <a href={href}
+          className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
+          style={{ color: ri % 2 === 0 ? "#b19739" : "#5fa870" }}>
+          {ref.name}
+        </a>
+        {isOwner && refCtxMenuId === ref.id && (
+          <>
+            <div className="fixed inset-0 z-40" onMouseDown={() => setRefCtxMenuId(null)} />
+            <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+              style={{ left: refCtxMenuPos.x, top: refCtxMenuPos.y }}>
+              {setTree && tree && (
+                <button type="button" onMouseDown={e => e.stopPropagation()}
+                  onClick={(e) => { setRefCtxMenuId(null); openMovePicker(e, "ref", ref.id, ref.name); }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}>移到資料夾</button>
+              )}
+              <button type="button" onMouseDown={e => e.stopPropagation()}
+                onClick={() => { removeRefById(ref.id); setRefCtxMenuId(null); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}>移除</button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderFolderTile = (
+    folder: { id: string; name: string; parentId: string | null },
+    fi: number,
+    asSubItem: boolean
+  ): React.ReactNode => {
+    const isExpanded = openFolderIds.has(folder.id);
+    const isRenaming = renamingFolderId === folder.id;
+    const color = fi % 2 === 0 ? "#9b7dd4" : "#c4825a";
+    return (
+      <div key={`folder-${folder.id}`} className="contents">
+        <div className="relative"
+          onContextMenu={isOwner && setTree ? e => {
+            e.preventDefault();
+            setFolderCtxMenuId(folder.id);
+            setFolderCtxMenuPos({ x: e.clientX, y: e.clientY });
+          } : undefined}
+        >
+          {isRenaming ? (
+            <div className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`} style={{ color }}>
+              <input autoFocus value={renameDraft}
+                onChange={e => setRenameDraft(e.target.value)}
+                onBlur={() => { renameFolderById(folder.id, renameDraft); setRenamingFolderId(null); }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); renameFolderById(folder.id, renameDraft); setRenamingFolderId(null); }
+                  if (e.key === "Escape") setRenamingFolderId(null);
+                }}
+                onClick={e => e.stopPropagation()}
+                className="px-2 py-0.5 rounded border border-zinc-300 dark:border-zinc-600 outline-none text-sm"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+            </div>
+          ) : (
+            <button type="button"
+              className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}${isExpanded ? " active-category" : ""}`}
+              style={{ color }}
+              onClick={() => toggleFolderOpen(folder.id)}
+            >
+              📁 {folder.name}
+            </button>
+          )}
+          {isOwner && setTree && folderCtxMenuId === folder.id && (
+            <>
+              <div className="fixed inset-0 z-40" onMouseDown={() => setFolderCtxMenuId(null)} />
+              <div className="fixed z-50 w-32 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                style={{ left: folderCtxMenuPos.x, top: folderCtxMenuPos.y }}>
+                <button type="button" onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { setRenameDraft(folder.name); setRenamingFolderId(folder.id); setFolderCtxMenuId(null); }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}>改名</button>
+                <button type="button" onMouseDown={e => e.stopPropagation()}
+                  onClick={(e) => { setFolderCtxMenuId(null); openMovePicker(e, "folder", folder.id, folder.name); }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}>移到資料夾</button>
+                <button type="button" onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { setAddingUnderFolderId(folder.id); setNewFolderName(""); setFolderCtxMenuId(null); setOpenFolderIds(prev => new Set(prev).add(folder.id)); }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}>新增子資料夾</button>
+                <button type="button" onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { deleteFolderById(folder.id); setFolderCtxMenuId(null); }}
+                  className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  刪除（保留內容）</button>
+              </div>
+            </>
+          )}
+        </div>
+        {isExpanded && renderInlineChildren(folder.id)}
+      </div>
+    );
+  };
+
+  // Renders the children of a folder as flat siblings in the parent grid.
+  // Caller should already be wrapped in a bookshelf-grid (or contents) container.
+  const renderInlineChildren = (folderId: string | null): React.ReactNode => {
+    const childLists = lists.filter(l => getListFolder(l.id) === folderId);
+    const childCols = myCollections.filter(c => getCollectionFolder(c.id) === folderId);
+    const childRefs = treeRefs.filter(r => (r.folderId ?? null) === folderId);
+    const childFolders = (tree?.folders ?? [])
+      .filter(f => (f.parentId ?? null) === folderId)
+      .sort((a, b) => a.sort - b.sort);
+
+    const isAddingChild = folderId !== null && addingUnderFolderId === folderId;
+
+    return (
+      <>
+        {childLists.map((l, i) => renderListTile(l, i, true))}
+        {childCols.map((c, i) => renderColTile(c, i, true))}
+        {isOwner && childRefs.map((r, i) => renderRefTile(r, i, true))}
+        {childFolders.map((f, i) => renderFolderTile(f, i, true))}
+        {isAddingChild && (
+          <input autoFocus value={newFolderName}
+            onChange={e => setNewFolderName(e.target.value)}
+            placeholder="子資料夾名稱"
+            onBlur={() => { createFolder(newFolderName, folderId); setAddingUnderFolderId(undefined); setNewFolderName(""); }}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); createFolder(newFolderName, folderId); setAddingUnderFolderId(undefined); setNewFolderName(""); }
+              if (e.key === "Escape") { setAddingUnderFolderId(undefined); setNewFolderName(""); }
+            }}
+            className="book-link bookshelf-btn sub-item px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
+            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+          />
+        )}
+      </>
+    );
+  };
+
+  const renderTopLevel = (): React.ReactNode => {
+    const topLists = lists.filter(l => getListFolder(l.id) === null);
+    const topCols = myCollections.filter(c => getCollectionFolder(c.id) === null);
+    const topRefs = treeRefs.filter(r => (r.folderId ?? null) === null);
+    const topFolders = (tree?.folders ?? [])
+      .filter(f => (f.parentId ?? null) === null)
+      .sort((a, b) => a.sort - b.sort);
+    const isAddingTop = addingUnderFolderId === null;
+
+    return (
+      <div className="bookshelf-grid">
+        {topLists.map((l, i) => renderListTile(l, i))}
+        {topCols.map((c, i) => renderColTile(c, i))}
+        {isOwner && topRefs.map((r, i) => renderRefTile(r, i))}
+        {topFolders.map((f, i) => renderFolderTile(f, i, false))}
+        {isAddingTop && (
+          <input autoFocus value={newFolderName}
+            onChange={e => setNewFolderName(e.target.value)}
+            placeholder="資料夾名稱"
+            onBlur={() => { createFolder(newFolderName, null); setAddingUnderFolderId(undefined); setNewFolderName(""); }}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); createFolder(newFolderName, null); setAddingUnderFolderId(undefined); setNewFolderName(""); }
+              if (e.key === "Escape") { setAddingUnderFolderId(undefined); setNewFolderName(""); }
+            }}
+            className="book-link bookshelf-btn px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
+            style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+          />
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
-      <div className="bookshelf-grid">
-        {lists.map((list, li) => (
-          <div key={list.id} className="relative"
-            onContextMenu={isOwner ? e => {
-              e.preventDefault();
-              setContextMenuId(list.id);
-              setContextMenuPos({ x: e.clientX, y: e.clientY });
-            } : undefined}
+      {isOwner && setTree && tree && addingUnderFolderId === undefined && (
+        <div className="mb-3 flex items-center gap-2">
+          <button type="button"
+            onClick={() => { setAddingUnderFolderId(null); setNewFolderName(""); }}
+            className="text-xs opacity-50 hover:opacity-80 transition-opacity"
+            style={{ color: "var(--zen-ink)" }}
           >
-            <a
-              href={`/test/list?listId=${list.id}&autostart=1`}
-              className="book-link bookshelf-btn"
-              style={{ color: li % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
-            >
-              <span>{list.title}</span>
-            </a>
-            {isOwner && contextMenuId === list.id && (
-              <>
-                <div className="fixed inset-0 z-40" onMouseDown={() => setContextMenuId(null)} />
-                <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-                  style={{ left: contextMenuPos.x, top: contextMenuPos.y }}>
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { setContextMenuId(null); window.location.href = `/lists/${list.id}/edit`; }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    編輯
-                  </button>
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { setShareOpenId(shareOpenId === list.id ? null : list.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setShareSharedGroupIds(new Set()); setExpandedId(null); setContextMenuId(null); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    分享
-                  </button>
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { toggleListPin(list.id); setContextMenuId(null); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    {pinnedListIds.includes(list.id) ? "取消釘選" : "釘選"}
-                  </button>
-                </div>
-              </>
-            )}
+            + 新增資料夾
+          </button>
+        </div>
+      )}
+      {renderTopLevel()}
+      {movePicker && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={() => setMovePicker(null)} />
+          <div className="fixed z-50 max-w-xs max-h-[60vh] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ left: movePicker.x, top: movePicker.y, minWidth: "10rem" }}>
+            <div className="px-3 py-2 text-xs opacity-50 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "var(--zen-ink)" }}>
+              移動「{movePicker.name}」到…
+            </div>
+            {pickableFolders(movePicker.kind === "folder" ? movePicker.id : undefined).map(opt => (
+              <button key={String(opt.id)} type="button"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={() => { moveItemToFolder(movePicker.kind, movePicker.id, opt.id); setMovePicker(null); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}>
+                {opt.label}
+              </button>
+            ))}
           </div>
-        ))}
-        {myCollections.map((col, ci) => (
-          <div key={`my-${col.id}`} className="relative"
-            onContextMenu={isOwner ? e => {
-              e.preventDefault();
-              setColCtxMenuId(col.id);
-              setColCtxMenuPos({ x: e.clientX, y: e.clientY });
-            } : undefined}
-          >
-            <a
-              href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-              className="book-link bookshelf-btn"
-              style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
-            >
-              {col.displayName}
-            </a>
-            {isOwner && colCtxMenuId === col.id && (
-              <>
-                <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
-                <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-                  style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}>
-                  {!col.fromGrid && (
-                    <button type="button"
-                      onMouseDown={e => e.stopPropagation()}
-                      onClick={() => { setColCtxMenuId(null); window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`; }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                      style={{ color: "var(--zen-ink)" }}>
-                      編輯
-                    </button>
-                  )}
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { setColShareId(colShareId === col.id ? null : col.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setColShareSentIds(new Set()); setColCtxMenuId(null); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    分享
-                  </button>
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { toggleCollectionPin(col.id); setColCtxMenuId(null); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}>
-                    {pinnedCollectionIds.includes(col.id) ? "取消釘選" : "釘選"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+        </>
+      )}
 
       {/* questions panel */}
       {expandedId && (() => {

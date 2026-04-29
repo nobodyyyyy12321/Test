@@ -20,28 +20,6 @@ export async function GET() {
   return NextResponse.json({ collections });
 }
 
-export async function POST(req: Request) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  let body: { collectionId?: unknown; displayName?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const collectionId = typeof body.collectionId === "string" ? body.collectionId.trim() : "";
-  const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
-  if (!collectionId || !displayName) {
-    return NextResponse.json({ error: "collectionId and displayName required" }, { status: 400 });
-  }
-
-  await upsertUserCollection(user.id, collectionId, displayName, true);
-  const collections = await getUserCollections(user.id);
-  return NextResponse.json({ ok: true, collections });
-}
-
 export async function PATCH(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -71,13 +49,14 @@ export async function DELETE(req: Request) {
   const collectionId = searchParams.get("collectionId");
   if (!collectionId) return NextResponse.json({ error: "collectionId required" }, { status: 400 });
 
-  await deleteUserCollection(user.id, collectionId);
+  const deletedOwn = await deleteUserCollection(user.id, collectionId);
 
-  // If no other user still references this collection, also drop the underlying
-  // collection table so it disappears from Supabase entirely.
+  // Only cascade-drop the underlying questions table if THIS user actually
+  // owned a row (so we never drop built-in collections the user merely had a
+  // category-ref to) AND no other user still references this collection.
   const remaining = await countCollectionRefs(collectionId);
   let tableDeleteError: string | null = null;
-  if (remaining === 0) {
+  if (deletedOwn && remaining === 0) {
     try {
       await deleteAllQuizQuestions(collectionId);
     } catch (err) {
@@ -86,5 +65,5 @@ export async function DELETE(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, tableDeleteError });
+  return NextResponse.json({ ok: true, deletedOwn, tableDeleteError });
 }

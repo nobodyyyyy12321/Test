@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import NextImage from "next/image";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
+import type { PersonalTree } from "../../lib/personal-tree";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
 import { PersonalListsView } from "../components/PersonalListsView";
@@ -321,6 +322,20 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         setMyCollectionsLoaded(true);
       });
   }, [activeTab, isOwner, myCollectionsLoaded]);
+
+  const EMPTY_TREE_LOCAL: PersonalTree = { folders: [], categoryRefs: [], leafPlacement: { list: {}, collection: {} } };
+  const [personalTree, setPersonalTree] = useState<PersonalTree>(EMPTY_TREE_LOCAL);
+  const [personalTreeLoaded, setPersonalTreeLoaded] = useState(false);
+  useEffect(() => {
+    if (activeTab !== "lists" || !isOwner || personalTreeLoaded) return;
+    fetch("/api/user/personal-tree")
+      .then(r => r.json())
+      .then(d => {
+        if (d?.tree) setPersonalTree(d.tree as PersonalTree);
+        setPersonalTreeLoaded(true);
+      })
+      .catch(() => setPersonalTreeLoaded(true));
+  }, [activeTab, isOwner, personalTreeLoaded]);
 
   // ── load records when tab activated ───────────────────────────────────────
 
@@ -1211,6 +1226,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               setPinnedListIds={setPinnedListIds}
               pinnedCollectionIds={pinnedCollectionIds}
               setPinnedCollectionIds={setPinnedCollectionIds}
+              tree={personalTree}
+              setTree={setPersonalTree}
             />
 
           </div>
