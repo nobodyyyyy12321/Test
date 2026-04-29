@@ -6,6 +6,7 @@ import type { QuizQuestionRow } from "../../../../lib/questions-supabase";
 type Props = {
   collectionId: string;
   displayName: string;
+  initialIsPublic: boolean;
   initialQuestions: QuizQuestionRow[];
 };
 
@@ -33,7 +34,7 @@ function rowToDraft(row: QuizQuestionRow): Draft {
   };
 }
 
-export default function CollectionEditClient({ collectionId, displayName, initialQuestions }: Props) {
+export default function CollectionEditClient({ collectionId, displayName, initialIsPublic, initialQuestions }: Props) {
   const [questions, setQuestions] = useState<QuizQuestionRow[]>(initialQuestions);
   const [editingNum, setEditingNum] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -44,6 +45,28 @@ export default function CollectionEditClient({ collectionId, displayName, initia
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState<string>(displayName);
   const [savingTitle, setSavingTitle] = useState(false);
+
+  const [isPublic, setIsPublic] = useState<boolean>(initialIsPublic);
+  const [savingPublic, setSavingPublic] = useState(false);
+
+  const togglePublic = async () => {
+    if (savingPublic) return;
+    const next = !isPublic;
+    setIsPublic(next);
+    setSavingPublic(true);
+    try {
+      const res = await fetch("/api/my-collections", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collectionId, isPublic: next }),
+      });
+      if (!res.ok) setIsPublic(prev => !prev); // revert on failure
+    } catch {
+      setIsPublic(prev => !prev);
+    } finally {
+      setSavingPublic(false);
+    }
+  };
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -240,6 +263,24 @@ export default function CollectionEditClient({ collectionId, displayName, initia
         <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>
           {savingTitle || savingOrder ? "儲存中..." : `${questions.length} 題`}
         </span>
+      </div>
+
+      <div className="mb-6 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>權限</span>
+          <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>
+            {isPublic ? "公開：其他人可看到此題庫" : "私人：僅自己可見"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={togglePublic}
+          disabled={savingPublic}
+          className="text-xs px-3 py-1.5 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-40"
+          style={{ borderColor: isPublic ? "#5fa870" : "#b19739", color: isPublic ? "#5fa870" : "#b19739" }}
+        >
+          {savingPublic ? "..." : isPublic ? "設為私人" : "設為公開"}
+        </button>
       </div>
 
       {questions.length === 0 ? (

@@ -7,8 +7,9 @@ const HEADERS = {
   "Content-Type": "application/json",
 };
 
-// Required migration:
-//   ALTER TABLE pcategories ADD COLUMN IF NOT EXISTS from_grid boolean NOT NULL DEFAULT false;
+// Required migrations:
+//   ALTER TABLE pcategories ADD COLUMN IF NOT EXISTS from_grid  boolean NOT NULL DEFAULT false;
+//   ALTER TABLE pcategories ADD COLUMN IF NOT EXISTS is_public  boolean NOT NULL DEFAULT false;
 export type UserCollectionRef = {
   id: string;
   userId: string;
@@ -16,6 +17,7 @@ export type UserCollectionRef = {
   displayName: string;
   createdAt: string;
   fromGrid: boolean;
+  isPublic: boolean;
 };
 
 type Row = {
@@ -25,6 +27,7 @@ type Row = {
   display_name: string;
   created_at: string;
   from_grid?: boolean | null;
+  is_public?: boolean | null;
 };
 
 function rowToRef(row: Row): UserCollectionRef {
@@ -35,6 +38,7 @@ function rowToRef(row: Row): UserCollectionRef {
     displayName: row.display_name,
     createdAt: row.created_at,
     fromGrid: row.from_grid ?? false,
+    isPublic: row.is_public ?? false,
   };
 }
 
@@ -64,6 +68,35 @@ export async function upsertUserCollection(
     if (text.includes("from_grid")) {
       const fallbackBody = { user_id: userId, collection_id: collectionId, display_name: displayName };
       res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
+      if (!res.ok) throw new Error(await res.text());
+      return;
+    }
+    throw new Error(text);
+  }
+}
+
+/**
+ * Patch the user's pcategories row. Pass any subset of fields.
+ * Falls back gracefully if `is_public` column hasn't been migrated yet.
+ */
+export async function updateUserCollection(
+  userId: string,
+  collectionId: string,
+  updates: { displayName?: string; isPublic?: boolean }
+): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (updates.displayName !== undefined) body.display_name = updates.displayName;
+  if (updates.isPublic !== undefined) body.is_public = updates.isPublic;
+  if (Object.keys(body).length === 0) return;
+  const url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`;
+  let res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const text = await res.text();
+    if (text.includes("is_public") && body.is_public !== undefined) {
+      const fallback = { ...body };
+      delete fallback.is_public;
+      if (Object.keys(fallback).length === 0) return;
+      res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(fallback) });
       if (!res.ok) throw new Error(await res.text());
       return;
     }

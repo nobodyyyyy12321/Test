@@ -34,6 +34,7 @@ export default async function CollectionEditPage({ params }: Props) {
     <CollectionEditClient
       collectionId={collectionId}
       displayName={ref.displayName}
+      initialIsPublic={ref.isPublic}
       initialQuestions={questions}
     />
   );

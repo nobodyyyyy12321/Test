@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { getUserCollections, deleteUserCollection, upsertUserCollection, countCollectionRefs } from "@/lib/user-collections-supabase";
+import { getUserCollections, deleteUserCollection, upsertUserCollection, updateUserCollection, userOwnsCollection, countCollectionRefs } from "@/lib/user-collections-supabase";
 import { deleteAllQuizQuestions } from "@/lib/questions-supabase";
 
 async function getUser() {
@@ -24,7 +24,7 @@ export async function PATCH(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { collectionId?: unknown; displayName?: unknown };
+  let body: { collectionId?: unknown; displayName?: unknown; isPublic?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -32,12 +32,27 @@ export async function PATCH(req: Request) {
   }
 
   const collectionId = typeof body.collectionId === "string" ? body.collectionId.trim() : "";
-  const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
-  if (!collectionId || !displayName) {
-    return NextResponse.json({ error: "collectionId and displayName required" }, { status: 400 });
+  if (!collectionId) {
+    return NextResponse.json({ error: "collectionId required" }, { status: 400 });
+  }
+  const displayName = typeof body.displayName === "string" ? body.displayName.trim() : undefined;
+  const isPublic = typeof body.isPublic === "boolean" ? body.isPublic : undefined;
+  if (displayName === undefined && isPublic === undefined) {
+    return NextResponse.json({ error: "no updates" }, { status: 400 });
   }
 
-  await upsertUserCollection(user.id, collectionId, displayName);
+  // PATCH is only valid for collections the user already owns. For first-time create, use POST.
+  const owns = await userOwnsCollection(user.id, collectionId);
+  if (!owns) {
+    if (displayName) {
+      // back-compat: callers used to PATCH for upsert-style display name updates
+      await upsertUserCollection(user.id, collectionId, displayName);
+      return NextResponse.json({ ok: true });
+    }
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
+  await updateUserCollection(user.id, collectionId, { displayName, isPublic });
   return NextResponse.json({ ok: true });
 }
 
