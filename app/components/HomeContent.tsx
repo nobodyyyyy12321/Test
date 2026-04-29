@@ -87,6 +87,21 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     });
   };
 
+  const [dragTabIndex, setDragTabIndex] = useState<number | null>(null);
+  const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
+
+  const reorderProfileTab = (from: number, to: number) => {
+    if (from === to) return;
+    setPinnedProfileTabs(prev => {
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!loggedIn) {
       try {
@@ -870,14 +885,25 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             {/* pinned profile tabs — mobile only */}
             {loggedIn && visiblePinnedProfileTabs.length > 0 && (
               <div className="sm:hidden">
-                {visiblePinnedProfileTabs.map(p => (
-                  <PinnedProfileTabSection
+                {visiblePinnedProfileTabs.map((p, idx) => (
+                  <div
                     key={`mobile-${p.name}-${p.tab}`}
-                    name={p.name}
-                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
-                    label={p.label}
-                    onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
-                  />
+                    draggable
+                    onDragStart={e => { setDragTabIndex(idx); e.dataTransfer.effectAllowed = "move"; }}
+                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverTabIndex !== idx) setDragOverTabIndex(idx); }}
+                    onDragLeave={() => { if (dragOverTabIndex === idx) setDragOverTabIndex(null); }}
+                    onDrop={e => { e.preventDefault(); if (dragTabIndex !== null) reorderProfileTab(dragTabIndex, idx); setDragTabIndex(null); setDragOverTabIndex(null); }}
+                    onDragEnd={() => { setDragTabIndex(null); setDragOverTabIndex(null); }}
+                    className={`transition-opacity ${dragTabIndex === idx ? "opacity-40" : ""} ${dragOverTabIndex === idx && dragTabIndex !== idx ? "border-t-2 border-dashed" : ""}`}
+                    style={{ borderColor: dragOverTabIndex === idx && dragTabIndex !== idx ? "#5fa870" : "transparent" }}
+                  >
+                    <PinnedProfileTabSection
+                      name={p.name}
+                      tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
+                      label={p.label}
+                      onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -887,14 +913,25 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
           {/* Right panel — pinned profile tabs (desktop) */}
           {loggedIn && visiblePinnedProfileTabs.length > 0 && (
             <div className="hidden sm:block flex-1 pt-2 px-2">
-              {visiblePinnedProfileTabs.map(p => (
-                <PinnedProfileTabSection
+              {visiblePinnedProfileTabs.map((p, idx) => (
+                <div
                   key={`desktop-${p.name}-${p.tab}`}
-                  name={p.name}
-                  tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
-                  label={p.label}
-                  onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
-                />
+                  draggable
+                  onDragStart={e => { setDragTabIndex(idx); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverTabIndex !== idx) setDragOverTabIndex(idx); }}
+                  onDragLeave={() => { if (dragOverTabIndex === idx) setDragOverTabIndex(null); }}
+                  onDrop={e => { e.preventDefault(); if (dragTabIndex !== null) reorderProfileTab(dragTabIndex, idx); setDragTabIndex(null); setDragOverTabIndex(null); }}
+                  onDragEnd={() => { setDragTabIndex(null); setDragOverTabIndex(null); }}
+                  className={`transition-opacity ${dragTabIndex === idx ? "opacity-40" : ""} ${dragOverTabIndex === idx && dragTabIndex !== idx ? "border-t-2 border-dashed" : ""}`}
+                  style={{ borderColor: dragOverTabIndex === idx && dragTabIndex !== idx ? "#5fa870" : "transparent" }}
+                >
+                  <PinnedProfileTabSection
+                    name={p.name}
+                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
+                    label={p.label}
+                    onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
+                  />
+                </div>
               ))}
             </div>
           )}
