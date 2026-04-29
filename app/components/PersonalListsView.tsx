@@ -5,7 +5,7 @@ import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import { getCollectionLabel } from "./collectionLabels";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
-export type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
+export type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string; fromGrid?: boolean };
 
 type Group = { id: string; name: string; memberCount?: number };
 type ShareResult = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
@@ -50,13 +50,19 @@ export function PersonalListsView({
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // collection share panel
+  const [colShareId, setColShareId] = useState<string | null>(null);
+  const [colShareSentIds, setColShareSentIds] = useState<Set<string>>(new Set());
+  const [colShareSending, setColShareSending] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!shareOpenId || !isOwner || groupsLoaded) return;
+    if (!isOwner || groupsLoaded) return;
+    if (!shareOpenId && !colShareId) return;
     fetch("/api/groups")
       .then(r => r.json())
       .then(d => { setOwnedGroups(d.owned ?? []); setJoinedGroups(d.joined ?? []); setGroupsLoaded(true); })
       .catch(() => {});
-  }, [shareOpenId, isOwner, groupsLoaded]);
+  }, [shareOpenId, colShareId, isOwner, groupsLoaded]);
 
   useEffect(() => {
     if (!contextMenuId) return;
@@ -71,12 +77,6 @@ export function PersonalListsView({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [colCtxMenuId]);
-
-  const deleteList = async (id: string) => {
-    setLists(prev => prev.filter(l => l.id !== id));
-    if (expandedId === id) setExpandedId(null);
-    await fetch(`/api/lists/${id}`, { method: "DELETE" });
-  };
 
   const removeQuestion = async (listId: string, questionId: string, collectionId: string) => {
     setLists(prev => prev.map(l =>
@@ -149,6 +149,23 @@ export function PersonalListsView({
     });
   };
 
+  const shareCollectionTo = async (col: MyCollection, target: { type: "user" | "group"; id: string; name: string }) => {
+    setColShareSending(target.id);
+    try {
+      const body = target.type === "user"
+        ? { categoryKey: col.collectionId, categoryName: col.displayName, targetUserName: target.name }
+        : { categoryKey: col.collectionId, categoryName: col.displayName, groupId: target.id };
+      const res = await fetch("/api/categories/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) setColShareSentIds(prev => new Set(prev).add(target.id));
+    } finally {
+      setColShareSending(null);
+    }
+  };
+
   if (loading) {
     return <p className="text-sm zen-subtle">載入中...</p>;
   }
@@ -205,12 +222,6 @@ export function PersonalListsView({
                     style={{ color: "var(--zen-ink)" }}>
                     {pinnedListIds.includes(list.id) ? "取消釘選" : "釘選"}
                   </button>
-                  <button type="button"
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={() => { deleteList(list.id); setContextMenuId(null); }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    刪除
-                  </button>
                 </div>
               </>
             )}
@@ -227,7 +238,7 @@ export function PersonalListsView({
             <a
               href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
               className="book-link bookshelf-btn"
-              style={{ color: ci % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
+              style={{ color: ci % 2 === 0 ? "#b19739" : "#5fa870" }}
             >
               {col.displayName}
             </a>
@@ -236,6 +247,22 @@ export function PersonalListsView({
                 <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
                 <div className="fixed z-50 w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
                   style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}>
+                  {!col.fromGrid && (
+                    <button type="button"
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => { setColCtxMenuId(null); window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`; }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      style={{ color: "var(--zen-ink)" }}>
+                      編輯
+                    </button>
+                  )}
+                  <button type="button"
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={() => { setColShareId(colShareId === col.id ? null : col.id); setShareInput(""); setShareError(null); setShareSearchResults([]); setColShareSentIds(new Set()); setColCtxMenuId(null); }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}>
+                    分享
+                  </button>
                   <button type="button"
                     onMouseDown={e => e.stopPropagation()}
                     onClick={() => { toggleCollectionPin(col.id); setColCtxMenuId(null); }}
@@ -443,6 +470,106 @@ export function PersonalListsView({
                     );
                   })}
                 </ul>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* collection share panel */}
+      {colShareId && (() => {
+        const col = myCollections.find(c => c.id === colShareId);
+        if (!col) return null;
+        const allGroups = [...ownedGroups, ...joinedGroups];
+        return (
+          <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+              <span className="font-medium text-sm" style={{ color: "var(--zen-ink)" }}>分享「{col.displayName}」</span>
+              <button type="button"
+                onClick={() => { setColShareId(null); setShareInput(""); setShareSearchResults([]); setColShareSentIds(new Set()); }}
+                className="text-xs opacity-40 hover:opacity-70" style={{ color: "var(--zen-ink)" }}>✕</button>
+            </div>
+            <div className="px-4 py-3">
+              <input
+                value={shareInput}
+                onChange={e => handleShareSearch(e.target.value)}
+                placeholder="搜尋帳號或群組名稱"
+                className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 outline-none mb-2"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+              {shareSearchLoading && <p className="text-xs opacity-40 mb-2" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
+              {!shareSearchLoading && shareInput.trim() && shareSearchResults.length === 0 && (
+                <p className="text-xs opacity-40 mb-2" style={{ color: "var(--zen-ink)" }}>找不到帳號或群組</p>
+              )}
+              {shareSearchResults.length > 0 && (
+                <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 mb-2">
+                  {shareSearchResults.map(r => {
+                    const sent = colShareSentIds.has(r.id);
+                    return (
+                      <div key={`${r.type}-${r.id}`} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
+                        <div className="flex items-center gap-2">
+                          {r.type === "user" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r.avatarUrl || AVATAR_PLACEHOLDER} className="w-6 h-6 rounded-full object-cover shrink-0" alt={r.name} />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
+                          )}
+                          <span className="text-xs" style={{ color: "var(--zen-ink)" }}>{r.name}</span>
+                          {r.type === "group" && r.memberCount != null && (
+                            <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{r.memberCount} 人</span>
+                          )}
+                        </div>
+                        {sent ? (
+                          <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => shareCollectionTo(col, { type: r.type, id: r.id, name: r.name })}
+                            disabled={colShareSending === r.id}
+                            className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                            style={{ borderColor: r.type === "user" ? "#5fa870" : "#b19739", color: r.type === "user" ? "#5fa870" : "#b19739" }}
+                          >
+                            {colShareSending === r.id ? "..." : "分享"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {allGroups.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs opacity-50 mb-1.5" style={{ color: "var(--zen-ink)" }}>我的群組</p>
+                  <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                    {allGroups.map(g => {
+                      const sent = colShareSentIds.has(g.id);
+                      return (
+                        <div key={g.id} className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs" style={{ backgroundColor: "color-mix(in srgb, #b19739 15%, transparent)", color: "#b19739" }}>群</div>
+                            <span className="text-xs" style={{ color: "var(--zen-ink)" }}>{g.name}</span>
+                            {g.memberCount != null && (
+                              <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{g.memberCount} 人</span>
+                            )}
+                          </div>
+                          {sent ? (
+                            <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => shareCollectionTo(col, { type: "group", id: g.id, name: g.name })}
+                              disabled={colShareSending === g.id}
+                              className="text-xs px-2.5 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
+                              style={{ borderColor: "#b19739", color: "#b19739" }}
+                            >
+                              {colShareSending === g.id ? "..." : "分享"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           </div>

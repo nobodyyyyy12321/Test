@@ -144,6 +144,59 @@ export async function deleteQuizQuestion(
   if (!res.ok) throw new Error(await res.text());
 }
 
+/**
+ * Delete all rows in a collection table. Table itself is left in place.
+ * Returns false silently if the table doesn't exist (404).
+ */
+export async function deleteAllQuizQuestions(collectionId: string): Promise<void> {
+  // Supabase REST requires a filter on DELETE — use a wide range that matches every row.
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=gte.-9999999999`,
+    { method: "DELETE", headers: HEADERS }
+  );
+  if (!res.ok && res.status !== 404) throw new Error(await res.text());
+}
+
+/**
+ * Reorder questions by renumbering them according to the desired order.
+ * `orderedNumbers` is the array of current numbers in their new desired order:
+ * orderedNumbers[i] is the current number of the row that should become number (i + 1).
+ * Two-phase update (negative temp values → final values) avoids unique-constraint
+ * conflicts during the swap.
+ */
+export async function reorderCollectionQuestions(
+  collectionId: string,
+  orderedNumbers: number[]
+): Promise<void> {
+  const tableUrl = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}`;
+
+  // phase 1: each row → unique negative temp number
+  await Promise.all(
+    orderedNumbers.map((current, i) =>
+      fetch(`${tableUrl}?number=eq.${current}`, {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({ number: -(i + 1) }),
+      }).then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+      })
+    )
+  );
+
+  // phase 2: temp negative → final positive
+  await Promise.all(
+    orderedNumbers.map((_, i) =>
+      fetch(`${tableUrl}?number=eq.${-(i + 1)}`, {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({ number: i + 1 }),
+      }).then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+      })
+    )
+  );
+}
+
 export async function upsertQuizQuestions(
   collectionId: string,
   questions: Array<{

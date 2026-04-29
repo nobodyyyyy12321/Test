@@ -345,6 +345,37 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return m[2] ? `${m[1]}:${m[2]}` : m[1];
   };
 
+  const addToMyCollection = async (item: CtxMenu) => {
+    if (!item.href) return;
+    const m = item.href.match(/\/test\/([^?#]+)/);
+    if (!m) return;
+    const collectionId = decodeURIComponent(m[1]);
+    if (myCollections.some(c => c.collectionId === collectionId)) return;
+    const optimistic: MyCollection = {
+      id: `tmp-${collectionId}`,
+      collectionId,
+      displayName: item.name,
+      createdAt: new Date().toISOString(),
+      fromGrid: true,
+    };
+    setMyCollections(prev => [...prev, optimistic]);
+    try {
+      const res = await fetch("/api/my-collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collectionId, displayName: item.name }),
+      });
+      const d = await res.json();
+      if (d.ok && Array.isArray(d.collections)) {
+        setMyCollections(d.collections);
+      } else {
+        setMyCollections(prev => prev.filter(c => c.id !== optimistic.id));
+      }
+    } catch {
+      setMyCollections(prev => prev.filter(c => c.id !== optimistic.id));
+    }
+  };
+
   const handleShareTo = async (target: { type: "user" | "group"; id: string; name: string }) => {
     if (!sharePanel) return;
     setSharingSending(target.id);
@@ -447,6 +478,24 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 取消釘選
               </button>
             )}
+            {loggedIn && (ctxMenu.from === "grid" || ctxMenu.from === "pinned") && ctxMenu.href && (() => {
+              const m = ctxMenu.href.match(/\/test\/([^?#]+)/);
+              const cid = m ? decodeURIComponent(m[1]) : null;
+              if (!cid) return null;
+              const already = myCollections.some(c => c.collectionId === cid);
+              return (
+                <button
+                  type="button"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { if (!already) addToMyCollection(ctxMenu); setCtxMenu(null); }}
+                  disabled={already}
+                  className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-t border-zinc-100 dark:border-zinc-800 disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent"
+                  style={{ color: "#b19739" }}
+                >
+                  {already ? "已加入個人分類" : "加入個人分類"}
+                </button>
+              );
+            })()}
             {loggedIn && (ctxMenu.from === "grid" || ctxMenu.from === "pinned") && (
               <button
                 type="button"
@@ -599,7 +648,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         key={id}
                         href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
                         className="book-link bookshelf-btn"
-                        style={{ color: idx % 2 === 0 ? "#9b7dd4" : "#d87fa0" }}
+                        style={{ color: colors[idx % colors.length] }}
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: col.id, name: col.displayName, x: e.clientX, y: e.clientY, from: "my-collection-pinned" }); }}
                       >
                         {col.displayName}

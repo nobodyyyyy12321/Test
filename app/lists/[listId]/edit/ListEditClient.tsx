@@ -106,6 +106,19 @@ export default function ListEditClient({ list }: Props) {
     }
   };
 
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/lists/${list.id}`, { method: "DELETE" });
+      window.location.href = "/";
+    } catch {
+      setDeleting(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-8 py-10">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
@@ -219,6 +232,42 @@ export default function ListEditClient({ list }: Props) {
           })}
         </ul>
       )}
+
+      <div className="mt-8 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-red-300 dark:border-red-800/60">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-red-500">刪除清單</span>
+          <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>此操作無法復原</span>
+        </div>
+        {confirmDelete ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs px-3 py-1.5 rounded-full border border-red-400 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
+            >
+              {deleting ? "刪除中..." : "確認刪除"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+              className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 transition-opacity hover:opacity-80 disabled:opacity-40"
+              style={{ color: "var(--zen-ink)" }}
+            >
+              取消
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="text-xs px-3 py-1.5 rounded-full border border-red-400 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            刪除
+          </button>
+        )}
+      </div>
     </main>
   );
 }
