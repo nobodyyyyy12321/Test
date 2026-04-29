@@ -8,7 +8,7 @@ import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
-import { PersonalListsView, type MyCollection } from "./PersonalListsView";
+import type { MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import type { QuestionList } from "../../lib/lists-supabase";
@@ -32,7 +32,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [inboxOpen, setInboxOpen] = useState(true);
-  const [personalOpen, setPersonalOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
@@ -53,7 +52,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [profileTabCtxMenu, setProfileTabCtxMenu] = useState<{ name: string; tab: string; label: string; x: number; y: number } | null>(null);
   const [homeLists, setHomeLists] = useState<QuestionList[]>([]);
   const [homeListsLoaded, setHomeListsLoaded] = useState(false);
-  const [homeListsLoading, setHomeListsLoading] = useState(false);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -215,12 +213,10 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
   useEffect(() => {
     if (!loggedIn || homeListsLoaded) return;
-    setHomeListsLoading(true);
     fetch("/api/lists")
       .then(r => r.json())
       .then(d => { setHomeLists(d.lists ?? []); setHomeListsLoaded(true); })
-      .catch(() => {})
-      .finally(() => setHomeListsLoading(false));
+      .catch(() => {});
   }, [loggedIn, homeListsLoaded]);
 
   useEffect(() => {
@@ -926,37 +922,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 )}
               </div>
             )}
-            {/* personal lists — mobile only */}
-            {loggedIn && (
-              <div className="sm:hidden mt-6 px-2">
-                <button
-                  type="button"
-                  onClick={() => setPersonalOpen(o => !o)}
-                  className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-                  aria-label={personalOpen ? "收合" : "展開"}
-                >
-                  <span>個人分類</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ transform: personalOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                  >
-                    <path d="m6 9 6 6 6-6"/>
-                  </svg>
-                </button>
-                {personalOpen && (
-                  <PersonalListsView
-                    isOwner={true}
-                    loading={homeListsLoading}
-                    lists={homeLists}
-                    setLists={setHomeLists}
-                    myCollections={myCollections}
-                    pinnedListIds={pinnedListIds}
-                    setPinnedListIds={setPinnedListIds}
-                    pinnedCollectionIds={pinnedCollectionIds}
-                    setPinnedCollectionIds={setPinnedCollectionIds}
-                  />
-                )}
+            {/* pinned profile tabs — mobile only */}
+            {loggedIn && visiblePinnedProfileTabs.length > 0 && (
+              <div className="sm:hidden">
                 {visiblePinnedProfileTabs.map(p => (
                   <PinnedProfileTabSection
                     key={`mobile-${p.name}-${p.tab}`}
@@ -971,50 +939,20 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             </div>
           </div>
 
-          {/* Right panel — personal lists (desktop) */}
-          <div className="hidden sm:block flex-1 pt-2 px-2">
-            {loggedIn && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setPersonalOpen(o => !o)}
-                  className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-                  aria-label={personalOpen ? "收合" : "展開"}
-                >
-                  <span>個人分類</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ transform: personalOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                  >
-                    <path d="m6 9 6 6 6-6"/>
-                  </svg>
-                </button>
-                {personalOpen && (
-                  <PersonalListsView
-                    isOwner={true}
-                    loading={homeListsLoading}
-                    lists={homeLists}
-                    setLists={setHomeLists}
-                    myCollections={myCollections}
-                    pinnedListIds={pinnedListIds}
-                    setPinnedListIds={setPinnedListIds}
-                    pinnedCollectionIds={pinnedCollectionIds}
-                    setPinnedCollectionIds={setPinnedCollectionIds}
-                  />
-                )}
-                {visiblePinnedProfileTabs.map(p => (
-                  <PinnedProfileTabSection
-                    key={`desktop-${p.name}-${p.tab}`}
-                    name={p.name}
-                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
-                    label={p.label}
-                    onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
-                  />
-                ))}
-              </>
-            )}
-          </div>
+          {/* Right panel — pinned profile tabs (desktop) */}
+          {loggedIn && visiblePinnedProfileTabs.length > 0 && (
+            <div className="hidden sm:block flex-1 pt-2 px-2">
+              {visiblePinnedProfileTabs.map(p => (
+                <PinnedProfileTabSection
+                  key={`desktop-${p.name}-${p.tab}`}
+                  name={p.name}
+                  tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
+                  label={p.label}
+                  onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <Footer language={language} />
