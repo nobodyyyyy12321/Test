@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getCategoriesCached } from "@/lib/categories";
+import { getCategoriesFlatCached } from "@/lib/categories";
 import AdminCategoriesClient from "./AdminCategoriesClient";
 
 const SUPPORTED_LANGS = ["zh-TW", "zh-CN", "en", "ko", "es", "th", "id"];
@@ -18,7 +18,7 @@ export default async function AdminCategoriesPage() {
   const entries = await Promise.all(
     SUPPORTED_LANGS.map(async lang => ({
       language: lang,
-      data: await getCategoriesCached(lang),
+      items: await getCategoriesFlatCached(lang),
     }))
   );
 

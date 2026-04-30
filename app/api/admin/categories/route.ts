@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache";
 import { auth } from "@/auth";
-import { getCategoriesCached, replaceCategories } from "@/lib/categories";
+import { getCategoriesFlatCached, replaceCategoriesFlat, type FlatCategory } from "@/lib/categories";
 
 const SUPPORTED_LANGS = ["zh-TW", "zh-CN", "en", "ko", "es", "th", "id"];
 
@@ -19,7 +19,7 @@ export async function GET() {
   const entries = await Promise.all(
     SUPPORTED_LANGS.map(async lang => ({
       language: lang,
-      data: await getCategoriesCached(lang),
+      items: await getCategoriesFlatCached(lang),
     }))
   );
   return Response.json({ entries });
@@ -32,17 +32,17 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!body?.language || !Array.isArray(body?.data)) {
-    return Response.json({ error: "language and data required" }, { status: 400 });
+  if (!body?.language || !Array.isArray(body?.items)) {
+    return Response.json({ error: "language and items required" }, { status: 400 });
   }
   if (!SUPPORTED_LANGS.includes(body.language)) {
     return Response.json({ error: "Unsupported language" }, { status: 400 });
   }
 
   try {
-    await replaceCategories(body.language, body.data);
+    await replaceCategoriesFlat(body.language, body.items as FlatCategory[]);
   } catch (err: any) {
-    console.error("upsertCategories error:", err);
+    console.error("replaceCategoriesFlat error:", err);
     return Response.json({ error: err?.message ?? "儲存失敗" }, { status: 500 });
   }
   revalidateTag("categories");

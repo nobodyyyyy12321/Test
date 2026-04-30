@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CategoryNode } from "../../../lib/categories";
+import type { FlatCategory } from "../../../lib/categories";
 
 const LANGS = [
   { code: "zh-TW", label: "繁中" },
@@ -13,15 +13,25 @@ const LANGS = [
   { code: "id",    label: "ID" },
 ];
 
-type Entry = { language: string; data: CategoryNode[] };
+type Entry = { language: string; items: FlatCategory[] };
+
+const STARTER_COMMENT = `// Flat list — each item declares its parent.
+// parentId: null = top-level under this language.
+// Sibling order is the array order. Omit \`id\` for new items (server generates one).
+//
+// return [
+//   { id: "abc", parentId: null, name: "學測", },
+//   { id: "def", parentId: "abc", name: "國文", href: "/test/gsat-chinese" },
+// ];
+
+`;
 
 export default function AdminCategoriesClient({ initialEntries }: { initialEntries: Entry[] }) {
   const [activeLang, setActiveLang] = useState("zh-TW");
-  const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [jsonTexts, setJsonTexts] = useState<Record<string, string>>(
     Object.fromEntries(initialEntries.map(e => [
       e.language,
-      `// 可使用 JavaScript 語法（迴圈、變數等），最後 return 分類陣列\n\nreturn ${JSON.stringify(e.data, null, 2)};`
+      `${STARTER_COMMENT}return ${JSON.stringify(e.items, null, 2)};`
     ]))
   );
   const [saving, setSaving] = useState(false);
@@ -32,9 +42,9 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
 
   const handleSave = async () => {
     setError(null);
-    let parsed: CategoryNode[];
+    let parsed: FlatCategory[];
     try {
-      parsed = new Function(currentJson)() as CategoryNode[];
+      parsed = new Function(currentJson)() as FlatCategory[];
       if (!Array.isArray(parsed)) throw new Error("必須 return 陣列");
     } catch (e: any) {
       setError("JS 執行錯誤：" + e.message);
@@ -46,11 +56,10 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
       const res = await fetch("/api/admin/categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: activeLang, data: parsed }),
+        body: JSON.stringify({ language: activeLang, items: parsed }),
       });
       const j = await res.json();
       if (!res.ok) { setError(j.error ?? "儲存失敗"); return; }
-      setEntries(prev => prev.map(e => e.language === activeLang ? { ...e, data: parsed } : e));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -84,7 +93,7 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
         {/* editor */}
         <div className="flex-1 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400">JS 編輯（return CategoryNode[]）</span>
+            <span className="text-xs text-zinc-400">JS 編輯（return FlatCategory[] — parentId 指向父節點）</span>
             <div className="flex items-center gap-2">
               {saved && <span className="text-xs text-green-500">已儲存 ✓</span>}
               {error && <span className="text-xs text-red-500">{error}</span>}
@@ -118,35 +127,64 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
 }
 
 function Preview({ json }: { json: string }) {
-  let nodes: CategoryNode[] = [];
+  let items: FlatCategory[] = [];
   try {
     const result = new Function(json)();
-    if (Array.isArray(result)) nodes = result;
+    if (Array.isArray(result)) items = result;
   } catch { /* invalid */ }
-  if (!Array.isArray(nodes) || nodes.length === 0) {
+  if (!Array.isArray(items) || items.length === 0) {
     return <p className="text-xs text-zinc-400">（無內容或格式錯誤）</p>;
   }
+
+  // Build a depth map by walking parent chain
+  const byId = new Map<string, FlatCategory>();
+  for (const i of items) if (i.id) byId.set(i.id, i);
+  const depthOf = (item: FlatCategory): number => {
+    let depth = 0;
+    let cur = item;
+    while (cur.parentId) {
+      const parent = byId.get(cur.parentId);
+      if (!parent) break;
+      depth += 1;
+      cur = parent;
+    }
+    return depth;
+  };
+
+  // Detect duplicate ids so the editor can warn instead of silently crashing on save
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const i of items) {
+    if (!i.id) continue;
+    if (seen.has(i.id)) duplicates.add(i.id);
+    else seen.add(i.id);
+  }
+
   return (
-    <ul className="flex flex-col gap-1">
-      {nodes.map((node, i) => (
-        <li key={i} className="text-sm">
-          <span className="font-medium" style={{ color: "var(--zen-ink)" }}>{node.name}</span>
-          {node.href && <span className="ml-2 text-xs text-zinc-400">{node.href}</span>}
-          {(node.children ?? []).length > 0 && (
-            <ul className="ml-4 mt-0.5 flex flex-col gap-0.5">
-              {node.children!.map((c, j) => (
-                <li key={j} className="text-xs text-zinc-500">
-                  {c.name}{c.href ? ` → ${c.href}` : ""}
-                  {(c.dropdown ?? []).length > 0 && <span className="ml-1 text-zinc-400">▾{c.dropdown!.length}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          {(node.dropdown ?? []).length > 0 && (
-            <span className="ml-2 text-xs text-zinc-400">▾{node.dropdown!.length} 項</span>
-          )}
-        </li>
-      ))}
-    </ul>
+    <>
+      {duplicates.size > 0 && (
+        <p className="mb-3 text-xs" style={{ color: "#ef4444" }}>
+          重複的 id：{[...duplicates].join(", ")}
+        </p>
+      )}
+      <ul className="flex flex-col gap-1">
+        {items.map((item, i) => {
+          const d = depthOf(item);
+          const isFolder = !item.href || items.some(x => x.parentId === item.id);
+          const dup = item.id && duplicates.has(item.id);
+          return (
+            <li key={i} className="text-sm" style={{ paddingLeft: d * 12 }}>
+              <span className="font-medium" style={{ color: dup ? "#ef4444" : "var(--zen-ink)" }}>
+                {isFolder && "📁 "}{item.name}
+              </span>
+              {item.href && <span className="ml-2 text-xs text-zinc-400">{item.href}</span>}
+              {(item.dropdown ?? []).length > 0 && (
+                <span className="ml-2 text-xs text-zinc-400">▾{item.dropdown!.length}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

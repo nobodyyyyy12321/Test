@@ -736,7 +736,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               style={{ color }}
                               onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
                             >
-                              {name}
+                              <span className="mr-1">📁</span>{name}
                             </button>
                           ) : subject.dropdown?.length ? (
                             <button
@@ -745,7 +745,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               style={{ color }}
                               onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
                             >
-                              {name}
+                              <span className="mr-1">📁</span>{name}
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
                             </button>
                           ) : (
@@ -840,7 +840,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 style={btnStyle}
                                 onClick={() => setOpenKey(isOpen ? null : key)}
                               >
-                                {subject.name}
+                                <span className="mr-1">📁</span>{subject.name}
                               </button>
                             ) : hasDrop ? (
                               <button
@@ -849,7 +849,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 style={btnStyle}
                                 onClick={() => setOpenDropKey(openDropKey === key ? null : key)}
                               >
-                                {subject.name}
+                                <span className="mr-1">📁</span>{subject.name}
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: openDropKey === key ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
                               </button>
                             ) : (
@@ -890,7 +890,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                       style={btnStyle}
                                       onClick={() => setOpenDropKey(isDropOpen ? null : subKey)}
                                     >
-                                      {sub.name}
+                                      <span className="mr-1">📁</span>{sub.name}
                                     </button>
                                   </div>
                                   {isDropOpen && (
