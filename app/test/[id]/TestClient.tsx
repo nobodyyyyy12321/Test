@@ -42,9 +42,10 @@ type Props = {
   pageTitle: string;
   replayKey?: string | null;
   autostart?: boolean;
+  limit?: number | null;
 };
 
-export default function TestClient({ id, ordered, listId, listTitle, levels, pageTitle, replayKey, autostart }: Props) {
+export default function TestClient({ id, ordered, listId, listTitle, levels, pageTitle, replayKey, autostart, limit }: Props) {
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -186,7 +187,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
         const sorted = [...qs].sort((a, b) => a.number - b.number);
         originalQuestionsRef.current = sorted;
         const shuffled = ordered ? sorted : shuffle(sorted);
-        const displayed = id === "englishWords" ? shuffled.slice(0, 50) : shuffled;
+        const cap = limit ?? (id === "englishWords" ? 50 : null);
+        const displayed = cap != null ? shuffled.slice(0, cap) : shuffled;
         setQuestions(displayed);
         setUserAnswers(new Array(displayed.length).fill(null));
         if (!formalMode && timerEnabled) { timerReset(); timerStart(); }

@@ -15,7 +15,11 @@ type CategoryRow = {
   language_code: string | null;
   dropdown: DropdownItemRow[];
   dropdown_align: string | null;
+  problems_per_test: number | null;
+  shuffle_problems: boolean | null;
 };
+
+const ROW_COLUMNS = "id,parent_id,position,href,name,language_code,dropdown,dropdown_align,problems_per_test,shuffle_problems";
 
 // Language label used when creating a new language root row on save (matches the admin tabs)
 const LANG_LABELS: Record<string, string> = {
@@ -47,7 +51,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   // Categories are small (a few hundred rows at most) so this is fine.
   const { data, error } = await supabase
     .from("categories")
-    .select("id,parent_id,position,href,name,language_code,dropdown,dropdown_align")
+    .select(ROW_COLUMNS)
     .order("position", { ascending: true });
   if (error || !data) return [];
 
@@ -66,6 +70,8 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
     if (Array.isArray(row.dropdown) && row.dropdown.length > 0) {
       node.dropdown = row.dropdown.map(d => ({ id: d.id, name: d.name, href: d.href }));
     }
+    if (row.problems_per_test !== null && row.problems_per_test !== undefined) node.problemsPerTest = row.problems_per_test;
+    if (row.shuffle_problems !== null && row.shuffle_problems !== undefined) node.shuffleProblems = row.shuffle_problems;
     const kids = childrenOf.get(row.id);
     if (kids?.length) node.children = kids.map(buildNode);
     return node;
@@ -90,6 +96,8 @@ export type FlatCategory = {
   href?: string | null;
   dropdown?: { id?: string; name: string; href: string }[];
   dropdownAlign?: "left" | "right" | null;
+  problemsPerTest?: number | null;   // null/undef = no limit
+  shuffleProblems?: boolean | null;  // null/undef = default (shuffle on)
 };
 
 async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
@@ -105,7 +113,7 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
 
   const { data, error } = await supabase
     .from("categories")
-    .select("id,parent_id,position,href,name,dropdown,dropdown_align")
+    .select(ROW_COLUMNS)
     .order("position", { ascending: true });
   if (error || !data) return [];
 
@@ -136,6 +144,8 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
       ? r.dropdown.map(d => ({ id: d.id, name: d.name, href: d.href }))
       : undefined,
     dropdownAlign: (r.dropdown_align as "left" | "right" | null) ?? undefined,
+    problemsPerTest: r.problems_per_test,
+    shuffleProblems: r.shuffle_problems,
   }));
 }
 
@@ -153,6 +163,8 @@ type FlatNode = {
   name: string;
   dropdown: { id: string; name: string; href: string }[];
   dropdown_align: string | null;
+  problems_per_test: number | null;
+  shuffle_problems: boolean | null;
 };
 
 function flattenTree(tree: CategoryNode[], rootId: string): FlatNode[] {
@@ -172,6 +184,8 @@ function flattenTree(tree: CategoryNode[], rootId: string): FlatNode[] {
           href: d.href,
         })),
         dropdown_align: node.dropdownAlign ?? null,
+        problems_per_test: node.problemsPerTest ?? null,
+        shuffle_problems: node.shuffleProblems ?? null,
       });
       if (node.children?.length) walk(node.children, id);
     });
@@ -243,6 +257,8 @@ export async function replaceCategories(language: string, incoming: CategoryNode
       language_code: null,
       dropdown: r.dropdown,
       dropdown_align: r.dropdown_align,
+      problems_per_test: r.problems_per_test,
+      shuffle_problems: r.shuffle_problems,
       updated_at: new Date().toISOString(),
     }));
     const { error: upErr } = await supabase.from("categories").insert(payload);
@@ -402,6 +418,8 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
     href: string | null; name: string;
     dropdown: { id: string; name: string; href: string }[];
     dropdown_align: string | null;
+    problems_per_test: number | null;
+    shuffle_problems: boolean | null;
   };
   const prepared: Prepared[] = items.map(item => {
     const id = item.id ?? newId();
@@ -420,6 +438,8 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
         href: d.href,
       })),
       dropdown_align: item.dropdownAlign ?? null,
+      problems_per_test: item.problemsPerTest ?? null,
+      shuffle_problems: item.shuffleProblems ?? null,
     };
   });
 
@@ -445,6 +465,8 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
       language_code: null,
       dropdown: r.dropdown,
       dropdown_align: r.dropdown_align,
+      problems_per_test: r.problems_per_test,
+      shuffle_problems: r.shuffle_problems,
       updated_at: new Date().toISOString(),
     }));
     const { error: upErr } = await supabase.from("categories").insert(payload);

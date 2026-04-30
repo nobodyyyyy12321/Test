@@ -19,9 +19,14 @@ const STARTER_COMMENT = `// Flat list — each item declares its parent.
 // parentId: null = top-level under this language.
 // Sibling order is the array order. Omit \`id\` for new items (server generates one).
 //
+// Optional per-item test settings (apply when clicking the link from the homepage):
+//   problemsPerTest: number   — limit how many problems per test (null = no limit)
+//   shuffleProblems: boolean  — false = play in fixed order; true/null = shuffle (default)
+//
 // return [
-//   { id: "abc", parentId: null, name: "學測", },
-//   { id: "def", parentId: "abc", name: "國文", href: "/test/gsat-chinese" },
+//   { id: "abc", parentId: null, name: "學測" },
+//   { id: "def", parentId: "abc", name: "國文", href: "/test/gsat-chinese",
+//     problemsPerTest: 50, shuffleProblems: true },
 // ];
 
 `;

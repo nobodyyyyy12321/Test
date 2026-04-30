@@ -6,4 +6,6 @@ export type CategoryNode = {
   children?: CategoryNode[];
   dropdown?: { id?: string; name: string; href: string }[];
   dropdownAlign?: "left" | "right";
+  problemsPerTest?: number | null;   // null/undef = no limit
+  shuffleProblems?: boolean | null;  // null/undef = default (shuffle on)
 };

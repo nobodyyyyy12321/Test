@@ -68,6 +68,17 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const colorOf = (n: CategoryNode): string =>
     (n.children?.length || n.dropdown?.length) ? FOLDER_COLOR : LEAF_COLOR;
 
+  // Append per-collection test options (problemsPerTest / shuffleProblems) to the href as query params.
+  const hrefWithOptions = (n: CategoryNode): string => {
+    const base = n.href || "#";
+    if (base === "#") return base;
+    const extra: string[] = [];
+    if (n.problemsPerTest != null) extra.push(`count=${encodeURIComponent(n.problemsPerTest)}`);
+    if (n.shuffleProblems === false) extra.push(`ordered=true`);
+    if (extra.length === 0) return base;
+    return base + (base.includes("?") ? "&" : "?") + extra.join("&");
+  };
+
   const findSubject = (name: string): { node: CategoryNode } | null => {
     for (const s of subjects) {
       if (s.name === name) return { node: s };
@@ -751,7 +762,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
                             </button>
                           ) : (
-                            <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={{ color }}>
+                            <Link href={hrefWithOptions(subject)} className="book-link bookshelf-btn" style={{ color }}>
                               {name}
                             </Link>
                           )}
@@ -780,7 +791,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid", child.href)}
                             >
                               {child.href ? (
-                                <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color: childColor }}>
+                                <Link href={hrefWithOptions(child)} className="book-link bookshelf-btn sub-item" style={{ color: childColor }}>
                                   {child.name}
                                 </Link>
                               ) : (
@@ -856,7 +867,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: openDropKey === key ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
                               </button>
                             ) : (
-                              <Link href={subject.href || "#"} className="book-link bookshelf-btn" style={btnStyle}>
+                              <Link href={hrefWithOptions(subject)} className="book-link bookshelf-btn" style={btnStyle}>
                                 {subject.name}
                               </Link>
                             )}
@@ -934,7 +945,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 key={subKey}
                                 onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, subPinned ? "pinned" : "grid", sub.href) : undefined}
                               >
-                                <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={{ color: subColor }}>
+                                <Link href={hrefWithOptions(sub)} className="book-link bookshelf-btn sub-item" style={{ color: subColor }}>
                                   {sub.name}
                                 </Link>
                               </div>
