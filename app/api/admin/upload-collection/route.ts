@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { upsertQuizQuestions } from "@/lib/questions-supabase";
+import { ensureTopLevelItem } from "@/lib/categories";
 
 function isAdmin(email?: string | null): boolean {
   if (!email) return false;
@@ -7,17 +8,44 @@ function isAdmin(email?: string | null): boolean {
   return allowed.includes(email);
 }
 
-type Item =
-  | { id: number | string; type: "single_choice" | "multiple_choice"; title: string;
-      options: Record<string, string>; answer?: string | null }
-  | { id: number | string; type: "group"; content: string };
+type QuestionRow = {
+  number: number;
+  title: string;
+  type?: "single" | "multiple" | "fill";
+  options?: Record<string, string> | null;
+  answer?: string | string[] | null;
+  level?: number | null;
+  groupContent?: string | null;
+};
 
-type Payload = { examName: string; items: Item[] };
+type CategoryNode = {
+  name: string;
+  href?: string;
+  children?: CategoryNode[];
+};
 
-function parseQuestionNumber(id: number | string): number | null {
-  if (typeof id === "number") return Number.isFinite(id) ? id : null;
-  const n = parseInt(String(id), 10);
-  return Number.isFinite(n) ? n : null;
+type UploadPayload = {
+  language?: string;
+  categories?: CategoryNode[];
+  collections?: Record<string, QuestionRow[]>;
+};
+
+const SUPPORTED_LANGS = ["zh-TW", "zh-CN", "en", "ko", "es", "th", "id"];
+
+function findCategoryName(nodes: CategoryNode[], collectionId: string): string | null {
+  for (const node of nodes) {
+    if (node.href) {
+      try {
+        const pathname = new URL(node.href, "http://x").pathname;
+        if (pathname === `/test/${collectionId}`) return node.name;
+      } catch {}
+    }
+    if (node.children) {
+      const found = findCategoryName(node.children, collectionId);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -26,96 +54,80 @@ export async function POST(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let body: Payload;
+  let payload: UploadPayload;
   try {
-    body = await request.json();
+    payload = await request.json();
   } catch {
-    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-  if (!body?.examName || typeof body.examName !== "string") {
-    return Response.json({ error: "examName is required" }, { status: 400 });
-  }
-  if (!Array.isArray(body.items) || body.items.length === 0) {
-    return Response.json({ error: "items must be a non-empty array" }, { status: 400 });
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const examName = body.examName.trim();
-  const groupRows: { exam_name: string; group_id: string; content: string }[] = [];
-  const questionRows: {
-    exam_name: string; number: number; title: string;
-    type: string; options: Record<string, string>; answer: string | null;
-  }[] = [];
-  const seenNumbers = new Set<number>();
-  const errors: string[] = [];
+  if (!payload.collections || typeof payload.collections !== "object") {
+    return Response.json({ error: "collections 欄位為必填" }, { status: 400 });
+  }
 
-  body.items.forEach((it, idx) => {
-    if (it.type === "group") {
-      if (!it.id || typeof it.content !== "string") {
-        errors.push(`第 ${idx + 1} 項 group 缺少 id 或 content`);
-        return;
+  const language = payload.language ?? "zh-TW";
+  if (!SUPPORTED_LANGS.includes(language)) {
+    return Response.json({ error: `Unsupported language: ${language}` }, { status: 400 });
+  }
+
+  const results: Record<string, {
+    upserted: number;
+    gridName: string;
+    navCreated: boolean;
+    navWarning?: string;
+  }> = {};
+  const errors: Record<string, string> = {};
+
+  for (const [collectionId, rows] of Object.entries(payload.collections)) {
+    if (!Array.isArray(rows)) {
+      errors[collectionId] = "questions 必須為陣列";
+      continue;
+    }
+    const normalized = rows.filter(r => Number.isFinite(r.number) && typeof r.title === "string");
+    if (normalized.length === 0) {
+      errors[collectionId] = "沒有有效題目（需有 number 與 title）";
+      continue;
+    }
+
+    try {
+      const result = await upsertQuizQuestions(collectionId, normalized);
+      const gridName = findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
+
+      // Add (or rename) the homepage nav entry. Failure here doesn't fail the whole upload.
+      let navCreated = false;
+      let navWarning: string | undefined;
+      try {
+        const nav = await ensureTopLevelItem({
+          language,
+          name: gridName,
+          href: `/test/${encodeURIComponent(collectionId)}`,
+        });
+        navCreated = nav.created;
+      } catch (err: any) {
+        navWarning = `首頁導覽列更新失敗：${err?.message ?? err}`;
       }
-      groupRows.push({ exam_name: examName, group_id: String(it.id), content: it.content });
-      return;
-    }
-    if (it.type !== "single_choice" && it.type !== "multiple_choice") {
-      errors.push(`第 ${idx + 1} 項 type 不正確：${(it as any).type}`);
-      return;
-    }
-    const number = parseQuestionNumber(it.id);
-    if (number === null) {
-      errors.push(`第 ${idx + 1} 項 id 無法解析為題號`);
-      return;
-    }
-    if (seenNumbers.has(number)) {
-      errors.push(`題號 ${number} 重複`);
-      return;
-    }
-    seenNumbers.add(number);
-    if (!it.title) {
-      errors.push(`題號 ${number} 缺少 title`);
-      return;
-    }
-    if (!it.options || typeof it.options !== "object") {
-      errors.push(`題號 ${number} 缺少 options`);
-      return;
-    }
-    questionRows.push({
-      exam_name: examName,
-      number,
-      title: it.title,
-      type: it.type,
-      options: it.options,
-      answer: it.answer ?? null,
-    });
-  });
 
-  if (errors.length > 0) {
-    return Response.json({ error: errors.join("\n") }, { status: 400 });
+      results[collectionId] = {
+        upserted: result.upserted,
+        gridName,
+        navCreated,
+        navWarning,
+      };
+    } catch (err: any) {
+      errors[collectionId] = err?.message ?? "未知錯誤";
+    }
   }
 
-  const supabase = getSupabaseAdmin();
-
-  // Replace any existing rows for this exam_name so re-uploads are idempotent
-  const [delQ, delG] = await Promise.all([
-    supabase.from("questions").delete().eq("exam_name", examName),
-    supabase.from("question_groups").delete().eq("exam_name", examName),
-  ]);
-  if (delQ.error) return Response.json({ error: `delete questions failed: ${delQ.error.message}` }, { status: 500 });
-  if (delG.error) return Response.json({ error: `delete question_groups failed: ${delG.error.message}` }, { status: 500 });
-
-  if (groupRows.length > 0) {
-    const { error } = await supabase.from("question_groups").insert(groupRows);
-    if (error) return Response.json({ error: `insert question_groups failed: ${error.message}` }, { status: 500 });
-  }
-  if (questionRows.length > 0) {
-    const { error } = await supabase.from("questions").insert(questionRows);
-    if (error) return Response.json({ error: `insert questions failed: ${error.message}` }, { status: 500 });
+  const hasSuccess = Object.keys(results).length > 0;
+  if (!hasSuccess) {
+    const firstError = Object.values(errors)[0] ?? "沒有有效的 collection";
+    return Response.json({ ok: false, error: firstError }, { status: 500 });
   }
 
   return Response.json({
     ok: true,
-    examName,
-    insertedQuestions: questionRows.length,
-    insertedGroups: groupRows.length,
+    language,
+    results,
+    errors: Object.keys(errors).length ? errors : undefined,
   });
 }

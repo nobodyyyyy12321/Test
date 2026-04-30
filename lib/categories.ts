@@ -254,6 +254,92 @@ export async function replaceCategories(language: string, incoming: CategoryNode
   revalidateTag("categories");
 }
 
+// Insert a single nav row at the end of the language root's children if no row already
+// points at `href`; otherwise rename the existing row to `name`. Used by admin upload to
+// surface a freshly-uploaded collection on the homepage without rewriting the whole tree.
+export async function ensureTopLevelItem(opts: {
+  language: string;
+  name: string;
+  href: string;
+}): Promise<{ rowId: string; created: boolean }> {
+  const { language, name, href } = opts;
+  const supabase = getSupabaseAdmin();
+
+  // Find or create the language root
+  let rootId: string;
+  const { data: rootRows, error: rootErr } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("language_code", language)
+    .limit(1);
+  if (rootErr) throw new Error(`fetch language root failed: ${rootErr.message}`);
+
+  if (rootRows && rootRows.length > 0) {
+    rootId = rootRows[0].id as string;
+  } else {
+    rootId = newId();
+    const { error: insErr } = await supabase.from("categories").insert({
+      id: rootId,
+      parent_id: null,
+      position: 0,
+      href: null,
+      name: LANG_LABELS[language] ?? language,
+      language_code: language,
+      dropdown: [],
+      dropdown_align: null,
+      updated_at: new Date().toISOString(),
+    });
+    if (insErr) throw new Error(`create language root failed: ${insErr.message}`);
+  }
+
+  // Look for an existing direct child with this href
+  const { data: existing, error: findErr } = await supabase
+    .from("categories")
+    .select("id,position")
+    .eq("parent_id", rootId)
+    .eq("href", href)
+    .limit(1);
+  if (findErr) throw new Error(`lookup existing nav row failed: ${findErr.message}`);
+
+  if (existing && existing.length > 0) {
+    const rowId = existing[0].id as string;
+    const { error: updErr } = await supabase
+      .from("categories")
+      .update({ name, updated_at: new Date().toISOString() })
+      .eq("id", rowId);
+    if (updErr) throw new Error(`update nav row failed: ${updErr.message}`);
+    revalidateTag("categories");
+    return { rowId, created: false };
+  }
+
+  // Append at the end: position = (max sibling position) + 1
+  const { data: siblings, error: sibErr } = await supabase
+    .from("categories")
+    .select("position")
+    .eq("parent_id", rootId)
+    .order("position", { ascending: false })
+    .limit(1);
+  if (sibErr) throw new Error(`lookup sibling positions failed: ${sibErr.message}`);
+  const nextPos = siblings && siblings.length > 0 ? (siblings[0].position as number) + 1 : 0;
+
+  const rowId = newId();
+  const { error: insErr } = await supabase.from("categories").insert({
+    id: rowId,
+    parent_id: rootId,
+    position: nextPos,
+    href,
+    name,
+    language_code: null,
+    dropdown: [],
+    dropdown_align: null,
+    updated_at: new Date().toISOString(),
+  });
+  if (insErr) throw new Error(`insert nav row failed: ${insErr.message}`);
+
+  revalidateTag("categories");
+  return { rowId, created: true };
+}
+
 // Replace the entire subtree for the given language using a flat parent-id list.
 // Sibling order within each parentId is the array order in `items`.
 export async function replaceCategoriesFlat(language: string, items: FlatCategory[]): Promise<void> {

@@ -4,38 +4,36 @@ import { useRef, useState } from "react";
 
 const EXAMPLE = JSON.stringify(
   {
-    examName: "國文學測115",
-    items: [
-      {
-        id: "1-3",
-        type: "group",
-        content: "閱讀以下文章…（共用題組說明）",
-      },
-      {
-        id: 1,
-        type: "single_choice",
-        title: "下列文意何者正確？",
-        options: { A: "選項A", B: "選項B", C: "選項C", D: "選項D" },
-        answer: "A",
-      },
-      {
-        id: 2,
-        type: "multiple_choice",
-        title: "下列何者為複選題（多選）？",
-        options: { A: "甲", B: "乙", C: "丙", D: "丁" },
-        answer: "AC",
-      },
-    ],
+    language: "zh-TW",
+    categories: [{ name: "金句", href: "/test/quoteChinese" }],
+    collections: {
+      quoteChinese: [
+        {
+          number: 1,
+          title: "學而時習之，不亦__乎。—論語",
+          type: "single",
+          options: { A: "樂", B: "喜", C: "悅", D: "好" },
+          answer: "C",
+        },
+      ],
+    },
   },
   null,
   2
 );
 
+type CollectionResult = {
+  upserted: number;
+  gridName: string;
+  navCreated: boolean;
+  navWarning?: string;
+};
+
 type UploadResult = {
   ok: boolean;
-  examName?: string;
-  insertedQuestions?: number;
-  insertedGroups?: number;
+  language?: string;
+  results?: Record<string, CollectionResult>;
+  errors?: Record<string, string>;
   error?: string;
 };
 
@@ -51,12 +49,14 @@ export default function AdminUploadCollectionClient() {
     try {
       const p = JSON.parse(jsonText) as any;
       const lines: string[] = [];
-      if (p.examName) lines.push(`題庫名稱（exam_name）：${p.examName}`);
-      if (Array.isArray(p.items)) {
-        const groups = p.items.filter((i: any) => i?.type === "group").length;
-        const single = p.items.filter((i: any) => i?.type === "single_choice").length;
-        const multi  = p.items.filter((i: any) => i?.type === "multiple_choice").length;
-        lines.push(`單選：${single} 題　多選：${multi} 題　題組說明：${groups} 段`);
+      if (p.language) lines.push(`語言：${p.language}`);
+      if (p.collections && typeof p.collections === "object") {
+        for (const [id, qs] of Object.entries(p.collections)) {
+          lines.push(`題庫「${id}」：${Array.isArray(qs) ? qs.length : "?"} 題`);
+        }
+      }
+      if (Array.isArray(p.categories) && p.categories.length > 0) {
+        lines.push(`首頁顯示名稱（categories[].name）：${p.categories.map((c: any) => c?.name).filter(Boolean).join("、")}`);
       }
       return lines.length ? lines : null;
     } catch {
@@ -102,18 +102,14 @@ export default function AdminUploadCollectionClient() {
     }
   };
 
-  const examNamePeek = (() => {
-    try { return (JSON.parse(jsonText) as any)?.examName as string | undefined; }
-    catch { return undefined; }
-  })();
-
   return (
     <div className="min-h-screen p-6 max-w-2xl mx-auto" style={{ color: "var(--zen-ink)" }}>
       <h1 className="text-xl font-bold mb-1">上傳全站題庫（admin）</h1>
       <p className="text-sm text-zinc-400 mb-6">
-        寫入 <code>questions</code> / <code>question_groups</code>，題庫網址為 <code>/test/&lt;examName&gt;</code>。
-        重新上傳同樣的 examName 會覆蓋既有題目。<br/>
-        儲存後仍需到 <a className="underline" href="/admin/categories">/admin/categories</a> 加上導覽項目（href 指向 <code>/test/&lt;examName&gt;</code>）。
+        上傳格式與「個人題庫上傳」相同：用 <code>collections</code> 的 key 作為題庫網址（即 <code>/test/&lt;collectionId&gt;</code>），
+        而首頁顯示名稱來自 <code>categories</code> 陣列中對應 href 的 <code>name</code>。<br/>
+        上傳完成後會自動把該題庫加到首頁分類最上層；可再到{" "}
+        <a className="underline" href="/admin/categories">/admin/categories</a> 調整位置或父資料夾。
       </p>
 
       {/* drop zone */}
@@ -177,14 +173,24 @@ export default function AdminUploadCollectionClient() {
           {result.ok ? (
             <div className="space-y-2">
               <p className="font-medium text-green-600 dark:text-green-400">上傳成功 ✓</p>
-              <p className="text-xs text-zinc-500">
-                題庫「{result.examName}」：選擇題 {result.insertedQuestions} 題、題組 {result.insertedGroups} 段。
-              </p>
-              <p className="text-xs">
-                <a className="underline text-green-700 dark:text-green-400" href={`/test/${encodeURIComponent(result.examName ?? examNamePeek ?? "")}?autostart=1`}>立即作答</a>
-                {"　"}
-                <a className="underline" href="/admin/categories">前往 /admin/categories 加導覽項目</a>
-              </p>
+              <ul className="text-xs text-zinc-500 space-y-0.5">
+                {Object.entries(result.results ?? {}).map(([id, r]) => (
+                  <li key={id}>
+                    題庫「{id}」（顯示名稱：{r.gridName}）已寫入 {r.upserted} 題
+                    {r.navCreated ? "，並加到首頁分類" : "，首頁分類已更新名稱"}
+                    {" — "}
+                    <a className="underline text-green-700 dark:text-green-400" href={`/test/${encodeURIComponent(id)}?autostart=1`}>立即作答</a>
+                    {r.navWarning && <span className="text-amber-600 dark:text-amber-400 ml-2">⚠ {r.navWarning}</span>}
+                  </li>
+                ))}
+              </ul>
+              {result.errors && Object.keys(result.errors).length > 0 && (
+                <div className="mt-2 text-xs text-red-500">
+                  {Object.entries(result.errors).map(([id, msg]) => (
+                    <p key={id}>題庫「{id}」失敗：{msg}</p>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-red-600 dark:text-red-400 whitespace-pre-wrap">錯誤：{result.error}</p>
@@ -195,20 +201,23 @@ export default function AdminUploadCollectionClient() {
       <details className="mt-10">
         <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600 transition-colors">JSON 格式說明</summary>
         <pre className="mt-3 text-xs font-mono text-zinc-500 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap">{`{
-  "examName": "國文學測115",         // 必填，題庫 ID（即 /test/<examName> 的網址）
-  "items": [
-    // 題組說明（選填，可有多筆）
-    { "id": "1-3", "type": "group", "content": "..." },
-
-    // 選擇題（單選 / 多選）
-    {
-      "id": 1,                       // 題號（同 examName 內唯一）
-      "type": "single_choice",       // 或 "multiple_choice"
-      "title": "題目文字",
-      "options": { "A": "...", "B": "..." },
-      "answer": "A"                  // multiple_choice 用串接字串如 "AC"
-    }
-  ]
+  "language": "zh-TW",                  // 選填，首頁分類所在語言（預設 zh-TW）
+  "categories": [                       // 選填，但建議：用來決定首頁顯示名稱
+    { "name": "金句", "href": "/test/quoteChinese" }
+  ],
+  "collections": {                      // 必填，key = collectionId（即 /test/<collectionId>）
+    "<collectionId>": [
+      {
+        "number": 1,                    // 必填，題號（同 collection 內唯一）
+        "title": "題目文字",
+        "type": "single",               // single | multiple | fill，預設 single
+        "options": { "A": "選項A", "B": "選項B" },
+        "answer": "A",                  // fill 填字串，multiple 填陣列 ["A","B"]
+        "level": 1,                     // 選填，難度篩選
+        "groupContent": "..."           // 選填，題組共用說明
+      }
+    ]
+  }
 }`}</pre>
       </details>
     </div>
