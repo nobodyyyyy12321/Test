@@ -63,14 +63,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subjects = useFilteredCategories(categories, query);
 
-  const colors = ["#b19739", "#5fa870"];
+  const FOLDER_COLOR = "#b19739"; // gold — nodes with children or dropdown
+  const LEAF_COLOR = "#5fa870";   // green — leaf items (link directly to a test)
+  const colorOf = (n: CategoryNode): string =>
+    (n.children?.length || n.dropdown?.length) ? FOLDER_COLOR : LEAF_COLOR;
 
-  const findSubject = (name: string): { node: CategoryNode; color: string } | null => {
-    for (let i = 0; i < subjects.length; i++) {
-      const s = subjects[i];
-      if (s.name === name) return { node: s, color: colors[i % colors.length] };
+  const findSubject = (name: string): { node: CategoryNode } | null => {
+    for (const s of subjects) {
+      if (s.name === name) return { node: s };
       const child = s.children?.find(c => c.name === name);
-      if (child) return { node: child, color: colors[i % colors.length] };
+      if (child) return { node: child };
     }
     return null;
   };
@@ -685,7 +687,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         key={id}
                         href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
                         className="book-link bookshelf-btn"
-                        style={{ color: colors[idx % colors.length] }}
+                        style={{ color: LEAF_COLOR }}
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: col.id, name: col.displayName, x: e.clientX, y: e.clientY, from: "my-collection-pinned" }); }}
                       >
                         {col.displayName}
@@ -704,7 +706,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         : `/test/${encodeURIComponent(key)}?autostart=1`;
                     const color = isList
                       ? (idx % 2 === 0 ? "#6ea8d8" : "#d87070")
-                      : (idx % 2 === 0 ? "#b19739" : "#5fa870");
+                      : LEAF_COLOR;
                     return (
                       <a
                         key={id}
@@ -717,11 +719,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       </a>
                     );
                   })}
-                  {pinnedNames.map((name, pinnedIdx) => {
+                  {pinnedNames.map((name) => {
                     const found = findSubject(name);
                     if (!found) return null;
                     const { node: subject } = found;
-                    const color = colors[(pinnedIdx + 1) % colors.length];
+                    const color = colorOf(subject);
                     const isExpanded = openPinnedKey === name;
                     return (
                       <div key={name} className="contents">
@@ -760,7 +762,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                   key={opt.href + opt.name}
                                   href={opt.href}
                                   className="block px-4 py-3 text-left"
-                                  style={{ color, fontSize: "inherit" }}
+                                  style={{ color: LEAF_COLOR, fontSize: "inherit" }}
                                   onClick={() => setOpenPinnedKey(null)}
                                 >
                                   {opt.name}
@@ -771,17 +773,18 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         </div>
                         {isExpanded && subject.children?.map(child => {
                           const childPinned = pinnedNames.includes(child.name);
+                          const childColor = colorOf(child);
                           return (
                             <div
                               key={child.name}
                               onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid", child.href)}
                             >
                               {child.href ? (
-                                <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color }}>
+                                <Link href={child.href} className="book-link bookshelf-btn sub-item" style={{ color: childColor }}>
                                   {child.name}
                                 </Link>
                               ) : (
-                                <button type="button" className="book-link bookshelf-btn sub-item" style={{ color }}>
+                                <button type="button" className="book-link bookshelf-btn sub-item" style={{ color: childColor }}>
                                   {child.name}
                                 </button>
                               )}
@@ -823,7 +826,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       const isOpen = !!query || openKey === key || openKey === subject.name;
                       const hasSub = !!subject.children?.length;
                       const hasDrop = !!subject.dropdown?.length;
-                      const color = colors[i % colors.length];
+                      const color = colorOf(subject);
                       const btnStyle = { color };
                       const isPinned = loggedIn && pinnedNames.includes(subject.name);
 
@@ -864,7 +867,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                     key={opt.href + opt.name}
                                     href={opt.href}
                                     className="block px-4 py-3 text-left"
-                                    style={{ color, fontSize: "inherit" }}
+                                    style={{ color: LEAF_COLOR, fontSize: "inherit" }}
                                     onClick={() => setOpenDropKey(null)}
                                   >
                                     {opt.name}
@@ -911,7 +914,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                               key={opt.href + opt.name}
                                               href={opt.href}
                                               className="block px-4 py-3 text-left"
-                                              style={{ color, fontSize: "inherit" }}
+                                              style={{ color: LEAF_COLOR, fontSize: "inherit" }}
                                               onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
                                             >
                                               {opt.name}
@@ -925,12 +928,13 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               );
                             }
                             const subPinned = pinnedNames.includes(sub.name);
+                            const subColor = colorOf(sub);
                             return (
                               <div
                                 key={subKey}
                                 onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, subPinned ? "pinned" : "grid", sub.href) : undefined}
                               >
-                                <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={btnStyle}>
+                                <Link href={sub.href || "#"} className="book-link bookshelf-btn sub-item" style={{ color: subColor }}>
                                   {sub.name}
                                 </Link>
                               </div>
