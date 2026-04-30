@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { upsertQuizQuestions } from "@/lib/questions-supabase";
+import { upsertQuizQuestions, collectionTableExists } from "@/lib/questions-supabase";
 import { ensureTopLevelItem } from "@/lib/categories";
 
 function isAdmin(email?: string | null): boolean {
@@ -90,6 +90,10 @@ export async function POST(request: Request) {
     }
 
     try {
+      if (await collectionTableExists(collectionId)) {
+        errors[collectionId] = `題庫「${collectionId}」已存在，請先刪除再上傳，或改用其他名稱`;
+        continue;
+      }
       const result = await upsertQuizQuestions(collectionId, normalized);
       const gridName = findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
 

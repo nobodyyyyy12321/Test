@@ -4,6 +4,12 @@ import type { CategoryNode } from "../app/components/CategoryNode";
 
 export type { CategoryNode };
 
+// Categories live in the `public` schema.
+const CATEGORIES_SCHEMA = "public";
+function getCategoriesAdmin() {
+  return getSupabaseAdmin().schema(CATEGORIES_SCHEMA);
+}
+
 type DropdownItemRow = { id?: string; name: string; href: string };
 
 type CategoryRow = {
@@ -37,7 +43,7 @@ function newId(): string {
 }
 
 async function _fetchCategories(language: string): Promise<CategoryNode[]> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getCategoriesAdmin();
 
   const { data: rootRows, error: rootErr } = await supabase
     .from("categories")
@@ -101,7 +107,7 @@ export type FlatCategory = {
 };
 
 async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getCategoriesAdmin();
 
   const { data: rootRows, error: rootErr } = await supabase
     .from("categories")
@@ -196,7 +202,7 @@ function flattenTree(tree: CategoryNode[], rootId: string): FlatNode[] {
 
 // Replace the entire subtree for the given language. Other languages' rows are untouched.
 export async function replaceCategories(language: string, incoming: CategoryNode[]): Promise<void> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getCategoriesAdmin();
 
   // Find or create the language root row
   let rootId: string;
@@ -279,7 +285,7 @@ export async function ensureTopLevelItem(opts: {
   href: string;
 }): Promise<{ rowId: string; created: boolean }> {
   const { language, name, href } = opts;
-  const supabase = getSupabaseAdmin();
+  const supabase = getCategoriesAdmin();
 
   // Find or create the language root
   let rootId: string;
@@ -371,7 +377,7 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
     throw new Error(`重複的 id：${[...dupIds].join(", ")}`);
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = getCategoriesAdmin();
 
   // Find or create the language root row
   let rootId: string;

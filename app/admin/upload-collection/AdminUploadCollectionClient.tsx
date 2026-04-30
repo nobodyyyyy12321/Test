@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const EXAMPLE = JSON.stringify(
   {
@@ -38,6 +39,7 @@ type UploadResult = {
 };
 
 export default function AdminUploadCollectionClient() {
+  const router = useRouter();
   const [jsonText, setJsonText] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -94,7 +96,9 @@ export default function AdminUploadCollectionClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed),
       });
-      setResult(await res.json());
+      const data = await res.json();
+      setResult(data);
+      if (data.ok) router.refresh();
     } catch {
       setResult({ ok: false, error: "網路錯誤" });
     } finally {

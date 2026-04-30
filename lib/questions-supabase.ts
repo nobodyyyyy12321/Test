@@ -7,6 +7,20 @@ const HEADERS = {
   "Content-Type": "application/json",
 };
 
+// Headers for tables that live in the `quiz` schema
+const QUIZ_READ_HEADERS = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+  "Accept-Profile": "quiz",
+};
+
+const QUIZ_WRITE_HEADERS = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+  "Content-Type": "application/json",
+  "Content-Profile": "quiz",
+};
+
 export type QuizQuestionRow = {
   number: number;
   title: string;
@@ -45,7 +59,7 @@ export async function fetchQuizQuestions(opts: {
     while (true) {
       const url = `${baseUrl()}&offset=${offset}`;
       const res = await fetch(url, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: "count=none" },
+        headers: { ...QUIZ_READ_HEADERS, Prefer: "count=none" },
         next: revalidate === false ? { revalidate: 0 } : { revalidate, tags: [`quiz-questions-${collectionId}`] },
       });
       if (!res.ok) throw new Error(`Supabase fetch error: ${await res.text()}`);
@@ -57,6 +71,18 @@ export async function fetchQuizQuestions(opts: {
   }
 
   return chunks.flat();
+}
+
+/**
+ * Returns true if a table for this collectionId already exists in the quiz schema.
+ * Uses a lightweight HEAD request; 200 = exists, 404 = not found.
+ */
+export async function collectionTableExists(collectionId: string): Promise<boolean> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?limit=0`,
+    { method: "HEAD", headers: QUIZ_READ_HEADERS, cache: "no-store" }
+  );
+  return res.ok;
 }
 
 async function createCollectionTable(collectionId: string): Promise<void> {
@@ -75,7 +101,7 @@ async function doUpsert(collectionId: string, rows: object[]): Promise<void> {
     const chunk = rows.slice(i, i + 400);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?on_conflict=number`, {
       method: "POST",
-      headers: { ...HEADERS, Prefer: "resolution=merge-duplicates" },
+      headers: { ...QUIZ_WRITE_HEADERS, Prefer: "resolution=merge-duplicates" },
       body: JSON.stringify(chunk),
     });
     if (!res.ok) {
@@ -94,7 +120,7 @@ export async function fetchAllQuizQuestionsFresh(
   let offset = 0;
   while (true) {
     const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc&limit=1000&offset=${offset}`;
-    const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
+    const res = await fetch(url, { headers: QUIZ_READ_HEADERS, cache: "no-store" });
     if (!res.ok) {
       if (res.status === 404) return out;
       throw new Error(await res.text());
@@ -128,7 +154,7 @@ export async function updateQuizQuestion(
   if (updates.group_content !== undefined) row.group_content = updates.group_content;
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
-    { method: "PATCH", headers: HEADERS, body: JSON.stringify(row) }
+    { method: "PATCH", headers: QUIZ_WRITE_HEADERS, body: JSON.stringify(row) }
   );
   if (!res.ok) throw new Error(await res.text());
 }
@@ -139,7 +165,7 @@ export async function deleteQuizQuestion(
 ): Promise<void> {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
-    { method: "DELETE", headers: HEADERS }
+    { method: "DELETE", headers: QUIZ_WRITE_HEADERS }
   );
   if (!res.ok) throw new Error(await res.text());
 }
@@ -182,7 +208,7 @@ export async function deleteAllQuizQuestions(collectionId: string): Promise<void
   // 2) fallback: delete every row. Supabase REST requires a filter; "not.is.null" on a non-null column matches all rows.
   const delRes = await fetch(
     `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=not.is.null`,
-    { method: "DELETE", headers: HEADERS }
+    { method: "DELETE", headers: QUIZ_WRITE_HEADERS }
   );
   if (!delRes.ok && delRes.status !== 404) {
     throw new Error(`delete-all-rows failed for ${collectionId}: ${await delRes.text()}`);
@@ -207,7 +233,7 @@ export async function reorderCollectionQuestions(
     orderedNumbers.map((current, i) =>
       fetch(`${tableUrl}?number=eq.${current}`, {
         method: "PATCH",
-        headers: HEADERS,
+        headers: QUIZ_WRITE_HEADERS,
         body: JSON.stringify({ number: -(i + 1) }),
       }).then(async r => {
         if (!r.ok) throw new Error(await r.text());
@@ -220,7 +246,7 @@ export async function reorderCollectionQuestions(
     orderedNumbers.map((_, i) =>
       fetch(`${tableUrl}?number=eq.${-(i + 1)}`, {
         method: "PATCH",
-        headers: HEADERS,
+        headers: QUIZ_WRITE_HEADERS,
         body: JSON.stringify({ number: i + 1 }),
       }).then(async r => {
         if (!r.ok) throw new Error(await r.text());

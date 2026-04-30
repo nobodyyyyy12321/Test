@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { upsertQuizQuestions } from "@/lib/questions-supabase";
-import { upsertUserCollection } from "@/lib/user-collections-supabase";
+import { upsertQuizQuestions, collectionTableExists } from "@/lib/questions-supabase";
+import { upsertUserCollection, userOwnsCollection } from "@/lib/user-collections-supabase";
 
 type QuestionRow = {
   number: number;
@@ -78,6 +78,14 @@ export async function POST(request: Request) {
     if (normalized.length === 0) continue;
 
     try {
+      // Block if table exists AND this user does not own it
+      if (await collectionTableExists(collectionId)) {
+        const owns = await userOwnsCollection(user.id, collectionId);
+        if (!owns) {
+          errors[collectionId] = `題庫名稱「${collectionId}」已被使用，請改用其他名稱`;
+          continue;
+        }
+      }
       const result = await upsertQuizQuestions(collectionId, normalized);
       const displayName =
         findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
