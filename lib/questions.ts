@@ -1,5 +1,5 @@
 import { getListById } from "./lists-supabase";
-import { fetchQuizQuestions } from "./questions-supabase";
+import { fetchQuizQuestions, collectionTableExists } from "./questions-supabase";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,11 +8,12 @@ export type Question = {
   id: string;
   number: number;
   title: string;
-  type?: "single" | "multiple" | "fill";
+  type?: "single" | "multiple" | "fill" | "group";
   options: { label: string; text: string }[];
   answer: string | string[];
   level?: number | null;
   groupContent?: string | null;
+  groupRange?: string | null;
 };
 
 // ── GSAT (學測) questions remain in Supabase questions table ────────────────
@@ -60,6 +61,25 @@ async function fetchGSATQuestions(examName: string): Promise<Question[]> {
 // ── quiz_questions table (Supabase) ─────────────────────────────────────────
 
 function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[number]): Question {
+  // Group-header rows: title holds the shared content text
+  if (row.type === "group") {
+    const groupText = row.title?.trim()
+      || row.group_content?.trim()
+      || row.content?.trim()
+      || "";
+    return {
+      id: String(row.number),
+      number: row.number,
+      title: groupText,
+      type: "group",
+      options: [],
+      answer: "",
+      level: null,
+      groupContent: groupText,
+      groupRange: row.group_range ?? null,
+    };
+  }
+
   const options = row.options
     ? Object.entries(row.options)
         .map(([label, text]) => ({ label, text }))
@@ -69,11 +89,14 @@ function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[numbe
     id: String(row.number),
     number: row.number,
     title: row.title,
-    type: (row.type as Question["type"]) ?? "single",
+    type: (row.type === "multiple_choice" ? "multiple"
+      : row.type === "single_choice" ? "single"
+      : (row.type as Question["type"])) ?? "single",
     options,
     answer: row.answer,
     level: row.level ?? null,
-    groupContent: row.group_content ?? null,
+    groupContent: null,
+    groupRange: null,
   };
 }
 
@@ -111,8 +134,17 @@ export async function fetchQuestions(opts: {
     return allQuestions;
   }
 
-  // ── GSAT ───────────────────────────────────────────────────────────────────
+  // ── GSAT compatibility ────────────────────────────────────────────────────
+  // Prefer dynamic quiz collections if they exist (including uploaded group rows).
+  // Fall back to legacy GSAT tables only when the collection table doesn't exist.
   if (id.startsWith("國文學測")) {
+    try {
+      if (await collectionTableExists(id)) {
+        return fetchCollectionQuestions(id, levelsParam ?? null);
+      }
+    } catch {
+      // If table existence check fails, keep legacy behavior.
+    }
     return fetchGSATQuestions(id);
   }
 

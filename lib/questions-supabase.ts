@@ -26,9 +26,11 @@ export type QuizQuestionRow = {
   title: string;
   type: string;
   options: Record<string, string> | null;
-  answer: string | string[];
+  answer: string | string[] | null;
   level: number | null;
-  group_content: string | null;
+  group_range: string | null;
+  group_content?: string | null;
+  content?: string | null;
 };
 
 export async function fetchQuizQuestions(opts: {
@@ -50,7 +52,8 @@ export async function fetchQuizQuestions(opts: {
   for (const batch of numberBatches) {
     const baseUrl = () => {
       let url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc&limit=1000`;
-      if (levels?.length) url += `&level=in.(${levels.join(",")})`;
+      // Include group-header rows (type=group, level=null) even when level filter is active
+      if (levels?.length) url += `&or=(level.in.(${levels.join(",")}),type.eq.group)`;
       if (batch !== null) url += `&number=in.(${batch.join(",")})`;
       return url;
     };
@@ -142,7 +145,7 @@ export async function updateQuizQuestion(
     options?: Record<string, string> | null;
     answer?: string | string[] | null;
     level?: number | null;
-    group_content?: string | null;
+    group_range?: string | null;
   }
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -151,7 +154,7 @@ export async function updateQuizQuestion(
   if (updates.options !== undefined) row.options = updates.options;
   if (updates.answer !== undefined) row.answer = updates.answer;
   if (updates.level !== undefined) row.level = updates.level;
-  if (updates.group_content !== undefined) row.group_content = updates.group_content;
+  if (updates.group_range !== undefined) row.group_range = updates.group_range;
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
     { method: "PATCH", headers: QUIZ_WRITE_HEADERS, body: JSON.stringify(row) }
@@ -264,22 +267,28 @@ export async function upsertQuizQuestions(
     options?: Record<string, string> | null;
     answer?: string | string[] | null;
     level?: number | null;
-    groupContent?: string | null;
-    group_content?: string | null;
+    groupRange?: string | null;
+    group_range?: string | null;
     [key: string]: unknown;
   }>
 ): Promise<{ upserted: number }> {
   const rows = questions
     .filter(q => q.number != null && q.title != null)
     .map(q => {
+      // Normalize type: accept 'multiple_choice' → 'multiple', 'single_choice' → 'single'
+      const rawType = (q.type as string) ?? "single";
+      const normalizedType =
+        rawType === "multiple_choice" ? "multiple"
+        : rawType === "single_choice" ? "single"
+        : rawType;
       const row: Record<string, unknown> = {
         number: q.number,
         title: q.title,
-        type: (q.type as string) ?? "single",
+        type: normalizedType,
         options: (q.options as Record<string, string>) ?? null,
         answer: q.answer ?? null,
         level: q.level ?? null,
-        group_content: (q.groupContent ?? q.group_content) ?? null,
+        group_range: (q.groupRange ?? q.group_range) ?? null,
       };
       return row;
     });

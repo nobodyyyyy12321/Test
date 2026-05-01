@@ -26,6 +26,7 @@ type UploadResult = {
   ok: boolean;
   results?: Record<string, { upserted: number }>;
   errors?: Record<string, string>;
+  conflicts?: Record<string, string>;
   error?: string;
 };
 
@@ -34,6 +35,7 @@ export default function MyUploadClient() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
+  const [pendingOverwrite, setPendingOverwrite] = useState<{ parsed: unknown; ids: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
@@ -56,7 +58,7 @@ export default function MyUploadClient() {
     reader.readAsText(file);
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (force?: string[]) => {
     setParseError(null);
     let parsed: unknown;
     try {
@@ -68,12 +70,18 @@ export default function MyUploadClient() {
     setUploading(true);
     setResult(null);
     try {
+      const body = force?.length ? { ...(parsed as object), force } : parsed;
       const res = await fetch("/api/my-collections/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed),
+        body: JSON.stringify(body),
       });
-      setResult(await res.json());
+      const data: UploadResult = await res.json();
+      if (!data.ok && data.conflicts && Object.keys(data.conflicts).length > 0 && !data.error) {
+        setPendingOverwrite({ parsed, ids: Object.keys(data.conflicts) });
+        return;
+      }
+      setResult(data);
     } catch {
       setResult({ ok: false, error: "網路錯誤" });
     } finally {
@@ -173,7 +181,7 @@ export default function MyUploadClient() {
 
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={handleUpload}
+          onClick={() => handleUpload()}
           disabled={uploading || !jsonText || !!parseError}
           className="px-5 py-2 text-sm rounded-full disabled:opacity-40 transition-colors"
           style={{ background: "#5fa870", color: "#fff" }}
@@ -191,6 +199,36 @@ export default function MyUploadClient() {
           載入範例
         </button>
       </div>
+
+      {/* Overwrite confirmation dialog */}
+      {pendingOverwrite && (
+        <div className="mb-4 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/10 p-4 text-sm">
+          <p className="font-medium text-amber-700 dark:text-amber-400 mb-2">以下題庫已存在，確定要覆蓋嗎？</p>
+          <ul className="text-xs text-zinc-600 dark:text-zinc-300 mb-3 space-y-0.5 list-disc list-inside">
+            {pendingOverwrite.ids.map(id => <li key={id}>{id}</li>)}
+          </ul>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const ids = pendingOverwrite.ids;
+                setPendingOverwrite(null);
+                await handleUpload(ids);
+              }}
+              disabled={uploading}
+              className="px-4 py-1.5 text-xs rounded-full disabled:opacity-40"
+              style={{ background: "#ef4444", color: "#fff" }}
+            >
+              確定覆蓋
+            </button>
+            <button
+              onClick={() => setPendingOverwrite(null)}
+              className="px-4 py-1.5 text-xs rounded-full border border-zinc-300 dark:border-zinc-600"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       {result && (
         <div

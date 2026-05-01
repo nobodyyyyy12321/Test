@@ -165,7 +165,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
             .then(({ questions: qs }: { questions: Question[] }) => {
               const sorted = [...qs].sort((a, b) => a.number - b.number);
               const answerMap = new Map(storedAnswers.map(a => [a.n, a.u]));
-              const displayed = sorted.filter(q => answerMap.has(q.number));
+              const displayed = sorted.filter(q => q.type === "group" || answerMap.has(q.number));
               const answers = displayed.map(q => answerMap.get(q.number) ?? null);
               originalQuestionsRef.current = sorted;
               setQuestions(displayed);
@@ -186,7 +186,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       .then(({ questions: qs }: { questions: Question[] }) => {
         const sorted = [...qs].sort((a, b) => a.number - b.number);
         originalQuestionsRef.current = sorted;
-        const shuffled = ordered ? sorted : shuffle(sorted);
+        const hasGroups = sorted.some(q => q.type === "group");
+        const shuffled = (ordered || hasGroups) ? sorted : shuffle(sorted);
         const cap = limit ?? (id === "englishWords" ? 50 : null);
         const displayed = cap != null ? shuffled.slice(0, cap) : shuffled;
         setQuestions(displayed);
@@ -200,8 +201,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   const checkAnswers = useCallback(() => {
     setShowResults(true);
     if (timerEnabled && timerRunning) timerStop();
-    const answeredCount = userAnswers.filter(a => a !== null).length;
-    const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
+    const answeredCount = userAnswers.filter((a, idx) => questions[idx]?.type !== "group" && a !== null).length;
+    const correctCount = questions.filter((q, idx) => q.type !== "group" && gradeAnswer(q, userAnswers[idx])).length;
     const timestamp = new Date().toISOString();
     const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
     try { sessionStorage.setItem(`quiz_replay_${timestamp}`, JSON.stringify({ answers: compactAnswers })); } catch {}
@@ -243,7 +244,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       const q = questions[focusedIdx];
       if (!q) return;
       const qt = q.type ?? "single";
-      if (qt === "fill") return;
+      if (qt === "fill" || qt === "group") return;
       if (!q.options.some(o => o.label === label)) return;
       if (qt === "multiple") {
         handleMultipleToggleAt(focusedIdx, label);
@@ -315,7 +316,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
   };
 
   const retryWrong = () => {
-    const wrong = questions.filter((q, idx) => userAnswers[idx] !== null && !gradeAnswer(q, userAnswers[idx]));
+    const wrong = questions.filter((q, idx) => q.type !== "group" && userAnswers[idx] !== null && !gradeAnswer(q, userAnswers[idx]));
     if (wrong.length === 0) return;
     setQuestions(wrong);
     setShowResults(false);
@@ -356,8 +357,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       .catch(() => {});
   };
 
-  const answeredCount = userAnswers.filter(a => a !== null).length;
-  const correctCount = questions.filter((q, idx) => gradeAnswer(q, userAnswers[idx])).length;
+  const answeredCount = userAnswers.filter((a, idx) => questions[idx]?.type !== "group" && a !== null).length;
+  const correctCount = questions.filter((q, idx) => q.type !== "group" && gradeAnswer(q, userAnswers[idx])).length;
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
@@ -466,7 +467,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
               {session && (
                 <button
                   onClick={retryWrong}
-                  disabled={questions.every((q, idx) => userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
+                  disabled={questions.every((q, idx) => q.type === "group" || userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
                   className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
                   style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
                 >
@@ -487,20 +488,34 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
           {questions.map((q, idx) => {
             const qt = q.type ?? "single";
             const ans = userAnswers[idx];
-            const showGroupContent = q.groupContent && (idx === 0 || questions[idx - 1].groupContent !== q.groupContent);
-            const isWrongResult = showResults && !gradeAnswer(q, ans);
+            // GSAT legacy: groupContent field on question itself
+            const showGroupContent = qt !== "group" && q.groupContent && (idx === 0 || questions[idx - 1]?.groupContent !== q.groupContent);
+            const isWrongResult = showResults && qt !== "group" && !gradeAnswer(q, ans);
             return (
               <React.Fragment key={idx}>
                 {showGroupContent && (
-                  <div className="my-4 p-3 border border-zinc-300 dark:border-zinc-600 rounded bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-6 self-start">
+                  <div
+                    style={{ gridColumn: "1 / -1" }}
+                    className="mt-4 mb-1 p-4 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7"
+                  >
+                    <span className="block text-xs font-semibold text-zinc-400 mb-2">題組說明</span>
                     {q.groupContent}
                   </div>
                 )}
-                <div
-                  ref={el => { questionRefs.current[idx] = el; }}
-                  className="py-4"
-                  onClick={() => { if (!showResults) setFocusedIdx(idx); }}
-                >
+                {qt === "group" ? (
+                  <div
+                    style={{ gridColumn: "1 / -1" }}
+                    className="mt-4 mb-1 p-4 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7"
+                  >
+                    <span className="block text-xs font-semibold text-zinc-400 mb-2">題組說明{q.groupRange ? `（${q.groupRange}）` : ""}</span>
+                    <RenderContent>{q.title || q.groupContent || "（此題組未提供說明文字）"}</RenderContent>
+                  </div>
+                ) : (
+                  <div
+                    ref={el => { questionRefs.current[idx] = el; }}
+                    className="py-4"
+                    onClick={() => { if (!showResults) setFocusedIdx(idx); }}
+                  >
                   <div className="flex items-center gap-2 text-sm mb-2">
                     {session?.user && (
                       <button
@@ -526,6 +541,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                   </div>
                   {qt === "fill" ? (
                     <>
+                      {(() => {
+                        const showCorrectFill = showResults && ans !== null && !isWrongResult;
+                        return (
                       <input
                         type="text"
                         value={(ans as string) ?? ""}
@@ -536,10 +554,18 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                         style={{
                           backgroundColor: "var(--zen-bg)",
                           color: "var(--zen-ink)",
-                          borderColor: isWrongResult ? "#ef4444" : undefined,
+                          borderColor: isWrongResult ? "#ef4444" : showCorrectFill ? "#16a34a" : undefined,
                           borderWidth: isWrongResult ? "1.5px" : undefined,
                         }}
                       />
+                        );
+                      })()}
+                      {showResults && ans !== null && !isWrongResult && (
+                        <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 text-sm font-semibold rounded" style={{ border: "1.5px solid #16a34a", color: "#16a34a" }}>
+                          <span aria-hidden="true">✓</span>
+                          <span>答對</span>
+                        </div>
+                      )}
                       {isWrongResult && (
                         <div className="mt-2 inline-block px-2 py-0.5 text-sm font-semibold rounded" style={{ border: "1.5px solid #ef4444", color: "#ef4444" }}>
                           正確答案：{q.answer as string}
@@ -555,7 +581,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                         const isCorrectOpt = qt === "multiple"
                           ? (q.answer as string[]).includes(option.label)
                           : q.answer === option.label;
+                        // correct option not selected → show red border (missing)
                         const showCorrectFrame = isWrongResult && isCorrectOpt && !isSel;
+                        // wrongly selected option (selected but not in correct answers) → show red
+                        const showWrongSel = isWrongResult && isSel && !isCorrectOpt;
                         return (
                           <button
                             key={option.label}
@@ -567,12 +596,13 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                             onMouseEnter={e => { if (!showResults) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(95,168,112,0.15)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ""; }}
                             style={{
-                              color: showCorrectFrame ? "#ef4444" : "#5fa870",
-                              border: showCorrectFrame
+                              color: showCorrectFrame || showWrongSel ? "#ef4444" : "#5fa870",
+                              border: showCorrectFrame || showWrongSel
                                 ? "1.5px solid #ef4444"
                                 : isSel
                                 ? "1.5px solid #5fa870"
                                 : "1.5px solid transparent",
+                              backgroundColor: showWrongSel ? "rgba(239,68,68,0.08)" : undefined,
                               cursor: showResults ? "default" : "pointer",
                             }}
                           >
@@ -584,6 +614,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                     </div>
                   )}
                 </div>
+                )}
               </React.Fragment>
             );
           })}
@@ -591,9 +622,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
         {showResults && (
           <div className="flex justify-end items-center gap-2 mt-6 w-full">
             {(() => {
-              const answeredIdxs = questions.map((_, i) => i).filter(i => userAnswers[i] !== null);
+              const answeredIdxs = questions.map((q, i) => ({ q, i })).filter(({ q, i }) => q.type !== "group" && userAnswers[i] !== null).map(({ i }) => i);
               const allChecked = answeredIdxs.length > 0 && answeredIdxs.every(i => checkedIdxs.has(i));
-              const wrongIdxs = questions.map((q, i) => ({ q, i })).filter(({ q, i }) => userAnswers[i] !== null && !gradeAnswer(q, userAnswers[i])).map(({ i }) => i);
+              const wrongIdxs = questions.map((q, i) => ({ q, i })).filter(({ q, i }) => q.type !== "group" && userAnswers[i] !== null && !gradeAnswer(q, userAnswers[i])).map(({ i }) => i);
               const allWrongChecked = wrongIdxs.length > 0 && wrongIdxs.every(i => checkedIdxs.has(i));
               return (
                 <>

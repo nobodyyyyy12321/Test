@@ -32,13 +32,13 @@ begin
   execute format(
     $sql$
     create table if not exists quiz.%I (
-      number        int  primary key,
+      number        numeric  primary key,
       title         text not null,
       type          text not null default 'single',
       options       jsonb,
       answer        jsonb,
       level         int,
-      group_content text
+      group_range   text
     )
     $sql$,
     p_table_name
@@ -147,6 +147,91 @@ begin
         rec.tablename
       );
     end if;
+
+    -- ── Upgrade answer column from text → jsonb if needed ─────────────────
+    -- Old public tables were created with `answer text`; quiz tables need `answer jsonb`
+    -- so that multiple-choice answers (string arrays) can be stored and read correctly.
+    if exists (
+      select 1 from information_schema.columns
+      where table_schema = 'quiz'
+        and table_name   = rec.tablename
+        and column_name  = 'answer'
+        and data_type    = 'text'
+    ) then
+      -- Convert: single-char strings stay as JSON strings "A",
+      -- multi-char strings become JSON arrays ["A","B","C"] (each char = one label).
+      execute format(
+        $sql$
+        alter table quiz.%I
+          alter column answer type jsonb
+          using case
+            when answer is null then null
+            when length(answer) <= 1 then to_jsonb(answer)
+            else (
+              select jsonb_agg(ch)
+              from regexp_split_to_table(answer, '') ch
+            )
+          end
+        $sql$,
+        rec.tablename
+      );
+      raise notice 'Upgraded answer column to jsonb on quiz.%', rec.tablename;
+    end if;
+
+      -- ── Upgrade number column from int → numeric (to support group-header fractional numbers) ──
+      if exists (
+        select 1 from information_schema.columns
+        where table_schema = 'quiz'
+          and table_name   = rec.tablename
+          and column_name  = 'number'
+          and data_type    = 'integer'
+      ) then
+        execute format('alter table quiz.%I alter column number type numeric', rec.tablename);
+        raise notice 'Upgraded number column to numeric on quiz.%', rec.tablename;
+      end if;
+
+      -- ── Add group_range column if missing ─────────────────────────────────
+      if not exists (
+        select 1 from information_schema.columns
+        where table_schema = 'quiz'
+          and table_name   = rec.tablename
+          and column_name  = 'group_range'
+      ) then
+        execute format('alter table quiz.%I add column group_range text', rec.tablename);
+        raise notice 'Added group_range column to quiz.%', rec.tablename;
+      end if;
+
+      -- ── Migrate legacy group rows: answer -> group_range, then clear answer ──
+      execute format(
+        $sql$
+        update quiz.%I
+        set group_range = coalesce(group_range, answer #>> '{}')
+        where type = 'group'
+          and answer is not null
+          and (group_range is null or group_range = '')
+        $sql$,
+        rec.tablename
+      );
+      execute format(
+        $sql$
+        update quiz.%I
+        set answer = null
+        where type = 'group'
+          and answer is not null
+        $sql$,
+        rec.tablename
+      );
+
+      -- ── Drop group_content column if it still exists ──────────────────────
+      if exists (
+        select 1 from information_schema.columns
+        where table_schema = 'quiz'
+          and table_name   = rec.tablename
+          and column_name  = 'group_content'
+      ) then
+        execute format('alter table quiz.%I drop column group_content', rec.tablename);
+        raise notice 'Dropped group_content column from quiz.%', rec.tablename;
+      end if;
   end loop;
 
   perform pg_notify('pgrst', 'reload schema');
