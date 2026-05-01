@@ -14,6 +14,7 @@ create table categories (
   position       int  not null default 0,
   href           text,
   name           text not null,
+  language       text,                                  -- denormalized language for easier filtering
   language_code  text,                                  -- only set on language-root rows
   dropdown       jsonb not null default '[]'::jsonb,    -- [{ id, name, href }]
   dropdown_align text,

@@ -10,6 +10,39 @@ import { useTimer } from "../../providers/TimerContext";
 
 const QUIZ_GUARD_STATE = { __quizGuard: true };
 
+function getLabels(language: string) {
+  const en = language === "en";
+  return {
+    score:          (correct: number, answered: number) => en ? `${correct}/${answered}` : `寫 ${correct}/${answered}`,
+    submit:         en ? "Submit" : "交卷",
+    retryWrong:     en ? "Retry Wrong" : "錯題重練",
+    restart:        en ? "Restart" : "重新開始",
+    groupLabel:     en ? "Passage" : "題組說明",
+    noGroupText:    en ? "(No passage text provided)" : "（此題組未提供說明文字）",
+    multipleBadge:  en ? "Multi" : "多選",
+    fillBadge:      en ? "Fill" : "填充",
+    fillPlaceholder:en ? "Type your answer" : "輸入答案",
+    correct:        en ? "Correct" : "答對",
+    correctAnswer:  en ? "Answer: " : "正確答案：",
+    examTerminated: en ? "Quiz Ended" : "測驗已終止",
+    leftPage:       en ? "You left the page. This attempt is void." : "偵測到離開頁面，本次測驗已作廢",
+    confirm:        en ? "OK" : "確認",
+    abandonTitle:   en ? "Abandon quiz?" : "放棄測驗？",
+    abandonBody:    en ? "You cannot resume after leaving." : "離開後將無法繼續本次測驗",
+    continueBtn:    en ? "Continue" : "繼續作答",
+    abandonBtn:     en ? "Abandon" : "放棄測驗",
+    formalWarning:  en ? "You may not leave the screen during the quiz." : "開始後交卷前不得離開測驗畫面",
+    start:          en ? "Start" : "開始",
+    speakLabel:     en ? "Speak" : "朗讀英文",
+    checkLabel:     en ? "Select" : "勾選",
+    selectAll:      en ? "Select All" : "全選",
+    deselectAll:    en ? "Deselect All" : "取消全選",
+    selectWrong:    en ? "Select Wrong" : "勾選答錯題",
+    deselectWrong:  en ? "Deselect" : "取消勾選",
+    shareFrom:      "from testtttt.io",
+  };
+}
+
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
   if (userAns === null) return false;
   const qtype = question.type ?? "single";
@@ -39,13 +72,15 @@ type Props = {
   listId: string | null;
   listTitle: string | null;
   levels: string | null;
+  language: string;
   pageTitle: string;
   replayKey?: string | null;
   autostart?: boolean;
   limit?: number | null;
 };
 
-export default function TestClient({ id, ordered, listId, listTitle, levels, pageTitle, replayKey, autostart, limit }: Props) {
+export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit }: Props) {
+  const L = getLabels(language);
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -160,6 +195,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
           const params = new URLSearchParams({ id });
           if (levels) params.set("levels", levels);
           if (listId) params.set("listId", listId);
+          if (language) params.set("lang", language);
           fetch(`/api/questions?${params}`)
             .then(r => r.json())
             .then(({ questions: qs }: { questions: Question[] }) => {
@@ -181,6 +217,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
     const params = new URLSearchParams({ id });
     if (levels) params.set("levels", levels);
     if (listId) params.set("listId", listId);
+    if (language) params.set("lang", language);
     fetch(`/api/questions?${params}`)
       .then(r => r.json())
       .then(({ questions: qs }: { questions: Question[] }) => {
@@ -276,7 +313,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       })
       .join("\n\n");
     setShareTitle(pageTitle);
-    setShareText(text + "\n\nfrom testtttt.io");
+    setShareText(text + `\n\n${L.shareFrom}`);
   }, [checkedIdxs, questions, id, setShareText, setShareTitle, pageTitle]);
 
   useEffect(() => {
@@ -372,22 +409,22 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
             {forcedAbandon ? (
               <>
                 <div className="flex flex-col gap-2 text-center">
-                  <h2 className="text-lg font-semibold" style={{ color: "#ef4444" }}>測驗已終止</h2>
-                  <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>偵測到離開頁面，本次測驗已作廢</p>
+                  <h2 className="text-lg font-semibold" style={{ color: "#ef4444" }}>{L.examTerminated}</h2>
+                  <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>{L.leftPage}</p>
                 </div>
                 <button
                   onClick={handleAbandon}
                   className="w-full py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
                   style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)" }}
                 >
-                  確認
+                  {L.confirm}
                 </button>
               </>
             ) : (
               <>
                 <div className="flex flex-col gap-2 text-center">
-                  <h2 className="text-lg font-semibold" style={{ color: "var(--zen-ink)" }}>放棄測驗？</h2>
-                  <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>離開後將無法繼續本次測驗</p>
+                  <h2 className="text-lg font-semibold" style={{ color: "var(--zen-ink)" }}>{L.abandonTitle}</h2>
+                  <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>{L.abandonBody}</p>
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -395,14 +432,14 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                     className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
                     style={{ borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }}
                   >
-                    繼續作答
+                    {L.continueBtn}
                   </button>
                   <button
                     onClick={handleAbandon}
                     className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
                     style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)" }}
                   >
-                    放棄測驗
+                    {L.abandonBtn}
                   </button>
                 </div>
               </>
@@ -414,7 +451,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
         <div ref={overlayRef} className="fixed inset-0 sm:left-24 z-50 flex items-center justify-center" style={{ backgroundColor: "var(--zen-bg)" }}>
           <div className="flex flex-col items-center gap-8 px-8 py-12 rounded-2xl" style={{ backgroundColor: "var(--zen-paper)" }}>
             <h1 className="text-2xl font-bold text-center zen-title" style={{ color: "#b19739" }}>{pageTitle}</h1>
-            <p className="text-s text-center opacity-65" style={{ color: "var(--zen-ink)" }}>開始後交卷前不得離開測驗畫面</p>
+            <p className="text-s text-center opacity-65" style={{ color: "var(--zen-ink)" }}>{L.formalWarning}</p>
             <button
               disabled={questions.length === 0}
               onClick={() => {
@@ -434,7 +471,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
       <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-24 sm:pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
           <h1 className="text-2xl font-bold zen-title">
-            {showResults && <span>寫 {correctCount}/{answeredCount}</span>}
+            {showResults && <span>{L.score(correctCount, answeredCount)}</span>}
           </h1>
           {!showResults ? (
             <div className="flex items-center gap-3">
@@ -459,7 +496,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                 className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
                 style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
               >
-                交卷
+                {L.submit}
               </button>
             </div>
           ) : (
@@ -478,7 +515,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                 onClick={resetQuiz}
                 className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
               >
-                重新開始
+                {L.restart}
               </button>
             </div>
           )}
@@ -498,7 +535,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                     style={{ gridColumn: "1 / -1" }}
                     className="mt-4 mb-1 p-4 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7"
                   >
-                    <span className="block text-xs font-semibold text-zinc-400 mb-2">題組說明</span>
+                    <span className="block text-xs font-semibold text-zinc-400 mb-2">{L.groupLabel}</span>
                     {q.groupContent}
                   </div>
                 )}
@@ -507,8 +544,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                     style={{ gridColumn: "1 / -1" }}
                     className="mt-4 mb-1 p-4 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm whitespace-pre-wrap leading-7"
                   >
-                    <span className="block text-xs font-semibold text-zinc-400 mb-2">題組說明{q.groupRange ? `（${q.groupRange}）` : ""}</span>
-                    <RenderContent>{q.title || q.groupContent || "（此題組未提供說明文字）"}</RenderContent>
+                    <span className="block text-xs font-semibold text-zinc-400 mb-2">{L.groupLabel}{q.groupRange ? ` (${q.groupRange})` : ""}</span>
+                    <RenderContent>{q.title || q.groupContent || L.noGroupText}</RenderContent>
                   </div>
                 ) : (
                   <div
@@ -522,14 +559,14 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                         type="button"
                         onClick={() => setCheckedIdxs(prev => { const next = new Set(prev); next.has(idx) ? next.delete(idx) : next.add(idx); return next; })}
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs transition-colors ${checkedIdxs.has(idx) ? "border-black dark:border-white bg-black dark:bg-white text-white dark:text-black" : "border-zinc-400 dark:border-zinc-500"}`}
-                        aria-label="勾選"
+                        aria-label={L.checkLabel}
                       >
                         {checkedIdxs.has(idx) && "✓"}
                       </button>
                     )}
                     {id !== "englishWords" && <span style={{ color: "#5fa870" }}>#{q.number}</span>}
-                    {qt === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">多選</span>}
-                    {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">填充</span>}
+                    {qt === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.multipleBadge}</span>}
+                    {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.fillBadge}</span>}
                   </div>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-base rounded transition-all" style={{ color: "#5fa870", backgroundColor: idx === focusedIdx && !showResults && qt !== "fill" ? "rgba(95,168,112,0.15)" : "transparent" }}><RenderContent inline>{q.title}</RenderContent></span>
@@ -549,7 +586,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                         value={(ans as string) ?? ""}
                         onChange={e => handleFillChangeAt(idx, e.target.value)}
                         readOnly={showResults}
-                        placeholder="輸入答案"
+                        placeholder={L.fillPlaceholder}
                         className="w-full px-3 py-2 border rounded text-sm outline-none"
                         style={{
                           backgroundColor: "var(--zen-bg)",
@@ -563,12 +600,12 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                       {showResults && ans !== null && !isWrongResult && (
                         <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 text-sm font-semibold rounded" style={{ border: "1.5px solid #16a34a", color: "#16a34a" }}>
                           <span aria-hidden="true">✓</span>
-                          <span>答對</span>
+                          <span>{L.correct}</span>
                         </div>
                       )}
                       {isWrongResult && (
                         <div className="mt-2 inline-block px-2 py-0.5 text-sm font-semibold rounded" style={{ border: "1.5px solid #ef4444", color: "#ef4444" }}>
-                          正確答案：{q.answer as string}
+                          {L.correctAnswer}{q.answer as string}
                         </div>
                       )}
                     </>
@@ -636,7 +673,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                         className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                         style={{ color: "var(--zen-ink)" }}
                       >
-                        {allChecked ? "取消全選" : "全選"}
+                        {allChecked ? L.deselectAll : L.selectAll}
                       </button>
                       <button
                         type="button"
@@ -644,7 +681,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, pag
                         className="text-xs px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                         style={{ color: "var(--zen-ink)" }}
                       >
-                        {allWrongChecked ? "取消勾選" : "勾選答錯題"}
+                        {allWrongChecked ? L.deselectWrong : L.selectWrong}
                       </button>
                     </>
                   )}

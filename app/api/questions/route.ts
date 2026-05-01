@@ -7,6 +7,7 @@ export async function GET(request: Request) {
       id: searchParams.get("id") ?? "englishWords",
       levels: searchParams.get("levels"),
       listId: searchParams.get("listId"),
+      language: searchParams.get("lang") ?? searchParams.get("language"),
     });
     return Response.json({ questions }, {
       headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },

@@ -9,7 +9,7 @@ const getListByIdCached = cache(getListById);
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string; count?: string }>;
+  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string; count?: string; lang?: string; language?: string }>;
 };
 
 function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
@@ -34,17 +34,19 @@ function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | nul
   return null;
 }
 
-async function resolveTitle(id: string, levels?: string | null): Promise<string> {
-  const categories = await getCategoriesCached("zh-TW");
+async function resolveTitle(id: string, levels?: string | null, language?: string | null): Promise<string> {
+  const lang = language && language.trim() ? language : "zh-TW";
+  const categories = await getCategoriesCached(lang);
   return findNameInTree(categories, id, levels) ?? id;
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { id } = await params;
-  const { levels, listId } = await searchParams;
+  const { levels, listId, lang, language } = await searchParams;
   const decodedId = decodeURIComponent(id);
+  const activeLang = lang ?? language ?? "zh-TW";
 
-  let title = await resolveTitle(decodedId, levels);
+  let title = await resolveTitle(decodedId, levels, activeLang);
   if (listId) {
     const list = await getListByIdCached(listId).catch(() => null);
     if (list?.title) title = list.title;
@@ -58,12 +60,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { levels, ordered, listId, replay, autostart, count } = await searchParams;
+  const { levels, ordered, listId, replay, autostart, count, lang, language } = await searchParams;
   const decodedId = decodeURIComponent(id);
+  const activeLang = lang ?? language ?? "zh-TW";
 
   const [list, pageTitle] = await Promise.all([
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),
-    resolveTitle(decodedId, levels),
+    resolveTitle(decodedId, levels, activeLang),
   ]);
 
   const title = list?.title ?? pageTitle;
@@ -81,6 +84,7 @@ export default async function TestPage({ params, searchParams }: Props) {
       replayKey={replay ?? null}
       autostart={autostart === "1"}
       limit={limit}
+      language={activeLang}
     />
   );
 }

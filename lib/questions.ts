@@ -111,8 +111,9 @@ export async function fetchQuestions(opts: {
   id: string;
   levels?: string | null;
   listId?: string | null;
+  language?: string | null;
 }): Promise<Question[]> {
-  const { id, levels: levelsParam, listId } = opts;
+  const { id, levels: levelsParam, listId, language } = opts;
 
   // ── list mode ──────────────────────────────────────────────────────────────
   if (listId) {

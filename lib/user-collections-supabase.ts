@@ -13,6 +13,7 @@ const HEADERS = {
 export type UserCollectionRef = {
   id: string;
   userId: string;
+  language: string;
   collectionId: string;
   displayName: string;
   createdAt: string;
@@ -23,6 +24,7 @@ export type UserCollectionRef = {
 type Row = {
   id: string;
   user_id: string;
+  language?: string | null;
   collection_id: string;
   display_name: string;
   created_at: string;
@@ -34,6 +36,7 @@ function rowToRef(row: Row): UserCollectionRef {
   return {
     id: row.id,
     userId: row.user_id,
+    language: row.language ?? "zh-TW",
     collectionId: row.collection_id,
     displayName: row.display_name,
     createdAt: row.created_at,
@@ -42,11 +45,10 @@ function rowToRef(row: Row): UserCollectionRef {
   };
 }
 
-export async function getUserCollections(userId: string): Promise<UserCollectionRef[]> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`,
-    { headers: HEADERS, cache: "no-store" }
-  );
+export async function getUserCollections(userId: string, language?: string): Promise<UserCollectionRef[]> {
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return [];
   const rows: Row[] = await res.json();
   return rows.map(rowToRef);
@@ -56,18 +58,26 @@ export async function upsertUserCollection(
   userId: string,
   collectionId: string,
   displayName: string,
-  fromGrid: boolean = false
+  fromGrid: boolean = false,
+  language: string = "zh-TW"
 ): Promise<void> {
-  const url = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,collection_id`;
+  const url = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,language,collection_id`;
   const headers = { ...HEADERS, Prefer: "resolution=merge-duplicates" };
-  const fullBody = { user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
+  const fullBody = { user_id: userId, language, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
   let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fullBody) });
   if (!res.ok) {
     const text = await res.text();
-    // legacy DB without the from_grid column — retry without it.
+    // legacy DB without the from_grid/language columns — retry without optional columns.
     if (text.includes("from_grid")) {
-      const fallbackBody = { user_id: userId, collection_id: collectionId, display_name: displayName };
+      const fallbackBody = { user_id: userId, language, collection_id: collectionId, display_name: displayName };
       res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
+      if (!res.ok) throw new Error(await res.text());
+      return;
+    }
+    if (text.includes("language")) {
+      const legacyUrl = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,collection_id`;
+      const fallbackBody = { user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
+      res = await fetch(legacyUrl, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
       if (!res.ok) throw new Error(await res.text());
       return;
     }
@@ -82,13 +92,15 @@ export async function upsertUserCollection(
 export async function updateUserCollection(
   userId: string,
   collectionId: string,
-  updates: { displayName?: string; isPublic?: boolean }
+  updates: { displayName?: string; isPublic?: boolean },
+  language?: string
 ): Promise<void> {
   const body: Record<string, unknown> = {};
   if (updates.displayName !== undefined) body.display_name = updates.displayName;
   if (updates.isPublic !== undefined) body.is_public = updates.isPublic;
   if (Object.keys(body).length === 0) return;
-  const url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`;
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   let res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(body) });
   if (!res.ok) {
     const text = await res.text();
@@ -108,51 +120,46 @@ export async function updateUserCollection(
  * Delete the user's pcategories row for this collection.
  * Returns true if a row was actually deleted, false otherwise.
  */
-export async function deleteUserCollection(userId: string, collectionId: string): Promise<boolean> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`,
-    { method: "DELETE", headers: { ...HEADERS, Prefer: "return=representation" } }
-  );
+export async function deleteUserCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { method: "DELETE", headers: { ...HEADERS, Prefer: "return=representation" } });
   if (!res.ok) throw new Error(await res.text());
   const rows = await res.json().catch(() => []);
   return Array.isArray(rows) && rows.length > 0;
 }
 
-export async function userOwnsCollection(userId: string, collectionId: string): Promise<boolean> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`,
-    { headers: HEADERS, cache: "no-store" }
-  );
+export async function userOwnsCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return false;
   const rows = await res.json();
   return Array.isArray(rows) && rows.length > 0;
 }
 
-export async function getUserCollectionDisplayName(userId: string, collectionId: string): Promise<string | null> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=display_name&limit=1`,
-    { headers: HEADERS, cache: "no-store" }
-  );
+export async function getUserCollectionDisplayName(userId: string, collectionId: string, language?: string): Promise<string | null> {
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=display_name&limit=1`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
   const rows: Array<{ display_name: string }> = await res.json();
   return rows[0]?.display_name ?? null;
 }
 
-export async function getUserCollectionRef(userId: string, collectionId: string): Promise<UserCollectionRef | null> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&limit=1`,
-    { headers: HEADERS, cache: "no-store" }
-  );
+export async function getUserCollectionRef(userId: string, collectionId: string, language?: string): Promise<UserCollectionRef | null> {
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&limit=1`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
   const rows: Row[] = await res.json();
   return rows[0] ? rowToRef(rows[0]) : null;
 }
 
-export async function countCollectionRefs(collectionId: string): Promise<number> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/pcategories?collection_id=eq.${encodeURIComponent(collectionId)}&select=id`,
-    { headers: { ...HEADERS, Prefer: "count=exact" }, cache: "no-store" }
-  );
+export async function countCollectionRefs(collectionId: string, language?: string): Promise<number> {
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?collection_id=eq.${encodeURIComponent(collectionId)}&select=id`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { headers: { ...HEADERS, Prefer: "count=exact" }, cache: "no-store" });
   if (!res.ok) return 0;
   const range = res.headers.get("content-range");
   if (range) {

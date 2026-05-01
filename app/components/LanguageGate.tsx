@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 type LanguageCode = "zh-TW" | "zh-CN" | "en" | "es" | "ru";
 
@@ -37,8 +37,11 @@ function isQuizPath(pathname: string) {
 }
 
 function isAllowedForLanguage(language: LanguageCode, pathname: string) {
-  // 允許所有語言瀏覽 /feedback
+  // 允許所有語言瀏覽 /feedback 和 /test（各語言有自己的題庫）
   if (pathname === "/feedback" || pathname.startsWith("/feedback/")) {
+    return true;
+  }
+  if (pathname === "/test" || pathname.startsWith("/test/")) {
     return true;
   }
   if (language === "en") {
@@ -59,6 +62,7 @@ function isAllowedForLanguage(language: LanguageCode, pathname: string) {
 
 export default function LanguageGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
   const [mounted, setMounted] = useState(false);
 
@@ -87,13 +91,8 @@ export default function LanguageGate({ children }: { children: React.ReactNode }
   }, [mounted, language, pathname]);
 
   if (blocked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent font-sans dark:bg-black">
-        <main className="w-full max-w-3xl py-12 px-16 text-center">
-          <h1 className="text-3xl font-bold zen-title mb-2">建構中</h1>
-        </main>
-      </div>
-    );
+    router.replace("/under-construction");
+    return null;
   }
 
   return <>{children}</>;

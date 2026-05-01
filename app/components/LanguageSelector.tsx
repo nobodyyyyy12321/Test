@@ -18,7 +18,9 @@ const LANGUAGES: { value: LanguageCode; label: string }[] = [
 const COLORS = ["#b19739", "#5fa870"];
 
 export default function LanguageSelector() {
+  // TODO: re-enable after zh-TW features are done
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
+  return null;
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();

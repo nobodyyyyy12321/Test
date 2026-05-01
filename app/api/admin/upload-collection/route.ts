@@ -110,6 +110,7 @@ export async function POST(request: Request) {
   if (!SUPPORTED_LANGS.includes(language)) {
     return Response.json({ error: `Unsupported language: ${language}` }, { status: 400 });
   }
+  const activeLanguage = language;
 
   const results: Record<string, {
     upserted: number;
@@ -147,7 +148,9 @@ export async function POST(request: Request) {
         const nav = await ensureTopLevelItem({
           language,
           name: gridName,
-          href: `/test/${encodeURIComponent(collectionId)}`,
+          href: activeLanguage === "zh-TW"
+            ? `/test/${encodeURIComponent(collectionId)}`
+            : `/test/${encodeURIComponent(collectionId)}?lang=${encodeURIComponent(activeLanguage)}`,
         });
         navCreated = nav.created;
       } catch (err: any) {

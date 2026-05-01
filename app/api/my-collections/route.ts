@@ -12,11 +12,13 @@ async function getUser() {
   return email ? findUserByEmail(email) : findUserByName(name!);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const collections = await getUserCollections(user.id);
+  const { searchParams } = new URL(req.url);
+  const language = searchParams.get("language") ?? "zh-TW";
+  const collections = await getUserCollections(user.id, language);
   return NextResponse.json({ collections });
 }
 
@@ -24,7 +26,7 @@ export async function PATCH(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { collectionId?: unknown; displayName?: unknown; isPublic?: unknown };
+  let body: { collectionId?: unknown; displayName?: unknown; isPublic?: unknown; language?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -32,6 +34,7 @@ export async function PATCH(req: Request) {
   }
 
   const collectionId = typeof body.collectionId === "string" ? body.collectionId.trim() : "";
+  const language = typeof body.language === "string" ? body.language.trim() : "zh-TW";
   if (!collectionId) {
     return NextResponse.json({ error: "collectionId required" }, { status: 400 });
   }
@@ -42,17 +45,17 @@ export async function PATCH(req: Request) {
   }
 
   // PATCH is only valid for collections the user already owns. For first-time create, use POST.
-  const owns = await userOwnsCollection(user.id, collectionId);
+  const owns = await userOwnsCollection(user.id, collectionId, language);
   if (!owns) {
     if (displayName) {
       // back-compat: callers used to PATCH for upsert-style display name updates
-      await upsertUserCollection(user.id, collectionId, displayName);
+      await upsertUserCollection(user.id, collectionId, displayName, false, language);
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  await updateUserCollection(user.id, collectionId, { displayName, isPublic });
+  await updateUserCollection(user.id, collectionId, { displayName, isPublic }, language);
   return NextResponse.json({ ok: true });
 }
 
@@ -62,14 +65,15 @@ export async function DELETE(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const collectionId = searchParams.get("collectionId");
+  const language = searchParams.get("language") ?? "zh-TW";
   if (!collectionId) return NextResponse.json({ error: "collectionId required" }, { status: 400 });
 
-  const deletedOwn = await deleteUserCollection(user.id, collectionId);
+  const deletedOwn = await deleteUserCollection(user.id, collectionId, language);
 
   // Only cascade-drop the underlying questions table if THIS user actually
   // owned a row (so we never drop built-in collections the user merely had a
   // category-ref to) AND no other user still references this collection.
-  const remaining = await countCollectionRefs(collectionId);
+  const remaining = await countCollectionRefs(collectionId, language);
   let tableDeleteError: string | null = null;
   if (deletedOwn && remaining === 0) {
     try {

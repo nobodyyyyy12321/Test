@@ -66,6 +66,8 @@ type UploadPayload = {
   force?: string[]; // collectionIds to overwrite without confirmation
 };
 
+const SUPPORTED_LANGS = ["zh-TW", "zh-CN", "en", "ko", "es", "th", "id"];
+
 /** Recursively search category tree for a node whose href contains /test/<collectionId> */
 function findCategoryName(nodes: CategoryNode[], collectionId: string): string | null {
   for (const node of nodes) {
@@ -106,6 +108,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "collections 欄位為必填" }, { status: 400 });
   }
 
+  const language = payload.language ?? "zh-TW";
+  if (!SUPPORTED_LANGS.includes(language)) {
+    return NextResponse.json({ error: `Unsupported language: ${language}` }, { status: 400 });
+  }
+  const activeLanguage = language;
+
   const results: Record<string, { upserted: number }> = {};
   const errors: Record<string, string> = {};
   const conflicts: Record<string, string> = {}; // own collections the user can overwrite
@@ -120,7 +128,7 @@ export async function POST(request: Request) {
     try {
       // Block if table exists AND this user does not own it
       if (await collectionTableExists(collectionId)) {
-        const owns = await userOwnsCollection(user.id, collectionId);
+        const owns = await userOwnsCollection(user.id, collectionId, activeLanguage);
         if (!owns) {
           errors[collectionId] = `題庫名稱「${collectionId}」已被使用，請改用其他名稱`;
           continue;
@@ -133,7 +141,7 @@ export async function POST(request: Request) {
       const result = await upsertQuizQuestions(collectionId, normalized);
       const displayName =
         findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
-      await upsertUserCollection(user.id, collectionId, displayName);
+      await upsertUserCollection(user.id, collectionId, displayName, false, activeLanguage);
       results[collectionId] = result;
     } catch (err: any) {
       errors[collectionId] = err?.message ?? "未知錯誤";

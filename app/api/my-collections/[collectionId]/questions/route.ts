@@ -19,9 +19,10 @@ async function getUser() {
 
 export async function GET(_req: Request, { params }: { params: Promise<{ collectionId: string }> }) {
   const { collectionId } = await params;
+  const language = new URL(_req.url).searchParams.get("lang") ?? new URL(_req.url).searchParams.get("language") ?? "zh-TW";
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const owns = await userOwnsCollection(user.id, collectionId);
+  const owns = await userOwnsCollection(user.id, collectionId, language);
   if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const questions = await fetchAllQuizQuestionsFresh(collectionId);
@@ -34,9 +35,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ collect
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ collectionId: string }> }) {
   const { collectionId } = await params;
+  const language = new URL(req.url).searchParams.get("lang") ?? new URL(req.url).searchParams.get("language") ?? "zh-TW";
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const owns = await userOwnsCollection(user.id, collectionId);
+  const owns = await userOwnsCollection(user.id, collectionId, language);
   if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const body = await req.json();
@@ -63,9 +65,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ collec
 
 export async function PUT(req: Request, { params }: { params: Promise<{ collectionId: string }> }) {
   const { collectionId } = await params;
+  const language = new URL(req.url).searchParams.get("lang") ?? new URL(req.url).searchParams.get("language") ?? "zh-TW";
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const owns = await userOwnsCollection(user.id, collectionId);
+  const owns = await userOwnsCollection(user.id, collectionId, language);
   if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const body = await req.json();
@@ -85,9 +88,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ collecti
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ collectionId: string }> }) {
   const { collectionId } = await params;
+  const language = new URL(req.url).searchParams.get("lang") ?? new URL(req.url).searchParams.get("language") ?? "zh-TW";
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const owns = await userOwnsCollection(user.id, collectionId);
+  const owns = await userOwnsCollection(user.id, collectionId, language);
   if (!owns) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const body = await req.json();
