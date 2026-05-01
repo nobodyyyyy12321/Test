@@ -27,7 +27,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [categories, setCategories] = useState<CategoryNode[]>(initialCategories ?? []);
   const [loadingLang, setLoadingLang] = useState(false);
   const [query, setQuery] = useState("");
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
@@ -67,6 +67,11 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const LEAF_COLOR = "#5fa870";   // green — leaf items (link directly to a test)
   const colorOf = (n: CategoryNode): string =>
     (n.children?.length || n.dropdown?.length) ? FOLDER_COLOR : LEAF_COLOR;
+  const itemClassForDepth = (depth: number): string => {
+    if (depth <= 0) return "book-link bookshelf-btn";
+    if (depth === 1) return "book-link bookshelf-btn sub-item";
+    return "book-link bookshelf-btn sub-sub-item";
+  };
 
   // Append per-collection test options (problemsPerTest / shuffleProblems) to the href as query params.
   const hrefWithOptions = (n: CategoryNode): string => {
@@ -86,6 +91,80 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       if (child) return { node: child };
     }
     return null;
+  };
+
+  const toggleOpenKey = (key: string) => {
+    setOpenKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const renderCategoryNode = (node: CategoryNode, key: string, depth: number) => {
+    const isOpen = !!query || openKeys.has(key);
+    const hasSub = !!node.children?.length;
+    const hasDrop = !!node.dropdown?.length;
+    const color = colorOf(node);
+    const btnStyle = { color };
+    const isPinned = loggedIn && pinnedNames.includes(node.name);
+    const itemClass = itemClassForDepth(depth);
+    const isDropOpen = openDropKey === key;
+
+    return (
+      <div key={key} className="contents">
+        <div
+          className={hasDrop ? "relative" : undefined}
+          onContextMenu={loggedIn ? e => openCtx(e, node.name, node.name, isPinned ? "pinned" : "grid", node.href) : undefined}
+        >
+          {hasSub ? (
+            <button
+              type="button"
+              className={`${itemClass} ${isOpen ? "active-category" : ""}`.trim()}
+              style={btnStyle}
+              onClick={() => toggleOpenKey(key)}
+            >
+              <span className="mr-1">📁</span>{node.name}
+            </button>
+          ) : hasDrop ? (
+            <button
+              type="button"
+              className={`${itemClass} flex items-center gap-1 ${isDropOpen ? "active-category" : ""}`.trim()}
+              style={btnStyle}
+              onClick={() => {
+                setOpenDropKey(isDropOpen ? null : key);
+                if (isDropOpen) setOpenYearKey(null);
+              }}
+            >
+              <span className="mr-1">📁</span>{node.name}
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isDropOpen ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          ) : (
+            <Link href={hrefWithOptions(node)} className={itemClass} style={btnStyle}>
+              {node.name}
+            </Link>
+          )}
+          {hasDrop && isDropOpen && (
+            <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${(node.dropdownAlign === "right" || node.name === "數學學測") ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
+              {node.dropdown!.map(opt => (
+                <Link
+                  key={opt.href + opt.name}
+                  href={opt.href}
+                  className="block px-4 py-3 text-left"
+                  style={{ color: LEAF_COLOR, fontSize: "inherit" }}
+                  onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
+                >
+                  {opt.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {hasSub && isOpen && node.children!.map((child, idx) => renderCategoryNode(child, `${key}-${idx}`, depth + 1))}
+      </div>
+    );
   };
 
   const profileTabsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -321,7 +400,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   }, []);
 
   useEffect(() => {
-    setOpenKey(null);
+    setOpenKeys(new Set());
     setOpenDropKey(null);
     setOpenYearKey(null);
     setQuery("");
@@ -652,7 +731,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             style={{ backgroundColor: "var(--zen-bg)", color: "#b19739", borderColor: "#b19739" }}
             placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpenKey(null); }}
+            onChange={(e) => { setQuery(e.target.value); setOpenKeys(new Set()); }}
           />
         </div>
       </div>
@@ -832,128 +911,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
                   <div className="bookshelf-grid home-bookshelf-grid">
-                    {subjects.map((subject, i) => {
-                      const key = `${language}-${i}-${subject.href || subject.name}`;
-                      const isOpen = !!query || openKey === key || openKey === subject.name;
-                      const hasSub = !!subject.children?.length;
-                      const hasDrop = !!subject.dropdown?.length;
-                      const color = colorOf(subject);
-                      const btnStyle = { color };
-                      const isPinned = loggedIn && pinnedNames.includes(subject.name);
-
-                      return (
-                        <div key={key} className="contents">
-                          <div
-                            className="relative"
-                            onContextMenu={loggedIn ? e => openCtx(e, subject.name, subject.name, isPinned ? "pinned" : "grid", subject.href) : undefined}
-                          >
-                            {hasSub ? (
-                              <button
-                                type="button"
-                                className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`}
-                                style={btnStyle}
-                                onClick={() => setOpenKey(isOpen ? null : key)}
-                              >
-                                <span className="mr-1">📁</span>{subject.name}
-                              </button>
-                            ) : hasDrop ? (
-                              <button
-                                type="button"
-                                className={`book-link bookshelf-btn flex items-center gap-1 ${openDropKey === key ? "active-category" : ""}`}
-                                style={btnStyle}
-                                onClick={() => setOpenDropKey(openDropKey === key ? null : key)}
-                              >
-                                <span className="mr-1">📁</span>{subject.name}
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: openDropKey === key ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
-                              </button>
-                            ) : (
-                              <Link href={hrefWithOptions(subject)} className="book-link bookshelf-btn" style={btnStyle}>
-                                {subject.name}
-                              </Link>
-                            )}
-                            {hasDrop && openDropKey === key && (
-                              <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${subject.dropdownAlign === "right" ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
-                                {subject.dropdown!.map(opt => (
-                                  <Link
-                                    key={opt.href + opt.name}
-                                    href={opt.href}
-                                    className="block px-4 py-3 text-left"
-                                    style={{ color: LEAF_COLOR, fontSize: "inherit" }}
-                                    onClick={() => setOpenDropKey(null)}
-                                  >
-                                    {opt.name}
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {isOpen && subject.children?.map((sub, j) => {
-                            const subKey = `${key}-${j}`;
-                            if (sub.dropdown?.length) {
-                              const isDropOpen = openDropKey === subKey;
-                              const subDropPinned = pinnedNames.includes(sub.name);
-                              return (
-                                <div key={subKey} className="contents">
-                                  <div
-                                    onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, subDropPinned ? "pinned" : "grid", sub.href) : undefined}
-                                  >
-                                    <button
-                                      type="button"
-                                      className={`book-link bookshelf-btn sub-item ${isDropOpen ? "active-category" : ""}`}
-                                      style={btnStyle}
-                                      onClick={() => setOpenDropKey(isDropOpen ? null : subKey)}
-                                    >
-                                      <span className="mr-1">📁</span>{sub.name}
-                                    </button>
-                                  </div>
-                                  {isDropOpen && (
-                                    <div className="relative">
-                                      <button
-                                        type="button"
-                                        className="book-link bookshelf-btn sub-sub-item flex items-center gap-1"
-                                        style={btnStyle}
-                                        onClick={() => setOpenYearKey(openYearKey === subKey ? null : subKey)}
-                                      >
-                                        年份
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                      </button>
-                                      {openYearKey === subKey && (
-                                        <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${(sub.dropdownAlign === "right" || sub.name === "數學學測") ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
-                                          {sub.dropdown.map((opt) => (
-                                            <Link
-                                              key={opt.href + opt.name}
-                                              href={opt.href}
-                                              className="block px-4 py-3 text-left"
-                                              style={{ color: LEAF_COLOR, fontSize: "inherit" }}
-                                              onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
-                                            >
-                                              {opt.name}
-                                            </Link>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-                            const subPinned = pinnedNames.includes(sub.name);
-                            const subColor = colorOf(sub);
-                            return (
-                              <div
-                                key={subKey}
-                                onContextMenu={loggedIn ? e => openCtx(e, sub.name, sub.name, subPinned ? "pinned" : "grid", sub.href) : undefined}
-                              >
-                                <Link href={hrefWithOptions(sub)} className="book-link bookshelf-btn sub-item" style={{ color: subColor }}>
-                                  {sub.name}
-                                </Link>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                    {subjects.map((subject, i) => renderCategoryNode(subject, `${language}-${i}-${subject.href || subject.name}`, 0))}
                   </div>
                 )}
 

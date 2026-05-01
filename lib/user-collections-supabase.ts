@@ -74,7 +74,8 @@ export async function upsertUserCollection(
       if (!res.ok) throw new Error(await res.text());
       return;
     }
-    if (text.includes("language")) {
+    if (text.includes("column") && text.includes("language") && text.includes("does not exist")) {
+      // Truly legacy DB that has no language column at all — omit it.
       const legacyUrl = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,collection_id`;
       const fallbackBody = { user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
       res = await fetch(legacyUrl, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
