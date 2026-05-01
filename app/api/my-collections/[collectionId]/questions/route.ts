@@ -50,7 +50,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ collec
       options: body.options !== undefined ? body.options : undefined,
       answer: body.answer !== undefined ? body.answer : undefined,
       level: body.level !== undefined ? body.level : undefined,
-      group_content: body.group_content !== undefined ? body.group_content : undefined,
+      group_range: body.group_range !== undefined
+        ? body.group_range
+        : (body.group_content !== undefined ? body.group_content : undefined),
     });
     return NextResponse.json({ ok: true });
   } catch (e) {

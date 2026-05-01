@@ -85,6 +85,7 @@ function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[numbe
         .map(([label, text]) => ({ label, text }))
         .sort((a, b) => a.label.localeCompare(b.label))
     : [];
+  const normalizedAnswer = row.answer ?? ((row.type === "multiple" || row.type === "multiple_choice") ? [] : "");
   return {
     id: String(row.number),
     number: row.number,
@@ -93,7 +94,7 @@ function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[numbe
       : row.type === "single_choice" ? "single"
       : (row.type as Question["type"])) ?? "single",
     options,
-    answer: row.answer,
+    answer: normalizedAnswer,
     level: row.level ?? null,
     groupContent: null,
     groupRange: null,
