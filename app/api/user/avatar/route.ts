@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { getStorageBucket } from "../../../../lib/firebase-admin";
+import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { auth } from "../../../../auth";
 import { findUserByEmail, findUserByName, updateUser } from "../../../../lib/users";
+
+const AVATAR_BUCKET = process.env.SUPABASE_AVATAR_BUCKET || "avatars";
 
 export async function POST(req: Request) {
   try {
@@ -49,46 +51,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Image too large (max 5MB)" }, { status: 413 });
     }
 
-    let url = "";
-    const filename = `avatars/${uuidv4()}.${ext}`;
+    const sb = getSupabaseAdmin();
+    const filename = `${user.id}/${uuidv4()}.${ext}`;
 
-    try {
-      const bucket = getStorageBucket();
-      const file = bucket.file(filename);
-      await file.save(buffer, {
-        metadata: {
-          contentType: mime,
-          cacheControl: "public, max-age=31536000, immutable",
-        },
+    const { error: uploadError } = await sb
+      .storage
+      .from(AVATAR_BUCKET)
+      .upload(filename, buffer, {
+        contentType: mime,
+        cacheControl: "31536000",
+        upsert: false,
       });
+    if (uploadError) {
+      console.error("Supabase avatar upload failed:", uploadError);
+      return NextResponse.json({ error: "Avatar upload failed" }, { status: 500 });
+    }
 
-      // Try public URL first
-      try {
-        await file.makePublic();
-        url = `https://storage.googleapis.com/${bucket.name}/${encodeURIComponent(filename)}`;
-      } catch (e) {
-        // Buckets with uniform access often disallow makePublic().
-        // Fall back to a long-lived signed URL so avatar still works.
-        console.warn("makePublic failed, fallback to signed URL:", e);
-        const [signedUrl] = await file.getSignedUrl({
-          action: "read",
-          expires: "03-01-2491",
-        });
-        url = signedUrl;
+    // `getPublicUrl` returns a URL even when bucket is private; that URL won't be readable.
+    // Prefer a long-lived signed URL so avatars render for both private and public buckets.
+    const { data: signedData, error: signedErr } = await sb
+      .storage
+      .from(AVATAR_BUCKET)
+      .createSignedUrl(filename, 60 * 60 * 24 * 365 * 10);
+
+    let url = signedData?.signedUrl || "";
+    if (!url) {
+      if (signedErr) {
+        console.warn("Supabase signed URL failed, fallback to public URL:", signedErr);
       }
-    } catch (storageError) {
-      // Fallback path: save compact data URL directly when storage is not configured or upload fails.
-      // Keep it small to avoid hitting Firestore document size limits.
-      const maxFallbackChars = 350_000;
-      if (rawData.length > maxFallbackChars) {
-        console.error("Storage upload failed and fallback payload too large:", storageError);
-        return NextResponse.json(
-          { error: "Storage upload failed and image is too large for fallback storage" },
-          { status: 500 }
-        );
-      }
-      console.warn("Storage upload failed, using data URL fallback:", storageError);
-      url = rawData;
+      const publicResult = sb.storage.from(AVATAR_BUCKET).getPublicUrl(filename);
+      url = publicResult.data.publicUrl;
+    }
+    if (!url) {
+      return NextResponse.json({ error: "Avatar upload succeeded but URL generation failed" }, { status: 500 });
     }
 
     // update user record
