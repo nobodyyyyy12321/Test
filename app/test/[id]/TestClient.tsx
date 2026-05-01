@@ -303,7 +303,11 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   }, [focusedIdx]);
 
   useEffect(() => {
-    if (checkedIdxs.size === 0) { setShareText(null); setShareTitle(null); return; }
+    if (checkedIdxs.size === 0) { 
+      setShareText(null); 
+      setShareTitle(pageTitle);
+      return; 
+    }
     const text = questions
       .filter((_, i) => checkedIdxs.has(i))
       .map(q => {

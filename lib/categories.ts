@@ -19,7 +19,6 @@ type CategoryRow = {
   href: string | null;
   name: string;
   language_code: string | null;
-  language: string | null;
   dropdown: DropdownItemRow[];
   dropdown_align: string | null;
   problems_per_test: number | null;

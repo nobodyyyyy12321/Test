@@ -4,16 +4,6 @@ import { useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
-const ENGLISH_LEVEL_MAP: Record<string, string> = {
-  "1,2": "教育部2000單",
-  "3,4": "教育部4000單",
-  "5,6": "教育部6000單",
-};
-
-const ID_NAME_MAP: Record<string, string> = {
-  quoteChinese: "名言佳句",
-};
-
 function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
   if (pathname === "/" || pathname === "") return "Test";
 
@@ -22,10 +12,9 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
   if (segments[0] === "test" && segments[1]) {
     const id = decodeURIComponent(segments[1]);
     if (id === "englishWords") {
-      const levels = searchParams.get("levels");
-      return levels ? (ENGLISH_LEVEL_MAP[levels] ?? "英文單字") : "英文單字";
+      return "英文單字";
     }
-    return ID_NAME_MAP[id] ?? id;
+    return id;
   }
 
   return "Test";
