@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getListById } from "../../../lib/lists-supabase";
 import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
+import { getSupabaseAdmin } from "../../../lib/supabase-admin";
 import TestClient from "./TestClient";
 
 // deduplicate within same request (generateMetadata + TestPage both call this)
@@ -38,7 +39,26 @@ function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | nul
 async function resolveTitle(id: string, levels?: string | null, language?: string | null): Promise<string> {
   const lang = language && language.trim() ? language : "zh-TW";
   const categories = await getCategoriesCached(lang);
-  return findNameInTree(categories, id, levels) ?? id;
+  const categoryName = findNameInTree(categories, id, levels);
+  if (categoryName) return categoryName;
+
+  const supabase = getSupabaseAdmin();
+  const { data: languageRows } = await supabase
+    .from("pcategories")
+    .select("name")
+    .eq("collection_id", id)
+    .eq("language", lang)
+    .limit(1);
+  const languageTitle = languageRows?.[0]?.name as string | undefined;
+  if (languageTitle) return languageTitle;
+
+  const { data: anyRows } = await supabase
+    .from("pcategories")
+    .select("name")
+    .eq("collection_id", id)
+    .limit(1);
+  const fallbackTitle = anyRows?.[0]?.name as string | undefined;
+  return fallbackTitle ?? id;
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
