@@ -127,9 +127,10 @@ export async function POST(request: Request) {
 
     try {
       const tableId = resolveTableName(collectionId, activeLanguage);
-      // Block if table exists AND this user does not own it
+      // Block if table exists AND this user does not own it (check across all languages —
+      // same collectionId always maps to the same table regardless of language).
       if (await collectionTableExists(tableId)) {
-        const owns = await userOwnsCollection(user.id, collectionId, activeLanguage);
+        const owns = await userOwnsCollection(user.id, collectionId);
         if (!owns) {
           errors[collectionId] = `題庫名稱「${collectionId}」已被使用，請改用其他名稱`;
           continue;

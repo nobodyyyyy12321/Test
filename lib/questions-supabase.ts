@@ -4,11 +4,10 @@ const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
 /**
  * Resolves the actual Supabase table name for a collection.
  * zh-TW (default) uses the collectionId as-is.
- * Other languages append a "__lang" suffix, e.g. "EnvIssue__en".
+ * Table name is always the collectionId as-is, regardless of language.
  */
 export function resolveTableName(collectionId: string, language?: string | null): string {
-  if (!language || language === "zh-TW") return collectionId;
-  return `${collectionId}__${language}`;
+  return collectionId;
 }
 
 const HEADERS = {
