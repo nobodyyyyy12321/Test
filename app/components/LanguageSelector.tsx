@@ -7,12 +7,12 @@ type LanguageCode = "zh-TW" | "zh-CN" | "en" | "es" | "th" | "id" | "ko";
 
 const LANGUAGES: { value: LanguageCode; label: string }[] = [
   { value: "zh-TW", label: "中文繁體" },
-  { value: "zh-CN", label: "中文简体" },
+  // { value: "zh-CN", label: "中文简体" },
   { value: "en", label: "English" },
-  { value: "es", label: "Español" },
-  { value: "th", label: "ไทย" },
-  { value: "id", label: "Bahasa Indonesia" },
-  { value: "ko", label: "한국어" },
+  // { value: "es", label: "Español" },
+  // { value: "th", label: "ไทย" },
+  // { value: "id", label: "Bahasa Indonesia" },
+  // { value: "ko", label: "한국어" },
 ];
 
 const COLORS = ["#b19739", "#5fa870"];
@@ -20,7 +20,7 @@ const COLORS = ["#b19739", "#5fa870"];
 export default function LanguageSelector() {
   // TODO: re-enable after zh-TW features are done
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
-  return null;
+  //return null;
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
