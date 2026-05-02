@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { getListById } from "../../../lib/lists-supabase";
 import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
 import TestClient from "./TestClient";
@@ -44,7 +45,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { id } = await params;
   const { levels, listId, lang, language, name } = await searchParams;
   const decodedId = decodeURIComponent(id);
-  const activeLang = lang ?? language ?? "zh-TW";
+  const cookieStore = await cookies();
+  const cookieLang = cookieStore.get("siteLanguage")?.value;
+  const activeLang = lang ?? language ?? cookieLang ?? "zh-TW";
 
   let title = await resolveTitle(decodedId, levels, activeLang);
   if (name) title = decodeURIComponent(name);
@@ -63,7 +66,9 @@ export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { levels, ordered, listId, replay, autostart, count, lang, language, name } = await searchParams;
   const decodedId = decodeURIComponent(id);
-  const activeLang = lang ?? language ?? "zh-TW";
+  const cookieStore = await cookies();
+  const cookieLang = cookieStore.get("siteLanguage")?.value;
+  const activeLang = lang ?? language ?? cookieLang ?? "zh-TW";
 
   const [list, pageTitle] = await Promise.all([
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),

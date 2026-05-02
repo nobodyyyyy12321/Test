@@ -247,7 +247,7 @@ export default function MyUploadClient() {
                   <li key={id}>
                     題庫「{id}」已寫入 {r.upserted} 題 —{" "}
                     <a
-                      href={`/test/${encodeURIComponent(id)}?autostart=1${result.language && result.language !== "zh-TW" ? `&lang=${encodeURIComponent(result.language)}` : ""}`}
+                      href={`/test/${encodeURIComponent(id)}?autostart=1`}
                       className="underline text-green-600 dark:text-green-400"
                     >
                       立即作答

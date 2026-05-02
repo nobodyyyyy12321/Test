@@ -26,7 +26,7 @@ type Row = {
   user_id: string;
   language?: string | null;
   collection_id: string;
-  display_name: string;
+  name: string;
   created_at: string;
   from_grid?: boolean | null;
   is_public?: boolean | null;
@@ -38,7 +38,7 @@ function rowToRef(row: Row): UserCollectionRef {
     userId: row.user_id,
     language: row.language ?? "zh-TW",
     collectionId: row.collection_id,
-    displayName: row.display_name,
+    displayName: row.name,
     createdAt: row.created_at,
     fromGrid: row.from_grid ?? false,
     isPublic: row.is_public ?? false,
@@ -63,13 +63,13 @@ export async function upsertUserCollection(
 ): Promise<void> {
   const url = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,language,collection_id`;
   const headers = { ...HEADERS, Prefer: "resolution=merge-duplicates" };
-  const fullBody = { user_id: userId, language, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
+  const fullBody = { user_id: userId, language, collection_id: collectionId, name: displayName, from_grid: fromGrid };
   let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fullBody) });
   if (!res.ok) {
     const text = await res.text();
     // legacy DB without the from_grid/language columns — retry without optional columns.
     if (text.includes("from_grid")) {
-      const fallbackBody = { user_id: userId, language, collection_id: collectionId, display_name: displayName };
+      const fallbackBody = { user_id: userId, language, collection_id: collectionId, name: displayName };
       res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
       if (!res.ok) throw new Error(await res.text());
       return;
@@ -77,7 +77,7 @@ export async function upsertUserCollection(
     if (text.includes("column") && text.includes("language") && text.includes("does not exist")) {
       // Truly legacy DB that has no language column at all — omit it.
       const legacyUrl = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,collection_id`;
-      const fallbackBody = { user_id: userId, collection_id: collectionId, display_name: displayName, from_grid: fromGrid };
+      const fallbackBody = { user_id: userId, collection_id: collectionId, name: displayName, from_grid: fromGrid };
       res = await fetch(legacyUrl, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
       if (!res.ok) throw new Error(await res.text());
       return;
@@ -97,7 +97,7 @@ export async function updateUserCollection(
   language?: string
 ): Promise<void> {
   const body: Record<string, unknown> = {};
-  if (updates.displayName !== undefined) body.display_name = updates.displayName;
+  if (updates.displayName !== undefined) body.name = updates.displayName;
   if (updates.isPublic !== undefined) body.is_public = updates.isPublic;
   if (Object.keys(body).length === 0) return;
   let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}`;
@@ -140,12 +140,12 @@ export async function userOwnsCollection(userId: string, collectionId: string, l
 }
 
 export async function getUserCollectionDisplayName(userId: string, collectionId: string, language?: string): Promise<string | null> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=display_name&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&collection_id=eq.${encodeURIComponent(collectionId)}&select=name&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
-  const rows: Array<{ display_name: string }> = await res.json();
-  return rows[0]?.display_name ?? null;
+  const rows: Array<{ name: string }> = await res.json();
+  return rows[0]?.name ?? null;
 }
 
 export async function getUserCollectionRef(userId: string, collectionId: string, language?: string): Promise<UserCollectionRef | null> {

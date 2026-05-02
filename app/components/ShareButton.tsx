@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
@@ -13,9 +13,6 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
     const explicitName = searchParams.get("name");
     if (explicitName) return decodeURIComponent(explicitName);
     const id = decodeURIComponent(segments[1]);
-    if (id === "englishWords") {
-      return "英文單字";
-    }
     return id;
   }
 
@@ -26,16 +23,49 @@ function ShareButtonInner() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editText, setEditText] = useState("");
+  const [resolvedUrlTitle, setResolvedUrlTitle] = useState<string | null>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const segments = pathname.split("/").filter(Boolean);
+  const isTestRoute = segments[0] === "test" && !!segments[1] && segments[1] !== "list";
 
   const { shareText, shareTitle } = useShare();
   const urlTitle = getPageTitle(pathname, searchParams);
   const documentTitle = typeof document !== "undefined"
     ? document.title.replace(/\s*[\u2014\-]\s*Test\s*$/, "").trim()
     : "";
-  const title = shareTitle ?? (documentTitle || urlTitle);
+  const title = isTestRoute
+    ? (resolvedUrlTitle || shareTitle || documentTitle || urlTitle)
+    : (shareTitle || documentTitle || resolvedUrlTitle || urlTitle);
   const isTextMode = !!shareText;
+
+  useEffect(() => {
+    setResolvedUrlTitle(null);
+
+    const explicitName = searchParams.get("name");
+    if (explicitName || segments[0] !== "test" || !segments[1] || segments[1] === "list") {
+      return;
+    }
+
+    const id = decodeURIComponent(segments[1]);
+    const params = new URLSearchParams({ id });
+    const levels = searchParams.get("levels");
+    const lang = searchParams.get("lang") ?? searchParams.get("language") ?? (typeof localStorage !== "undefined" ? localStorage.getItem("siteLanguage") : null);
+    if (levels) params.set("levels", levels);
+    if (lang) params.set("lang", lang);
+
+    let cancelled = false;
+    fetch(`/api/share-title?${params.toString()}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: { title?: string } | null) => {
+        if (!cancelled && data?.title) setResolvedUrlTitle(data.title);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, searchParams]);
 
   const getUrl = () => {
     const isHome = pathname === "/" || pathname === "";

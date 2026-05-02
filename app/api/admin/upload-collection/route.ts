@@ -149,9 +149,7 @@ export async function POST(request: Request) {
         const nav = await ensureTopLevelItem({
           language,
           name: gridName,
-          href: activeLanguage === "zh-TW"
-            ? `/test/${encodeURIComponent(collectionId)}`
-            : `/test/${encodeURIComponent(collectionId)}?lang=${encodeURIComponent(activeLanguage)}`,
+          href: `/test/${encodeURIComponent(collectionId)}`,
         });
         navCreated = nav.created;
       } catch (err: any) {

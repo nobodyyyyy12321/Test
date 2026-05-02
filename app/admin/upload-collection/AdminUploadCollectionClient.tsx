@@ -223,7 +223,7 @@ export default function AdminUploadCollectionClient() {
                     {" — "}
                     <a
                       className="underline text-green-700 dark:text-green-400"
-                      href={`/test/${encodeURIComponent(id)}?autostart=1${result.language && result.language !== "zh-TW" ? `&lang=${encodeURIComponent(result.language)}` : ""}`}
+                      href={`/test/${encodeURIComponent(id)}?autostart=1`}
                     >
                       立即作答
                     </a>

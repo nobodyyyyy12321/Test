@@ -106,7 +106,7 @@ create table if not exists pcategories (
   user_id       text not null references users(id) on delete cascade,
   language      text not null default 'zh-TW',
   collection_id text not null,
-  display_name  text not null,
+  name          text not null,
   created_at    timestamptz default now(),
   unique(user_id, language, collection_id)
 );
