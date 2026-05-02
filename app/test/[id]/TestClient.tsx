@@ -304,8 +304,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
 
   useEffect(() => {
     if (checkedIdxs.size === 0) { 
-      setShareText(null); 
-      setShareTitle(pageTitle);
+      if (!showResults) {
+        setShareText(null); 
+        setShareTitle(pageTitle);
+      }
       return; 
     }
     const text = questions
@@ -323,6 +325,25 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   useEffect(() => {
     return () => { setShareText(null); setShareTitle(null); };
   }, [setShareText, setShareTitle]);
+
+  useEffect(() => {
+    if (!showResults || checkedIdxs.size > 0) return;
+    const gradableQs = questions.filter(q => q.type !== "group");
+    const total = gradableQs.length;
+    if (total === 0) { setShareText(null); setShareTitle(pageTitle); return; }
+    const correctCount = gradableQs.filter((q, _) => {
+      const idx = questions.indexOf(q);
+      return gradeAnswer(q, userAnswers[idx]);
+    }).length;
+    const score = Math.round((correctCount / total) * 100);
+    const en = language === "en";
+    const url = typeof window !== "undefined" ? window.location.href : "https://testtttt.io";
+    const msg = en
+      ? `I scored ${score}/100 on "${pageTitle}"! Come and challenge yourself!\n${url}`
+      : `我在「${pageTitle}」中拿了 ${score}/100 分，快來挑戰！\n${url}`;
+    setShareTitle(pageTitle);
+    setShareText(msg);
+  }, [showResults, checkedIdxs.size, questions, userAnswers, pageTitle, language, setShareText, setShareTitle]);
 
   useEffect(() => {
     if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
@@ -512,7 +533,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                   className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
                   style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
                 >
-                  錯題重練
+                  {L.retryWrong}
                 </button>
               )}
               <button
