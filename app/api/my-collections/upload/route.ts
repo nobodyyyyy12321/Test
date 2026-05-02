@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { upsertQuizQuestions, collectionTableExists } from "@/lib/questions-supabase";
+import { upsertQuizQuestions, collectionTableExists, resolveTableName } from "@/lib/questions-supabase";
 import { upsertUserCollection, userOwnsCollection } from "@/lib/user-collections-supabase";
 
 type QuestionRow = {
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
   }
   const activeLanguage = language;
 
-  const results: Record<string, { upserted: number }> = {};
+  const results: Record<string, { upserted: number; gridName: string }> = {};
   const errors: Record<string, string> = {};
   const conflicts: Record<string, string> = {}; // own collections the user can overwrite
   const forceSet = new Set(payload.force ?? []);
@@ -126,8 +126,9 @@ export async function POST(request: Request) {
     if (normalized.length === 0) continue;
 
     try {
+      const tableId = resolveTableName(collectionId, activeLanguage);
       // Block if table exists AND this user does not own it
-      if (await collectionTableExists(collectionId)) {
+      if (await collectionTableExists(tableId)) {
         const owns = await userOwnsCollection(user.id, collectionId, activeLanguage);
         if (!owns) {
           errors[collectionId] = `題庫名稱「${collectionId}」已被使用，請改用其他名稱`;
@@ -138,11 +139,11 @@ export async function POST(request: Request) {
           continue;
         }
       }
-      const result = await upsertQuizQuestions(collectionId, normalized);
+      const result = await upsertQuizQuestions(tableId, normalized);
       const displayName =
         findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
       await upsertUserCollection(user.id, collectionId, displayName, false, activeLanguage);
-      results[collectionId] = result;
+      results[collectionId] = { upserted: result.upserted, gridName: displayName };
     } catch (err: any) {
       errors[collectionId] = err?.message ?? "未知錯誤";
     }
@@ -159,5 +160,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: firstError, conflicts: Object.keys(conflicts).length ? conflicts : undefined }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, results, errors: Object.keys(errors).length ? errors : undefined, conflicts: Object.keys(conflicts).length ? conflicts : undefined });
+  return NextResponse.json({ ok: true, language: activeLanguage, results, errors: Object.keys(errors).length ? errors : undefined, conflicts: Object.keys(conflicts).length ? conflicts : undefined });
 }

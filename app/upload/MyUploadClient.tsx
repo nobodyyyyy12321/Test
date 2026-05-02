@@ -24,7 +24,8 @@ const EXAMPLE = JSON.stringify(
 
 type UploadResult = {
   ok: boolean;
-  results?: Record<string, { upserted: number }>;
+  language?: string;
+  results?: Record<string, { upserted: number; gridName: string }>;
   errors?: Record<string, string>;
   conflicts?: Record<string, string>;
   error?: string;
@@ -246,7 +247,7 @@ export default function MyUploadClient() {
                   <li key={id}>
                     題庫「{id}」已寫入 {r.upserted} 題 —{" "}
                     <a
-                      href={`/test/${encodeURIComponent(id)}?autostart=1`}
+                      href={`/test/${encodeURIComponent(id)}?autostart=1${result.language && result.language !== "zh-TW" ? `&lang=${encodeURIComponent(result.language)}` : ""}`}
                       className="underline text-green-600 dark:text-green-400"
                     >
                       立即作答

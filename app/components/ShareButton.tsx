@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
-function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
+function getPageTitle(pathname: string): string {
   if (pathname === "/" || pathname === "") return "Test";
 
   const segments = pathname.split("/").filter(Boolean);
@@ -28,8 +28,11 @@ function ShareButtonInner() {
   const searchParams = useSearchParams();
 
   const { shareText, shareTitle } = useShare();
-  const urlTitle = getPageTitle(pathname, searchParams);
-  const title = shareTitle ?? urlTitle;
+  const urlTitle = getPageTitle(pathname);
+  const documentTitle = typeof document !== "undefined"
+    ? document.title.replace(/\s*[\u2014\-]\s*Test\s*$/, "").trim()
+    : "";
+  const title = shareTitle ?? (documentTitle || urlTitle);
   const isTextMode = !!shareText;
 
   const getUrl = () => {

@@ -221,7 +221,12 @@ export default function AdminUploadCollectionClient() {
                     題庫「{id}」（顯示名稱：{r.gridName}）已寫入 {r.upserted} 題
                     {r.navCreated ? "，並加到首頁分類" : "，首頁分類已更新名稱"}
                     {" — "}
-                    <a className="underline text-green-700 dark:text-green-400" href={`/test/${encodeURIComponent(id)}?autostart=1`}>立即作答</a>
+                    <a
+                      className="underline text-green-700 dark:text-green-400"
+                      href={`/test/${encodeURIComponent(id)}?autostart=1${result.language && result.language !== "zh-TW" ? `&lang=${encodeURIComponent(result.language)}` : ""}`}
+                    >
+                      立即作答
+                    </a>
                     {r.navWarning && <span className="text-amber-600 dark:text-amber-400 ml-2">⚠ {r.navWarning}</span>}
                   </li>
                 ))}
