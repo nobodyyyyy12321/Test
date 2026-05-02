@@ -233,7 +233,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const { setShareText, setShareTitle } = useShare();
+  const { setShareText, setShareTitle, setShareScoreCard } = useShare();
 
   const checkAnswers = useCallback(() => {
     setShowResults(true);
@@ -307,6 +307,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       if (!showResults) {
         setShareText(null); 
         setShareTitle(pageTitle);
+        setShareScoreCard(null);
       }
       return; 
     }
@@ -319,12 +320,13 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       })
       .join("\n\n");
     setShareTitle(pageTitle);
+    setShareScoreCard(null);
     setShareText(text + `\n\n${L.shareFrom}`);
-  }, [checkedIdxs, questions, id, setShareText, setShareTitle, pageTitle]);
+  }, [checkedIdxs, questions, id, setShareText, setShareTitle, setShareScoreCard, pageTitle]);
 
   useEffect(() => {
-    return () => { setShareText(null); setShareTitle(null); };
-  }, [setShareText, setShareTitle]);
+    return () => { setShareText(null); setShareTitle(null); setShareScoreCard(null); };
+  }, [setShareText, setShareTitle, setShareScoreCard]);
 
   useEffect(() => {
     if (!showResults || checkedIdxs.size > 0) return;
@@ -338,12 +340,13 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     const score = Math.round((correctCount / total) * 100);
     const en = language === "en";
     const url = typeof window !== "undefined" ? window.location.href : "https://testtttt.io";
-    const msg = en
-      ? `I scored ${score}/100 on "${pageTitle}"! Come and challenge yourself!\n${url}`
-      : `我在「${pageTitle}」中拿了 ${score}/100 分，快來挑戰！\n${url}`;
+    const card = en
+      ? `I scored ${score}/100 on "${pageTitle}"! Come and challenge yourself!`
+      : `我在「${pageTitle}」中拿了 ${score}/100 分，快來挑戰！`;
     setShareTitle(pageTitle);
-    setShareText(msg);
-  }, [showResults, checkedIdxs.size, questions, userAnswers, pageTitle, language, setShareText, setShareTitle]);
+    setShareScoreCard(card);
+    setShareText(url);
+  }, [showResults, checkedIdxs.size, questions, userAnswers, pageTitle, language, setShareText, setShareTitle, setShareScoreCard]);
 
   useEffect(() => {
     if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
@@ -589,7 +592,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                         {checkedIdxs.has(idx) && "✓"}
                       </button>
                     )}
-                    {id !== "englishWords" && <span style={{ color: "#5fa870" }}>#{q.number}</span>}
+                    {id !== "englishWords" && ordered && <span style={{ color: "#5fa870" }}>#{q.number}</span>}
                     {qt === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.multipleBadge}</span>}
                     {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.fillBadge}</span>}
                   </div>
