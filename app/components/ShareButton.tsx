@@ -4,12 +4,14 @@ import { useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
-function getPageTitle(pathname: string): string {
+function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
   if (pathname === "/" || pathname === "") return "Test";
 
   const segments = pathname.split("/").filter(Boolean);
 
   if (segments[0] === "test" && segments[1]) {
+    const explicitName = searchParams.get("name");
+    if (explicitName) return decodeURIComponent(explicitName);
     const id = decodeURIComponent(segments[1]);
     if (id === "englishWords") {
       return "英文單字";
@@ -28,7 +30,7 @@ function ShareButtonInner() {
   const searchParams = useSearchParams();
 
   const { shareText, shareTitle } = useShare();
-  const urlTitle = getPageTitle(pathname);
+  const urlTitle = getPageTitle(pathname, searchParams);
   const documentTitle = typeof document !== "undefined"
     ? document.title.replace(/\s*[\u2014\-]\s*Test\s*$/, "").trim()
     : "";

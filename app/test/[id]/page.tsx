@@ -9,7 +9,7 @@ const getListByIdCached = cache(getListById);
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string; count?: string; lang?: string; language?: string }>;
+  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string; count?: string; lang?: string; language?: string; name?: string }>;
 };
 
 function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
@@ -42,11 +42,12 @@ async function resolveTitle(id: string, levels?: string | null, language?: strin
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { id } = await params;
-  const { levels, listId, lang, language } = await searchParams;
+  const { levels, listId, lang, language, name } = await searchParams;
   const decodedId = decodeURIComponent(id);
   const activeLang = lang ?? language ?? "zh-TW";
 
   let title = await resolveTitle(decodedId, levels, activeLang);
+  if (name) title = decodeURIComponent(name);
   if (listId) {
     const list = await getListByIdCached(listId).catch(() => null);
     if (list?.title) title = list.title;
@@ -60,7 +61,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { levels, ordered, listId, replay, autostart, count, lang, language } = await searchParams;
+  const { levels, ordered, listId, replay, autostart, count, lang, language, name } = await searchParams;
   const decodedId = decodeURIComponent(id);
   const activeLang = lang ?? language ?? "zh-TW";
 
@@ -69,7 +70,7 @@ export default async function TestPage({ params, searchParams }: Props) {
     resolveTitle(decodedId, levels, activeLang),
   ]);
 
-  const title = list?.title ?? pageTitle;
+  const title = list?.title ?? (name ? decodeURIComponent(name) : pageTitle);
   const parsedCount = count ? parseInt(count, 10) : NaN;
   const limit = Number.isFinite(parsedCount) && parsedCount > 0 ? parsedCount : null;
 

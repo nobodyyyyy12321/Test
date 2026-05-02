@@ -73,21 +73,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return "book-link bookshelf-btn sub-sub-item";
   };
 
-  const withDisplayName = (href: string, displayName: string): string => {
-    try {
-      const u = new URL(href, "http://x");
-      if (u.pathname.startsWith("/test/") && !u.searchParams.get("name")) {
-        u.searchParams.set("name", displayName);
-      }
-      return `${u.pathname}${u.search}${u.hash}`;
-    } catch {
-      return href;
-    }
-  };
-
-  // Append display name and per-collection test options (problemsPerTest / shuffleProblems) to the href.
+  // Append per-collection test options (problemsPerTest / shuffleProblems) to the href.
   const hrefWithOptions = (n: CategoryNode): string => {
-    const base = withDisplayName(n.href || "#", n.name);
+    const base = n.href || "#";
     if (base === "#") return base;
     const extra: string[] = [];
     if (n.problemsPerTest != null) extra.push(`count=${encodeURIComponent(n.problemsPerTest)}`);
@@ -162,7 +150,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               {node.dropdown!.map(opt => (
                 <Link
                   key={opt.href + opt.name}
-                  href={withDisplayName(opt.href, opt.name)}
+                  href={opt.href}
                   className="block px-4 py-3 text-left"
                   style={{ color: LEAF_COLOR, fontSize: "inherit" }}
                   onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
@@ -862,7 +850,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               {subject.dropdown.map(opt => (
                                 <Link
                                   key={opt.href + opt.name}
-                                  href={withDisplayName(opt.href, opt.name)}
+                                  href={opt.href}
                                   className="block px-4 py-3 text-left"
                                   style={{ color: LEAF_COLOR, fontSize: "inherit" }}
                                   onClick={() => setOpenPinnedKey(null)}
