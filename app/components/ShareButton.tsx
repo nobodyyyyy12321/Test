@@ -124,7 +124,7 @@ function ShareButtonInner() {
         const textBlob = new Blob([editText], { type: "text/plain" });
         navigator.clipboard.write([new ClipboardItem({ "image/png": blob, "text/plain": textBlob })])
           .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
-          .catch(() => navigator.clipboard?.writeText(`${shareScoreCard}${urlText}`).catch(() => {}));
+          .catch(() => navigator.clipboard?.writeText(editText).catch(() => {}));
       }, "image/png");
       return;
     }
