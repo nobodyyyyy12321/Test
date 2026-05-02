@@ -15,6 +15,7 @@ const QUIZ_PREFIXES = [
 
 const RESERVED_ROOTS = new Set([
   "",
+  "admin",
   "auth",
   "account",
   "advertise",

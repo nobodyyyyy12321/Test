@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { upsertQuizQuestions, collectionTableExists } from "@/lib/questions-supabase";
+import { upsertQuizQuestions, collectionTableExists, resolveTableName } from "@/lib/questions-supabase";
 import { ensureTopLevelItem } from "@/lib/categories";
 
 function isAdmin(email?: string | null): boolean {
@@ -134,11 +134,12 @@ export async function POST(request: Request) {
     }
 
     try {
-      if (await collectionTableExists(collectionId) && !forceSet.has(collectionId)) {
+      const tableId = resolveTableName(collectionId, activeLanguage);
+      if (await collectionTableExists(tableId) && !forceSet.has(collectionId)) {
         conflicts[collectionId] = `題庫「${collectionId}」已存在，確定要覆蓋嗎？`;
         continue;
       }
-      const result = await upsertQuizQuestions(collectionId, normalized);
+      const result = await upsertQuizQuestions(tableId, normalized);
       const gridName = findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
 
       // Add (or rename) the homepage nav entry. Failure here doesn't fail the whole upload.

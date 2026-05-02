@@ -1,5 +1,5 @@
 import { getListById } from "./lists-supabase";
-import { fetchQuizQuestions, collectionTableExists } from "./questions-supabase";
+import { fetchQuizQuestions, collectionTableExists, resolveTableName } from "./questions-supabase";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
@@ -101,9 +101,10 @@ function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[numbe
   };
 }
 
-async function fetchCollectionQuestions(collectionId: string, levelsParam: string | null): Promise<Question[]> {
+async function fetchCollectionQuestions(collectionId: string, levelsParam: string | null, language?: string | null): Promise<Question[]> {
   const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
-  const rows = await fetchQuizQuestions({ collectionId, levels, revalidate: 3600 });
+  const tableId = resolveTableName(collectionId, language);
+  const rows = await fetchQuizQuestions({ collectionId: tableId, levels, revalidate: 3600 });
   return rows.map(rowToQuestion);
 }
 
@@ -142,7 +143,7 @@ export async function fetchQuestions(opts: {
   if (id.startsWith("國文學測")) {
     try {
       if (await collectionTableExists(id)) {
-        return fetchCollectionQuestions(id, levelsParam ?? null);
+        return fetchCollectionQuestions(id, levelsParam ?? null, language);
       }
     } catch {
       // If table existence check fails, keep legacy behavior.
@@ -151,5 +152,5 @@ export async function fetchQuestions(opts: {
   }
 
   // ── regular collection from quiz_questions ─────────────────────────────────
-  return fetchCollectionQuestions(id, levelsParam ?? null);
+  return fetchCollectionQuestions(id, levelsParam ?? null, language);
 }
