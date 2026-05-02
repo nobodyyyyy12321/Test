@@ -18,25 +18,14 @@ type CategoryRow = {
   position: number;
   href: string | null;
   name: string;
-  language_code: string | null;
+  language: string | null;
   dropdown: DropdownItemRow[];
   dropdown_align: string | null;
   problems_per_test: number | null;
   shuffle_problems: boolean | null;
 };
 
-const ROW_COLUMNS = "id,parent_id,position,href,name,language_code,dropdown,dropdown_align,problems_per_test,shuffle_problems";
-
-// Language label used when creating a new language root row on save (matches the admin tabs)
-const LANG_LABELS: Record<string, string> = {
-  "zh-TW": "繁中",
-  "zh-CN": "簡中",
-  "en":    "EN",
-  "ko":    "KO",
-  "es":    "ES",
-  "th":    "TH",
-  "id":    "ID",
-};
+const ROW_COLUMNS = "id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -45,28 +34,27 @@ function newId(): string {
 async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   const supabase = getCategoriesAdmin();
 
-  const { data: rootRows, error: rootErr } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("language_code", language)
-    .limit(1);
-  if (rootErr || !rootRows || rootRows.length === 0) return [];
-  const rootId = rootRows[0].id as string;
-
-  // Pull all rows once and build the subtree under rootId in JS.
-  // Categories are small (a few hundred rows at most) so this is fine.
   const { data, error } = await supabase
     .from("categories")
     .select(ROW_COLUMNS)
+    .eq("language", language)
     .order("position", { ascending: true });
-  if (error || !data) return [];
+  if (error || !data) {
+    console.error("[categories] fetch error:", error);
+    return [];
+  }
+  console.log("[categories] fetched rows:", data.length, "for language:", language);
 
   const rows = data as CategoryRow[];
+  const ids = new Set(rows.map(r => r.id));
+
+  // Rows whose parent_id is not in our set are top-level (parent is the language root node)
   const childrenOf = new Map<string | null, CategoryRow[]>();
   for (const row of rows) {
-    const bucket = childrenOf.get(row.parent_id) ?? [];
+    const parentKey = row.parent_id !== null && ids.has(row.parent_id) ? row.parent_id : null;
+    const bucket = childrenOf.get(parentKey) ?? [];
     bucket.push(row);
-    childrenOf.set(row.parent_id, bucket);
+    childrenOf.set(parentKey, bucket);
   }
 
   const buildNode = (row: CategoryRow): CategoryNode => {
@@ -83,8 +71,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
     return node;
   };
 
-  const topChildren = childrenOf.get(rootId) ?? [];
-  return topChildren.map(buildNode);
+  return (childrenOf.get(null) ?? []).map(buildNode);
 }
 
 export const getCategoriesCached = unstable_cache(
@@ -109,41 +96,20 @@ export type FlatCategory = {
 async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
   const supabase = getCategoriesAdmin();
 
-  const { data: rootRows, error: rootErr } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("language_code", language)
-    .limit(1);
-  if (rootErr || !rootRows || rootRows.length === 0) return [];
-  const rootId = rootRows[0].id as string;
-
   const { data, error } = await supabase
     .from("categories")
     .select(ROW_COLUMNS)
+    .eq("language", language)
     .order("position", { ascending: true });
   if (error || !data) return [];
 
   const rows = data as CategoryRow[];
+  const ids = new Set(rows.map(r => r.id));
 
-  // Determine which rows belong to this language by walking down from rootId.
-  const childrenOf = new Map<string | null, CategoryRow[]>();
-  for (const row of rows) {
-    const bucket = childrenOf.get(row.parent_id) ?? [];
-    bucket.push(row);
-    childrenOf.set(row.parent_id, bucket);
-  }
-  const ordered: CategoryRow[] = [];
-  const walk = (parentId: string) => {
-    for (const r of childrenOf.get(parentId) ?? []) {
-      ordered.push(r);
-      walk(r.id);
-    }
-  };
-  walk(rootId);
-
-  return ordered.map(r => ({
+  return rows.map(r => ({
     id: r.id,
-    parentId: r.parent_id === rootId ? null : r.parent_id,
+    // parent_id outside our set means the parent is the language root → treat as top-level
+    parentId: r.parent_id !== null && ids.has(r.parent_id) ? r.parent_id : null,
     name: r.name,
     href: r.href,
     dropdown: Array.isArray(r.dropdown) && r.dropdown.length > 0
@@ -163,7 +129,7 @@ export const getCategoriesFlatCached = unstable_cache(
 
 type FlatNode = {
   id: string;
-  parent_id: string;
+  parent_id: string | null;
   position: number;
   href: string | null;
   name: string;
@@ -173,9 +139,9 @@ type FlatNode = {
   shuffle_problems: boolean | null;
 };
 
-function flattenTree(tree: CategoryNode[], rootId: string): FlatNode[] {
+function flattenTree(tree: CategoryNode[]): FlatNode[] {
   const out: FlatNode[] = [];
-  const walk = (nodes: CategoryNode[], parentId: string) => {
+  const walk = (nodes: CategoryNode[], parentId: string | null) => {
     nodes.forEach((node, idx) => {
       const id = node.id ?? newId();
       out.push({
@@ -196,63 +162,29 @@ function flattenTree(tree: CategoryNode[], rootId: string): FlatNode[] {
       if (node.children?.length) walk(node.children, id);
     });
   };
-  walk(tree, rootId);
+  walk(tree, null);
   return out;
 }
 
-// Replace the entire subtree for the given language. Other languages' rows are untouched.
+// Replace all rows for the given language. Other languages' rows are untouched.
 export async function replaceCategories(language: string, incoming: CategoryNode[]): Promise<void> {
   const supabase = getCategoriesAdmin();
 
-  // Find or create the language root row
-  let rootId: string;
-  const { data: existingRoot, error: rootErr } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("language_code", language)
-    .limit(1);
-  if (rootErr) throw new Error(`fetch language root failed: ${rootErr.message}`);
+  // Wipe all existing rows for this language
+  const { error: delErr } = await supabase.from("categories").delete().eq("language", language);
+  if (delErr) throw new Error(`delete existing categories failed: ${delErr.message}`);
 
-  if (existingRoot && existingRoot.length > 0) {
-    rootId = existingRoot[0].id as string;
-    // Wipe existing subtree (cascade deletes descendants)
-    const { data: directKids, error: kidsErr } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("parent_id", rootId);
-    if (kidsErr) throw new Error(`fetch existing children failed: ${kidsErr.message}`);
-    const kidIds = (directKids ?? []).map(k => k.id as string);
-    if (kidIds.length > 0) {
-      const { error: delErr } = await supabase.from("categories").delete().in("id", kidIds);
-      if (delErr) throw new Error(`delete existing subtree failed: ${delErr.message}`);
-    }
-  } else {
-    rootId = newId();
-    const { error: insErr } = await supabase.from("categories").insert({
-      id: rootId,
-      parent_id: null,
-      position: 0,
-      href: null,
-      name: LANG_LABELS[language] ?? language,
-      language_code: language,
-      dropdown: [],
-      dropdown_align: null,
-      updated_at: new Date().toISOString(),
-    });
-    if (insErr) throw new Error(`create language root failed: ${insErr.message}`);
-  }
-
-  // Insert new subtree, parents-before-children
-  const flat = flattenTree(incoming, rootId);
+  const flat = flattenTree(incoming);
   if (flat.length === 0) {
     revalidateTag("categories");
     return;
   }
 
-  const inserted = new Set<string>([rootId]);
+  // Insert parents-before-children (null parent = top-level, always ready first)
+  const insertedIds = new Set<string>();
   let remaining = flat.slice();
   while (remaining.length > 0) {
-    const ready = remaining.filter(r => inserted.has(r.parent_id));
+    const ready = remaining.filter(r => r.parent_id === null || insertedIds.has(r.parent_id));
     if (ready.length === 0) throw new Error("circular or orphaned categories detected during upsert");
     const payload = ready.map(r => ({
       id: r.id,
@@ -260,7 +192,7 @@ export async function replaceCategories(language: string, incoming: CategoryNode
       position: r.position,
       href: r.href,
       name: r.name,
-      language_code: null,
+      language,
       dropdown: r.dropdown,
       dropdown_align: r.dropdown_align,
       problems_per_test: r.problems_per_test,
@@ -269,8 +201,8 @@ export async function replaceCategories(language: string, incoming: CategoryNode
     }));
     const { error: upErr } = await supabase.from("categories").insert(payload);
     if (upErr) throw new Error(`insert subtree failed: ${upErr.message}`);
-    for (const r of ready) inserted.add(r.id);
-    remaining = remaining.filter(r => !inserted.has(r.id));
+    for (const r of ready) insertedIds.add(r.id);
+    remaining = remaining.filter(r => !insertedIds.has(r.id));
   }
 
   revalidateTag("categories");
@@ -287,39 +219,13 @@ export async function ensureTopLevelItem(opts: {
   const { language, name, href } = opts;
   const supabase = getCategoriesAdmin();
 
-  // Find or create the language root
-  let rootId: string;
-  const { data: rootRows, error: rootErr } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("language_code", language)
-    .limit(1);
-  if (rootErr) throw new Error(`fetch language root failed: ${rootErr.message}`);
-
-  if (rootRows && rootRows.length > 0) {
-    rootId = rootRows[0].id as string;
-  } else {
-    rootId = newId();
-    const { error: insErr } = await supabase.from("categories").insert({
-      id: rootId,
-      parent_id: null,
-      position: 0,
-      href: null,
-      name: LANG_LABELS[language] ?? language,
-      language_code: language,
-      dropdown: [],
-      dropdown_align: null,
-      updated_at: new Date().toISOString(),
-    });
-    if (insErr) throw new Error(`create language root failed: ${insErr.message}`);
-  }
-
-  // Look for an existing direct child with this href
+  // Look for an existing top-level row with this href and language
   const { data: existing, error: findErr } = await supabase
     .from("categories")
-    .select("id,position")
-    .eq("parent_id", rootId)
+    .select("id")
+    .eq("language", language)
     .eq("href", href)
+    .is("parent_id", null)
     .limit(1);
   if (findErr) throw new Error(`lookup existing nav row failed: ${findErr.message}`);
 
@@ -334,11 +240,12 @@ export async function ensureTopLevelItem(opts: {
     return { rowId, created: false };
   }
 
-  // Append at the end: position = (max sibling position) + 1
+  // Append at the end: position = (max sibling position among top-level rows for this language) + 1
   const { data: siblings, error: sibErr } = await supabase
     .from("categories")
     .select("position")
-    .eq("parent_id", rootId)
+    .eq("language", language)
+    .is("parent_id", null)
     .order("position", { ascending: false })
     .limit(1);
   if (sibErr) throw new Error(`lookup sibling positions failed: ${sibErr.message}`);
@@ -347,11 +254,11 @@ export async function ensureTopLevelItem(opts: {
   const rowId = newId();
   const { error: insErr } = await supabase.from("categories").insert({
     id: rowId,
-    parent_id: rootId,
+    parent_id: null,
     position: nextPos,
     href,
     name,
-    language_code: null,
+    language,
     dropdown: [],
     dropdown_align: null,
     updated_at: new Date().toISOString(),
@@ -365,7 +272,7 @@ export async function ensureTopLevelItem(opts: {
 // Replace the entire subtree for the given language using a flat parent-id list.
 // Sibling order within each parentId is the array order in `items`.
 export async function replaceCategoriesFlat(language: string, items: FlatCategory[]): Promise<void> {
-  // Reject duplicate user-supplied ids up front — the FK upsert would silently merge them.
+  // Reject duplicate user-supplied ids up front
   const seenIds = new Set<string>();
   const dupIds = new Set<string>();
   for (const it of items) {
@@ -379,48 +286,14 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
 
   const supabase = getCategoriesAdmin();
 
-  // Find or create the language root row
-  let rootId: string;
-  const { data: existingRoot, error: rootErr } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("language_code", language)
-    .limit(1);
-  if (rootErr) throw new Error(`fetch language root failed: ${rootErr.message}`);
-
-  if (existingRoot && existingRoot.length > 0) {
-    rootId = existingRoot[0].id as string;
-    const { data: directKids, error: kidsErr } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("parent_id", rootId);
-    if (kidsErr) throw new Error(`fetch existing children failed: ${kidsErr.message}`);
-    const kidIds = (directKids ?? []).map(k => k.id as string);
-    if (kidIds.length > 0) {
-      const { error: delErr } = await supabase.from("categories").delete().in("id", kidIds);
-      if (delErr) throw new Error(`delete existing subtree failed: ${delErr.message}`);
-    }
-  } else {
-    rootId = newId();
-    const { error: insErr } = await supabase.from("categories").insert({
-      id: rootId,
-      parent_id: null,
-      position: 0,
-      href: null,
-      name: LANG_LABELS[language] ?? language,
-      language_code: language,
-      dropdown: [],
-      dropdown_align: null,
-      updated_at: new Date().toISOString(),
-    });
-    if (insErr) throw new Error(`create language root failed: ${insErr.message}`);
-  }
+  // Wipe all existing rows for this language
+  const { error: delErr } = await supabase.from("categories").delete().eq("language", language);
+  if (delErr) throw new Error(`delete existing categories failed: ${delErr.message}`);
 
   // Assign ids to new items, compute per-parent position from array order
-  const idByOldRef = new Map<string, string>(); // user-supplied id → final id (usually identical)
   const positionCounter = new Map<string | null, number>();
   type Prepared = {
-    id: string; parent_id: string; position: number;
+    id: string; parent_id: string | null; position: number;
     href: string | null; name: string;
     dropdown: { id: string; name: string; href: string }[];
     dropdown_align: string | null;
@@ -429,12 +302,12 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
   };
   const prepared: Prepared[] = items.map(item => {
     const id = item.id ?? newId();
-    if (item.id) idByOldRef.set(item.id, id);
-    const pos = positionCounter.get(item.parentId ?? null) ?? 0;
-    positionCounter.set(item.parentId ?? null, pos + 1);
+    const parentKey = item.parentId ?? null;
+    const pos = positionCounter.get(parentKey) ?? 0;
+    positionCounter.set(parentKey, pos + 1);
     return {
       id,
-      parent_id: item.parentId === null || item.parentId === undefined ? rootId : item.parentId,
+      parent_id: parentKey,
       position: pos,
       href: item.href ?? null,
       name: item.name,
@@ -454,11 +327,11 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
     return;
   }
 
-  // Insert parents-before-children
-  const inserted = new Set<string>([rootId]);
+  // Insert parents-before-children (null parent = top-level, always ready first)
+  const insertedIds = new Set<string>();
   let remaining = prepared.slice();
   while (remaining.length > 0) {
-    const ready = remaining.filter(r => inserted.has(r.parent_id));
+    const ready = remaining.filter(r => r.parent_id === null || insertedIds.has(r.parent_id));
     if (ready.length === 0) {
       throw new Error("orphaned items detected (a parentId references an unknown id)");
     }
@@ -468,7 +341,7 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
       position: r.position,
       href: r.href,
       name: r.name,
-      language_code: null,
+      language,
       dropdown: r.dropdown,
       dropdown_align: r.dropdown_align,
       problems_per_test: r.problems_per_test,
@@ -477,8 +350,8 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
     }));
     const { error: upErr } = await supabase.from("categories").insert(payload);
     if (upErr) throw new Error(`insert categories failed: ${upErr.message}`);
-    for (const r of ready) inserted.add(r.id);
-    remaining = remaining.filter(r => !inserted.has(r.id));
+    for (const r of ready) insertedIds.add(r.id);
+    remaining = remaining.filter(r => !insertedIds.has(r.id));
   }
 
   revalidateTag("categories");
