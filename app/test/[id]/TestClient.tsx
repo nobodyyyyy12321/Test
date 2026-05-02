@@ -314,7 +314,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     const text = questions
       .filter((_, i) => checkedIdxs.has(i))
       .map(q => {
-        const numLine = id !== "englishWords" ? `#${q.number}\n` : "";
+        const numLine = id !== "englishWords" && ordered ? `#${q.number}\n` : "";
         const opts = q.options.length ? "\n" + q.options.map(o => `${o.label}. ${o.text}`).join("  ") : "";
         return `${numLine}${q.title}${opts}`;
       })
@@ -322,7 +322,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     setShareTitle(pageTitle);
     setShareScoreCard(null);
     setShareText(text + `\n\n${L.shareFrom}`);
-  }, [checkedIdxs, questions, id, setShareText, setShareTitle, setShareScoreCard, pageTitle]);
+  }, [checkedIdxs, questions, id, ordered, setShareText, setShareTitle, setShareScoreCard, pageTitle]);
 
   useEffect(() => {
     return () => { setShareText(null); setShareTitle(null); setShareScoreCard(null); };
