@@ -25,6 +25,8 @@ export type User = {
   }>;
   recitationsPublic?: boolean;
   emailPublic?: boolean;
+  googleId?: string;
+  pendingGoogleLinkExpires?: string;
   records?: Array<{
     answered: number;
     correct: number;
@@ -58,6 +60,8 @@ function rowToUser(row: Record<string, unknown>): User {
     socialLinks: (row.social_links as User["socialLinks"]) ?? {},
     recitationsPublic: (row.recitations_public as boolean | null) ?? false,
     emailPublic: (row.email_public as boolean | null) ?? false,
+    googleId: (row.google_id as string | null) ?? undefined,
+    pendingGoogleLinkExpires: (row.pending_google_link_expires as string | null) ?? undefined,
   };
 }
 
@@ -225,6 +229,8 @@ export async function updateUser(
   if (updates.socialLinks !== undefined) row.social_links = updates.socialLinks;
   if (updates.recitationsPublic !== undefined) row.recitations_public = updates.recitationsPublic;
   if (updates.emailPublic !== undefined) row.email_public = updates.emailPublic;
+  if (updates.googleId !== undefined) row.google_id = updates.googleId ?? null;
+  if (updates.pendingGoogleLinkExpires !== undefined) row.pending_google_link_expires = updates.pendingGoogleLinkExpires ?? null;
 
   if (Object.keys(row).length === 0) {
     return (await findUserById(id)) ?? null;

@@ -13,6 +13,8 @@ export default function SettingsMenu() {
   const [quizMode, setQuizMode] = useState<"practice" | "formal">("practice");
   const [showModeModal, setShowModeModal] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [googleLinked, setGoogleLinked] = useState<boolean | null>(null);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
   const prevLoggedInRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -40,8 +42,31 @@ export default function SettingsMenu() {
   }, [session]);
 
   useEffect(() => {
-    setDomMounted(true);
-  }, []);
+    if (!session?.user) return;
+    let mounted = true;
+    fetch('/api/auth/link-google/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (j && mounted) setGoogleLinked(j.linked ?? null); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [session]);
+
+  async function handleLinkGoogle() {
+    setLinkingGoogle(true);
+    try {
+      const res = await fetch('/api/auth/link-google/start', { method: 'POST' });
+      const j = await res.json();
+      if (!res.ok || !j?.ok) {
+        if (j?.message === 'already_linked') { setGoogleLinked(true); return; }
+        return;
+      }
+      // Trigger Google OAuth — the signIn callback will complete the link.
+      const { signIn } = await import('next-auth/react');
+      await signIn('google', { callbackUrl: window.location.href });
+    } finally {
+      setLinkingGoogle(false);
+    }
+  }
 
   useEffect(() => {
     const loggedIn = !!session?.user;
@@ -106,6 +131,19 @@ export default function SettingsMenu() {
                 作答模式
               </button>
               <Link href={blockedHref} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
+              {googleLinked === false && (
+                <button
+                  onClick={() => { setIsMenuOpen(false); handleLinkGoogle(); }}
+                  disabled={linkingGoogle}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+                  style={{ color: "#5fa870" }}
+                >
+                  {linkingGoogle ? "連結中…" : "連結 Google 帳號"}
+                </button>
+              )}
+              {googleLinked === true && (
+                <span className="block px-4 py-3 text-sm opacity-60" style={{ color: "#5fa870" }}>已連結 Google ✓</span>
+              )}
             </div>
           </div>
         )}
@@ -170,6 +208,19 @@ export default function SettingsMenu() {
               作答模式
             </button>
             <Link href={blockedHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
+            {googleLinked === false && (
+              <button
+                onClick={() => { setIsMenuOpen(false); handleLinkGoogle(); }}
+                disabled={linkingGoogle}
+                className="w-full text-center px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 border-t border-zinc-100 dark:border-zinc-800"
+                style={{ color: "#5fa870" }}
+              >
+                {linkingGoogle ? "連結中…" : "連結 Google 帳號"}
+              </button>
+            )}
+            {googleLinked === true && (
+              <span className="block px-5 py-4 text-base text-center opacity-60 border-t border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }}>已連結 Google ✓</span>
+            )}
           </div>
         </>,
         document.body

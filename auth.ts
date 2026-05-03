@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByEmail, saveUser } from "./lib/users";
+import { findUserByEmail, saveUser, updateUser } from "./lib/users";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 
@@ -38,6 +38,23 @@ export const authOptions = {
   trustHost: true,
   session: { strategy: "jwt" as const },
   callbacks: {
+    async jwt({ token, user, account }: any) {
+      if (user) {
+        // On first sign-in, resolve DB user id so it persists in token.
+        if (account?.provider === "google" || account?.provider === "github") {
+          const dbUser = await findUserByEmail(user.email);
+          token.userId = dbUser ? dbUser.id : user.id;
+        } else {
+          // Credentials: authorize() already returns DB id.
+          token.userId = user.id;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }: any) {
+      if (token?.userId) (session.user as any).id = token.userId;
+      return session;
+    },
     async signIn({ user, account, profile }: any) {
       try {
         if (!account) return true;
@@ -46,8 +63,23 @@ export const authOptions = {
           if (!email) return true;
           const existing = await findUserByEmail(email);
           if (existing) {
-            // If the account was registered via email/password, block OAuth login.
             if (existing.passwordHash) {
+              // Already linked to this Google account → allow login.
+              if (existing.googleId === account.providerAccountId) return true;
+
+              // Pending link intent and not expired → complete the link.
+              if (
+                existing.pendingGoogleLinkExpires &&
+                new Date(existing.pendingGoogleLinkExpires) > new Date()
+              ) {
+                await updateUser(existing.id, {
+                  googleId: account.providerAccountId,
+                  pendingGoogleLinkExpires: undefined,
+                });
+                return true;
+              }
+
+              // No link — block and redirect back to login page.
               const base = process.env.NEXTAUTH_URL || "http://localhost:3000";
               return `${base}/auth/login?error=email_registered`;
             }
