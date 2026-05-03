@@ -27,6 +27,10 @@ export default function SettingsMenu() {
   }, []);
 
   useEffect(() => {
+    setDomMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!session?.user) return;
     let mounted = true;
     fetch('/api/user/profile')
