@@ -19,7 +19,19 @@ function LoginInner() {
 
     const res = await signIn("credentials", { redirect: false, email, password });
     if ((res as any)?.error) {
-      setError((res as any).error || "Login failed");
+      try {
+        const statusRes = await fetch(`/api/auth/verification-status?email=${encodeURIComponent(email)}`);
+        const statusData = await statusRes.json();
+        if (statusRes.ok && statusData?.exists && !statusData?.emailVerified) {
+          setError("請點擊驗證信連結");
+          return;
+        }
+      } catch {
+        // Ignore status-check failures and keep default login error handling.
+      }
+
+      const nextAuthError = (res as any).error;
+      setError(nextAuthError === "Configuration" ? "請點擊驗證信連結" : nextAuthError || "Login failed");
       return;
     }
 
