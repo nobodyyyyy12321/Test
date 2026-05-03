@@ -9,7 +9,7 @@ async function sendVerificationEmail(to: string, url: string) {
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY as string);
         const from = process.env.MAIL_FROM || `no-reply@${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") || "example.com"}`;
-        await resend.emails.send({ from, to, subject: "請驗證您的帳號", html: `<p>請點擊下方連結完成驗證：</p><p><a href="${url}">${url}</a></p>` });
+        await resend.emails.send({ from, to, subject: "請驗證您的testtttt.io帳號", html: `<p>請點擊下方連結完成驗證：</p><p><a href="${url}">${url}</a></p>` });
         return { sent: true as const, previewUrl: undefined };
       } catch (e) {
         console.error("Resend send error:", e);
@@ -25,7 +25,8 @@ async function sendVerificationEmail(to: string, url: string) {
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
       });
       const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-      const info = await transporter.sendMail({ from, to, subject: "請驗證您的帳號", html: `<p>請點擊下方連結完成驗證：</p><p><a href="${url}">${url}</a></p>` });
+      const info = await transporter.sendMail({ from, to, subject: "請驗證您的testtttt.io帳號", html: `<p>請點擊下方連結完成驗證：</p><p><a href="${url}">${url}</a></p>` });
+
       return { sent: true as const, previewUrl: nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : undefined };
     }
 
