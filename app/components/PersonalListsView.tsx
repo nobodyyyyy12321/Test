@@ -395,7 +395,7 @@ export function PersonalListsView({
       >
         <a href={href}
           className={`book-link bookshelf-btn${asSubItem ? " sub-item" : ""}`}
-          style={{ color: "#20b2aa" }}>
+          style={{ color: "#5fa870" }}>
           {ref.name}
         </a>
         {isOwner && refCtxMenuId === ref.id && (
