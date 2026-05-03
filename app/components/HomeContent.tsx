@@ -141,16 +141,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     });
   };
 
-  const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[]) => {
+  const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[], ancestorExpanded: boolean = false) => {
     const isOpen = !!query || openKeys.has(key);
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
-    const color = colorOf(node);
+    const isDropOpen = openDropKey === key;
+    const color = ancestorExpanded || (hasSub && isOpen) || (hasDrop && isDropOpen) ? FOLDER_COLOR : LEAF_COLOR;
     const btnStyle = { color };
     const pinId = pinIdForNode(node, path);
     const isPinned = loggedIn && pinnedNames.some(p => isPinMatch(p, node, path));
     const itemClass = itemClassForDepth(depth);
-    const isDropOpen = openDropKey === key;
 
     return (
       <div key={key} className="contents">
@@ -192,7 +192,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   key={opt.href + opt.name}
                   href={opt.href}
                   className="block px-4 py-3 text-left"
-                  style={{ color: LEAF_COLOR, fontSize: "inherit" }}
+                  style={{ color: FOLDER_COLOR, fontSize: "inherit" }}
                   onClick={() => { setOpenDropKey(null); setOpenYearKey(null); }}
                 >
                   {opt.name}
@@ -202,7 +202,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
           )}
         </div>
 
-        {hasSub && isOpen && node.children!.map((child, idx) => renderCategoryNode(child, `${key}-${idx}`, depth + 1, [...path, child.name]))}
+        {hasSub && isOpen && node.children!.map((child, idx) => renderCategoryNode(child, `${key}-${idx}`, depth + 1, [...path, child.name], true))}
       </div>
     );
   };

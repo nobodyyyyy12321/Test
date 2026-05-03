@@ -15,7 +15,8 @@ const LANGUAGES: { value: LanguageCode; label: string }[] = [
   // { value: "ko", label: "한국어" },
 ];
 
-const COLORS = ["#b19739", "#5fa870"];
+const MENU_TEXT_COLOR = "#5fa870";
+const GLOBE_COLOR = "#b19739";
 
 export default function LanguageSelector() {
   // TODO: re-enable after zh-TW features are done
@@ -57,7 +58,7 @@ export default function LanguageSelector() {
       {/* 觸發按鈕（桌機＋手機共用） */}
       <button
         className="p-0 rounded-md text-sm inline-flex items-center justify-center"
-        style={{ backgroundColor: "var(--zen-bg)", color: "#b19739" }}
+        style={{ backgroundColor: "var(--zen-bg)", color: GLOBE_COLOR }}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="語言選擇"
         title={currentLabel}
@@ -89,7 +90,7 @@ export default function LanguageSelector() {
               key={l.value}
               onClick={() => handleLanguageChange(l.value)}
               className={`w-full text-left px-4 py-2.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${i < LANGUAGES.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${language === l.value ? 'font-semibold' : 'font-normal'}`}
-              style={{ color: COLORS[i % 2] }}
+              style={{ color: MENU_TEXT_COLOR }}
             >
               {l.label}
             </button>
@@ -112,7 +113,7 @@ export default function LanguageSelector() {
             key={l.value}
             onClick={() => handleLanguageChange(l.value)}
             className={`w-full text-center px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 ${i < LANGUAGES.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${language === l.value ? 'font-semibold' : 'font-normal'}`}
-            style={{ color: COLORS[i % 2] }}
+            style={{ color: MENU_TEXT_COLOR }}
           >
             {l.label}
           </button>
