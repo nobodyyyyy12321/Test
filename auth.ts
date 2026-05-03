@@ -83,6 +83,11 @@ export const authOptions = {
               const base = process.env.NEXTAUTH_URL || "http://localhost:3000";
               return `${base}/auth/login?error=email_registered`;
             }
+
+            // OAuth-created account logged in with Google again: backfill link if missing.
+            if (account.provider === "google" && existing.googleId !== account.providerAccountId) {
+              await updateUser(existing.id, { googleId: account.providerAccountId });
+            }
           } else {
             const id = uuidv4();
             const newUser = {
@@ -90,6 +95,7 @@ export const authOptions = {
               name: user.name || profile?.name || email.split("@")[0],
               email,
               emailVerified: true,
+              googleId: account.provider === "google" ? account.providerAccountId : undefined,
               avatarUrl: (user as any).image || profile?.picture || null,
             } as any;
             await saveUser(newUser);
