@@ -91,6 +91,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const [formalMode, setFormalMode] = useState(false);
   const [started, setStarted] = useState(!!autostart);
   const [focusedIdx, setFocusedIdx] = useState(0);
+  const [isRetryWrongMode, setIsRetryWrongMode] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
   const [forcedAbandon, setForcedAbandon] = useState(false);
   const pendingNavRef = useRef<(() => void) | null>(null);
@@ -244,6 +245,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     const compactAnswers = questions.map((q, idx) => ({ n: q.number, u: userAnswers[idx] ?? null }));
     try { sessionStorage.setItem(`quiz_replay_${timestamp}`, JSON.stringify({ answers: compactAnswers })); } catch {}
 
+    if (isRetryWrongMode) return;
     if (!session?.user?.email || answeredCount === 0) return;
     const recordEndpoint = ordered
       ? "/api/user/gsat/record"
@@ -256,7 +258,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       body: JSON.stringify({
         answered: answeredCount,
         correct: correctCount,
-        set: listTitle ? `個人試卷${listTitle}` : levels ? `${id}:${levels}` : id,
+        set: listTitle
+          ? `個人試卷${listTitle}`
+          : `${pageTitle}@@${levels ? `${id}:${levels}` : id}`,
         answers: compactAnswers,
       }),
     }).catch(() => {});
@@ -267,7 +271,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         body: JSON.stringify({ answered: answeredCount, correct: correctCount }),
       }).catch(() => {});
     }
-  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, session?.user?.email, ordered, id, listTitle, levels, listId]);
+  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, ordered, id, listTitle, levels, listId, pageTitle]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -373,6 +377,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const resetQuiz = () => {
     const orig = originalQuestionsRef.current;
     const displayed = ordered ? orig : shuffle(orig);
+    setIsRetryWrongMode(false);
     setShowResults(false);
     setQuestions(displayed);
     setUserAnswers(new Array(displayed.length).fill(null));
@@ -383,6 +388,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const retryWrong = () => {
     const wrong = questions.filter((q, idx) => q.type !== "group" && userAnswers[idx] !== null && !gradeAnswer(q, userAnswers[idx]));
     if (wrong.length === 0) return;
+    setIsRetryWrongMode(true);
     setQuestions(wrong);
     setShowResults(false);
     setUserAnswers(new Array(wrong.length).fill(null));

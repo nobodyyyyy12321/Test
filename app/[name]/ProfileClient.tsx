@@ -80,19 +80,27 @@ type QuizRecord = {
 };
 
 function recordToUrl(set: string, replayKey?: string): string | null {
-  if (set.startsWith("個人試卷")) return null;
-  const colonIdx = set.indexOf(":");
+  const sep = set.lastIndexOf("@@");
+  const key = sep > 0 ? set.slice(sep + 2) : set;
+  if (key.startsWith("個人試卷")) return null;
+  const colonIdx = key.indexOf(":");
   let url: string;
   if (colonIdx !== -1) {
-    const id = set.slice(0, colonIdx);
-    const levels = set.slice(colonIdx + 1);
+    const id = key.slice(0, colonIdx);
+    const levels = key.slice(colonIdx + 1);
     url = `/test/${encodeURIComponent(id)}?levels=${encodeURIComponent(levels)}`;
   } else {
-    url = `/test/${encodeURIComponent(set)}`;
+    url = `/test/${encodeURIComponent(key)}`;
   }
   if (replayKey) url += `${url.includes("?") ? "&" : "?"}replay=${encodeURIComponent(replayKey)}`;
   url += `${url.includes("?") ? "&" : "?"}autostart=1`;
   return url;
+}
+
+function recordDisplaySet(set: string): string {
+  const sep = set.lastIndexOf("@@");
+  const label = sep > 0 ? set.slice(0, sep) : set;
+  return ENGLISH_SET_NAMES[label] ?? label;
 }
 
 const ENGLISH_SET_NAMES: Record<string, string> = {
@@ -1256,7 +1264,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <span className="text-sm" style={{ color: "var(--zen-ink)" }}>
-                            {ENGLISH_SET_NAMES[item.set] ?? item.set}
+                            {recordDisplaySet(item.set)}
                           </span>
                           <span className="inline-block px-2 py-0.5 rounded text-xs border border-zinc-300 dark:border-zinc-600" style={{ color: "var(--zen-ink)" }}>
                             {item.category === "詩文背誦"
