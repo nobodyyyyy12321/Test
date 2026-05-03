@@ -45,7 +45,13 @@ export const authOptions = {
           const email = (user?.email || profile?.email)?.toString();
           if (!email) return true;
           const existing = await findUserByEmail(email);
-          if (!existing) {
+          if (existing) {
+            // If the account was registered via email/password, block OAuth login.
+            if (existing.passwordHash) {
+              const base = process.env.NEXTAUTH_URL || "http://localhost:3000";
+              return `${base}/auth/login?error=email_registered`;
+            }
+          } else {
             const id = uuidv4();
             const newUser = {
               id,

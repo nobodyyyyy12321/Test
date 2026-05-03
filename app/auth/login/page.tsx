@@ -8,10 +8,13 @@ import SearchParamsProvider, { useSearchParamsContext } from "../../components/S
 function LoginInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParamsContext();
   const callbackUrl = searchParams?.get("callbackUrl") || "/";
+  const urlError = searchParams?.get("error");
+  const [error, setError] = useState<string | null>(
+    urlError === "email_registered" ? "此 email 已註冊，請直接輸入密碼登入" : null
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
