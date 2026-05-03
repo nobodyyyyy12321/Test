@@ -548,14 +548,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     setSharingSending(null);
   };
 
-  const renderPinnedDescendants = (node: CategoryNode, path: string[], depth: number) => {
+  const renderPinnedDescendants = (node: CategoryNode, path: string[], depth: number, ancestorExpanded: boolean = false) => {
     const pinId = pinIdForNode(node, path);
     const childPinned = pinnedNames.some(p => isPinMatch(p, node, path));
-    const childColor = colorOf(node);
     const itemClass = itemClassForDepth(depth);
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
     const isExpanded = openPinnedKeys.has(pinId);
+    const childColor = ancestorExpanded || isExpanded ? FOLDER_COLOR : LEAF_COLOR;
     const indentStyle = depth > 1 ? { marginLeft: `${(depth - 1) * 14}px` } : undefined;
 
     return (
@@ -584,13 +584,13 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               key={opt.href + opt.name}
               href={opt.href}
               className={itemClassForDepth(depth + 1)}
-              style={{ color: LEAF_COLOR, marginLeft: `${depth * 14}px` }}
+              style={{ color: FOLDER_COLOR, marginLeft: `${depth * 14}px` }}
             >
               {opt.name}
             </Link>
           ))}
         </div>
-        {hasSub && isExpanded && node.children?.map(child => renderPinnedDescendants(child, [...path, child.name], depth + 1))}
+          {hasSub && isExpanded && node.children?.map(child => renderPinnedDescendants(child, [...path, child.name], depth + 1, true))}
       </div>
     );
   };
@@ -900,8 +900,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     const found = findPinnedNode(pinValue, subjects);
                     if (!found) return null;
                     const { node: subject, path, pinId } = found;
-                    const color = colorOf(subject);
                     const isExpanded = openPinnedKeys.has(pinId);
+                    const color = isExpanded ? FOLDER_COLOR : LEAF_COLOR;
                     return (
                       <div key={pinId} className="contents">
                         <div
@@ -939,7 +939,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                   key={opt.href + opt.name}
                                   href={opt.href}
                                   className="block px-4 py-3 text-left"
-                                  style={{ color: LEAF_COLOR, fontSize: "inherit" }}
+                                  style={{ color: FOLDER_COLOR, fontSize: "inherit" }}
                                   onClick={() => toggleOpenPinnedKey(pinId)}
                                 >
                                   {opt.name}
@@ -948,7 +948,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             </div>
                           )}
                         </div>
-                        {isExpanded && subject.children?.map(child => renderPinnedDescendants(child, [...path, child.name], 1))}
+                        {isExpanded && subject.children?.map(child => renderPinnedDescendants(child, [...path, child.name], 1, true))}
                       </div>
                     );
                   })}
