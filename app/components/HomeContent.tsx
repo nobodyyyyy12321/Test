@@ -34,7 +34,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
-  const [openPinnedKey, setOpenPinnedKey] = useState<string | null>(null);
+  const [openPinnedKeys, setOpenPinnedKeys] = useState<Set<string>>(new Set());
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [sharePanel, setSharePanel] = useState<SharePanelState | null>(null);
   const [shareInput, setShareInput] = useState("");
@@ -84,11 +84,41 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return base + (base.includes("?") ? "&" : "?") + extra.join("&");
   };
 
-  const findSubject = (name: string): { node: CategoryNode } | null => {
-    for (const s of subjects) {
-      if (s.name === name) return { node: s };
-      const child = s.children?.find(c => c.name === name);
-      if (child) return { node: child };
+  const pathToPinKey = (path: string[]): string => `path:${path.map(encodeURIComponent).join("/")}`;
+
+  const nodeHrefKey = (node: CategoryNode): string | null => {
+    if (!node.href) return null;
+    return hrefToCategoryKey(node.href);
+  };
+
+  const pinIdForNode = (node: CategoryNode, path: string[]): string => {
+    const hrefKey = nodeHrefKey(node);
+    return hrefKey ? `href:${hrefKey}` : pathToPinKey(path);
+  };
+
+  const isPinMatch = (pinValue: string, node: CategoryNode, path: string[]): boolean => {
+    const hrefKey = nodeHrefKey(node);
+    const pathKey = pathToPinKey(path);
+    if (pinValue === pathKey) return true;
+    if (hrefKey && (pinValue === hrefKey || pinValue === `href:${hrefKey}`)) return true;
+    // Backward compatibility: old pins stored plain names.
+    return pinValue === node.name;
+  };
+
+  const findPinnedNode = (
+    pinValue: string,
+    nodes: CategoryNode[],
+    path: string[] = []
+  ): { node: CategoryNode; path: string[]; pinId: string } | null => {
+    for (const n of nodes) {
+      const nextPath = [...path, n.name];
+      if (isPinMatch(pinValue, n, nextPath)) {
+        return { node: n, path: nextPath, pinId: pinIdForNode(n, nextPath) };
+      }
+      if (n.children?.length) {
+        const found = findPinnedNode(pinValue, n.children, nextPath);
+        if (found) return found;
+      }
     }
     return null;
   };
@@ -102,13 +132,23 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     });
   };
 
-  const renderCategoryNode = (node: CategoryNode, key: string, depth: number) => {
+  const toggleOpenPinnedKey = (key: string) => {
+    setOpenPinnedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[]) => {
     const isOpen = !!query || openKeys.has(key);
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
     const color = colorOf(node);
     const btnStyle = { color };
-    const isPinned = loggedIn && pinnedNames.includes(node.name);
+    const pinId = pinIdForNode(node, path);
+    const isPinned = loggedIn && pinnedNames.some(p => isPinMatch(p, node, path));
     const itemClass = itemClassForDepth(depth);
     const isDropOpen = openDropKey === key;
 
@@ -116,7 +156,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       <div key={key} className="contents">
         <div
           className={hasDrop ? "relative" : undefined}
-          onContextMenu={loggedIn ? e => openCtx(e, node.name, node.name, isPinned ? "pinned" : "grid", node.href) : undefined}
+          onContextMenu={loggedIn ? e => openCtx(e, pinId, node.name, isPinned ? "pinned" : "grid", node.href) : undefined}
         >
           {hasSub ? (
             <button
@@ -162,7 +202,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
           )}
         </div>
 
-        {hasSub && isOpen && node.children!.map((child, idx) => renderCategoryNode(child, `${key}-${idx}`, depth + 1))}
+        {hasSub && isOpen && node.children!.map((child, idx) => renderCategoryNode(child, `${key}-${idx}`, depth + 1, [...path, child.name]))}
       </div>
     );
   };
@@ -508,6 +548,53 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     setSharingSending(null);
   };
 
+  const renderPinnedDescendants = (node: CategoryNode, path: string[], depth: number) => {
+    const pinId = pinIdForNode(node, path);
+    const childPinned = pinnedNames.some(p => isPinMatch(p, node, path));
+    const childColor = colorOf(node);
+    const itemClass = itemClassForDepth(depth);
+    const hasSub = !!node.children?.length;
+    const hasDrop = !!node.dropdown?.length;
+    const isExpanded = openPinnedKeys.has(pinId);
+    const indentStyle = depth > 1 ? { marginLeft: `${(depth - 1) * 14}px` } : undefined;
+
+    return (
+      <div key={pinId} className="contents">
+        <div onContextMenu={e => openCtx(e, pinId, node.name, childPinned ? "pinned" : "grid", node.href)}>
+          {hasSub || hasDrop ? (
+            <button
+              type="button"
+              className={`${itemClass} ${isExpanded ? "active-category" : ""}`.trim()}
+              style={{ color: childColor, ...indentStyle }}
+              onClick={() => toggleOpenPinnedKey(pinId)}
+            >
+              <span className="mr-1">📁</span>{node.name}
+            </button>
+          ) : node.href ? (
+            <Link href={hrefWithOptions(node)} className={itemClass} style={{ color: childColor, ...indentStyle }}>
+              {node.name}
+            </Link>
+          ) : (
+            <button type="button" className={itemClass} style={{ color: childColor, ...indentStyle }}>
+              {node.name}
+            </button>
+          )}
+          {hasDrop && isExpanded && node.dropdown?.map(opt => (
+            <Link
+              key={opt.href + opt.name}
+              href={opt.href}
+              className={itemClassForDepth(depth + 1)}
+              style={{ color: LEAF_COLOR, marginLeft: `${depth * 14}px` }}
+            >
+              {opt.name}
+            </Link>
+          ))}
+        </div>
+        {hasSub && isExpanded && node.children?.map(child => renderPinnedDescendants(child, [...path, child.name], depth + 1))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
       {/* profile-tab pin context menu */}
@@ -809,40 +896,40 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                       </a>
                     );
                   })}
-                  {pinnedNames.map((name) => {
-                    const found = findSubject(name);
+                  {pinnedNames.map((pinValue) => {
+                    const found = findPinnedNode(pinValue, subjects);
                     if (!found) return null;
-                    const { node: subject } = found;
+                    const { node: subject, path, pinId } = found;
                     const color = colorOf(subject);
-                    const isExpanded = openPinnedKey === name;
+                    const isExpanded = openPinnedKeys.has(pinId);
                     return (
-                      <div key={name} className="contents">
+                      <div key={pinId} className="contents">
                         <div
                           className="relative"
-                          onContextMenu={e => openCtx(e, name, subject.name, "pinned", subject.href)}
+                          onContextMenu={e => openCtx(e, pinId, subject.name, "pinned", subject.href)}
                         >
                           {subject.children?.length ? (
                             <button
                               type="button"
                               className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
                               style={{ color }}
-                              onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                              onClick={() => toggleOpenPinnedKey(pinId)}
                             >
-                              <span className="mr-1">📁</span>{name}
+                              <span className="mr-1">📁</span>{subject.name}
                             </button>
                           ) : subject.dropdown?.length ? (
                             <button
                               type="button"
                               className={`book-link bookshelf-btn flex items-center gap-1 ${isExpanded ? "active-category" : ""}`}
                               style={{ color }}
-                              onClick={() => setOpenPinnedKey(isExpanded ? null : name)}
+                              onClick={() => toggleOpenPinnedKey(pinId)}
                             >
-                              <span className="mr-1">📁</span>{name}
+                              <span className="mr-1">📁</span>{subject.name}
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
                             </button>
                           ) : (
                             <Link href={hrefWithOptions(subject)} className="book-link bookshelf-btn" style={{ color }}>
-                              {name}
+                              {subject.name}
                             </Link>
                           )}
                           {subject.dropdown?.length && isExpanded && (
@@ -853,7 +940,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                   href={opt.href}
                                   className="block px-4 py-3 text-left"
                                   style={{ color: LEAF_COLOR, fontSize: "inherit" }}
-                                  onClick={() => setOpenPinnedKey(null)}
+                                  onClick={() => toggleOpenPinnedKey(pinId)}
                                 >
                                   {opt.name}
                                 </Link>
@@ -861,26 +948,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             </div>
                           )}
                         </div>
-                        {isExpanded && subject.children?.map(child => {
-                          const childPinned = pinnedNames.includes(child.name);
-                          const childColor = colorOf(child);
-                          return (
-                            <div
-                              key={child.name}
-                              onContextMenu={e => openCtx(e, child.name, child.name, childPinned ? "pinned" : "grid", child.href)}
-                            >
-                              {child.href ? (
-                                <Link href={hrefWithOptions(child)} className="book-link bookshelf-btn sub-item" style={{ color: childColor }}>
-                                  {child.name}
-                                </Link>
-                              ) : (
-                                <button type="button" className="book-link bookshelf-btn sub-item" style={{ color: childColor }}>
-                                  {child.name}
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {isExpanded && subject.children?.map(child => renderPinnedDescendants(child, [...path, child.name], 1))}
                       </div>
                     );
                   })}
@@ -911,7 +979,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
                   <div className="bookshelf-grid home-bookshelf-grid">
-                    {subjects.map((subject, i) => renderCategoryNode(subject, `${language}-${i}-${subject.href || subject.name}`, 0))}
+                    {subjects.map((subject, i) => renderCategoryNode(subject, `${language}-${i}-${subject.href || subject.name}`, 0, [subject.name]))}
                   </div>
                 )}
 
