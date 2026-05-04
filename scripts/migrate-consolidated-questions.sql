@@ -1,8 +1,8 @@
 -- Consolidate per-quiz question tables into one public table.
 -- This script does three things:
 -- 1) Creates public.quiz_questions_all if it does not exist.
--- 2) Adds quiz_id to every table in schema quiz and backfills quiz_id from table name.
--- 3) Upserts all rows from quiz.* tables into public.quiz_questions_all.
+-- 2) If schema quiz still exists, adds quiz_id to each legacy table and backfills it.
+-- 3) If schema quiz still exists, upserts quiz.* rows into public.quiz_questions_all.
 
 begin;
 
@@ -17,7 +17,7 @@ create table if not exists public.quiz_questions_all (
   level         int,
   group_range   text,
   group_content text,
-  source_schema text not null default 'quiz',
+  source_schema text not null default 'public',
   source_table  text not null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -132,8 +132,8 @@ begin
         %s as level,
         %s as group_range,
         %s as group_content,
-        ''quiz'' as source_schema,
-        %L as source_table,
+        ''public'' as source_schema,
+        ''quiz_questions_all'' as source_table,
         now() as updated_at
       from quiz.%I
       on conflict (quiz_id, number)
@@ -155,7 +155,6 @@ begin
       level_expr,
       group_range_expr,
       group_content_expr,
-      rec.tablename,
       rec.tablename
     );
   end loop;

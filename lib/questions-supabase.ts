@@ -103,8 +103,8 @@ async function doUpsert(collectionId: string, rows: object[]): Promise<void> {
     const payload = chunk.map((row) => ({
       ...row,
       quiz_id: collectionId,
-      source_schema: "quiz",
-      source_table: collectionId,
+      source_schema: "public",
+      source_table: QUIZ_QUESTIONS_TABLE,
     }));
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?on_conflict=quiz_id,number`, {
       method: "POST",

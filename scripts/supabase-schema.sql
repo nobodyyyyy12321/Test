@@ -96,7 +96,7 @@ create table if not exists quiz_questions_all (
   level         int,
   group_range   text,
   group_content text,
-  source_schema text not null default 'quiz',
+  source_schema text not null default 'public',
   source_table  text not null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),

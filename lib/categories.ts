@@ -40,7 +40,13 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
     .eq("language", language)
     .order("position", { ascending: true });
   if (error || !data) {
-    console.error("[categories] fetch error:", error);
+    console.error("[categories] fetch error:", {
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code,
+      raw: error,
+    });
     return [];
   }
   console.log("[categories] fetched rows:", data.length, "for language:", language);
