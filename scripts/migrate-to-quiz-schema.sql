@@ -32,6 +32,7 @@ begin
   execute format(
     $sql$
     create table if not exists quiz.%I (
+      quiz_id       text not null default %L,
       number        numeric  primary key,
       title         text not null,
       type          text not null default 'single',
@@ -41,6 +42,7 @@ begin
       group_range   text
     )
     $sql$,
+    p_table_name,
     p_table_name
   );
 
@@ -135,6 +137,14 @@ begin
       rec.tablename
     );
     execute format('alter table quiz.%I enable row level security', rec.tablename);
+
+    -- Ensure every row carries its parent quiz identifier.
+    execute format('alter table quiz.%I add column if not exists quiz_id text', rec.tablename);
+    execute format(
+      'update quiz.%I set quiz_id = %L where quiz_id is null or quiz_id = ''''',
+      rec.tablename,
+      rec.tablename
+    );
     -- add SELECT policy only if it doesn't exist yet
     if not exists (
       select 1 from pg_policies

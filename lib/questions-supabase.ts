@@ -16,19 +16,18 @@ const HEADERS = {
   "Content-Type": "application/json",
 };
 
-// Headers for tables that live in the `quiz` schema
-const QUIZ_READ_HEADERS = {
+const READ_HEADERS = {
   apikey: SUPABASE_KEY,
   Authorization: `Bearer ${SUPABASE_KEY}`,
-  "Accept-Profile": "quiz",
 };
 
-const QUIZ_WRITE_HEADERS = {
+const WRITE_HEADERS = {
   apikey: SUPABASE_KEY,
   Authorization: `Bearer ${SUPABASE_KEY}`,
   "Content-Type": "application/json",
-  "Content-Profile": "quiz",
 };
+
+const QUIZ_QUESTIONS_TABLE = "quiz_questions_all";
 
 export type QuizQuestionRow = {
   number: number;
@@ -60,7 +59,7 @@ export async function fetchQuizQuestions(opts: {
 
   for (const batch of numberBatches) {
     const baseUrl = () => {
-      let url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc&limit=1000`;
+      let url = `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?select=number,title,type,options,answer,level,group_range,group_content&quiz_id=eq.${encodeURIComponent(collectionId)}&order=number.asc&limit=1000`;
       // Include group-header rows (type=group, level=null) even when level filter is active
       if (levels?.length) url += `&or=(level.in.(${levels.join(",")}),type.eq.group)`;
       if (batch !== null) url += `&number=in.(${batch.join(",")})`;
@@ -71,7 +70,7 @@ export async function fetchQuizQuestions(opts: {
     while (true) {
       const url = `${baseUrl()}&offset=${offset}`;
       const res = await fetch(url, {
-        headers: { ...QUIZ_READ_HEADERS, Prefer: "count=none" },
+        headers: { ...READ_HEADERS, Prefer: "count=none" },
         next: revalidate === false ? { revalidate: 0 } : { revalidate, tags: [`quiz-questions-${collectionId}`] },
       });
       if (!res.ok) throw new Error(`Supabase fetch error: ${await res.text()}`);
@@ -86,40 +85,34 @@ export async function fetchQuizQuestions(opts: {
 }
 
 /**
- * Returns true if a table for this collectionId already exists in the quiz schema.
- * Uses a lightweight HEAD request; 200 = exists, 404 = not found.
+ * Returns true if this collection already has questions in public.quiz_questions_all.
  */
 export async function collectionTableExists(collectionId: string): Promise<boolean> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?limit=0`,
-    { method: "HEAD", headers: QUIZ_READ_HEADERS, cache: "no-store" }
+    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?select=quiz_id&quiz_id=eq.${encodeURIComponent(collectionId)}&limit=1`,
+    { headers: READ_HEADERS, cache: "no-store" }
   );
-  return res.ok;
-}
-
-async function createCollectionTable(collectionId: string): Promise<void> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_collection_table_if_not_exists`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({ p_table_name: collectionId }),
-  });
-  if (!res.ok) throw new Error(`建表失敗 (${collectionId}): ${await res.text()}`);
-  // wait briefly for PostgREST to reload schema
-  await new Promise(r => setTimeout(r, 1500));
+  if (!res.ok) return false;
+  const rows: Array<{ quiz_id: string }> = await res.json();
+  return rows.length > 0;
 }
 
 async function doUpsert(collectionId: string, rows: object[]): Promise<void> {
   for (let i = 0; i < rows.length; i += 400) {
     const chunk = rows.slice(i, i + 400);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?on_conflict=number`, {
+    const payload = chunk.map((row) => ({
+      ...row,
+      quiz_id: collectionId,
+      source_schema: "quiz",
+      source_table: collectionId,
+    }));
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?on_conflict=quiz_id,number`, {
       method: "POST",
-      headers: { ...QUIZ_WRITE_HEADERS, Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify(chunk),
+      headers: { ...WRITE_HEADERS, Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const text = await res.text();
-      // 404 means the table doesn't exist yet
-      if (res.status === 404) throw Object.assign(new Error(text), { tableNotFound: true });
       throw new Error(`Supabase upsert error: ${text}`);
     }
   }
@@ -131,10 +124,9 @@ export async function fetchAllQuizQuestionsFresh(
   const out: QuizQuestionRow[] = [];
   let offset = 0;
   while (true) {
-    const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?order=number.asc&limit=1000&offset=${offset}`;
-    const res = await fetch(url, { headers: QUIZ_READ_HEADERS, cache: "no-store" });
+    const url = `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?select=number,title,type,options,answer,level,group_range,group_content&quiz_id=eq.${encodeURIComponent(collectionId)}&order=number.asc&limit=1000&offset=${offset}`;
+    const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
     if (!res.ok) {
-      if (res.status === 404) return out;
       throw new Error(await res.text());
     }
     const page: QuizQuestionRow[] = await res.json();
@@ -165,8 +157,8 @@ export async function updateQuizQuestion(
   if (updates.level !== undefined) row.level = updates.level;
   if (updates.group_range !== undefined) row.group_range = updates.group_range;
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
-    { method: "PATCH", headers: QUIZ_WRITE_HEADERS, body: JSON.stringify(row) }
+    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${number}`,
+    { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify(row) }
   );
   if (!res.ok) throw new Error(await res.text());
 }
@@ -176,53 +168,21 @@ export async function deleteQuizQuestion(
   number: number
 ): Promise<void> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=eq.${number}`,
-    { method: "DELETE", headers: QUIZ_WRITE_HEADERS }
+    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${number}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
   );
   if (!res.ok) throw new Error(await res.text());
 }
 
 /**
- * Drop a collection's underlying table entirely. Requires this Postgres function:
- *
- *   create or replace function drop_collection_table_if_exists(p_table_name text)
- *   returns void
- *   language plpgsql
- *   security definer
- *   as $$
- *   begin
- *     execute format('drop table if exists public.%I cascade', p_table_name);
- *     perform pg_notify('pgrst', 'reload schema');
- *   end
- *   $$;
- *
- * If the RPC isn't installed yet, falls back to deleting every row in the table
- * (table shell remains, but data is gone).
+ * Delete all question rows for one collection from public.quiz_questions_all.
  */
 export async function deleteAllQuizQuestions(collectionId: string): Promise<void> {
-  // 1) try drop-table RPC — fully removes the collection from Supabase
-  const dropRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/drop_collection_table_if_exists`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({ p_table_name: collectionId }),
-  });
-  if (dropRes.ok) return;
-
-  // 404 means the RPC isn't installed → fall back to row-level delete
-  if (dropRes.status !== 404) {
-    const errText = await dropRes.text().catch(() => "");
-    // If RPC exists but fails, surface a clear error rather than silently retrying
-    if (!errText.includes("Could not find the function")) {
-      throw new Error(`drop_collection_table_if_exists failed: ${errText}`);
-    }
-  }
-
-  // 2) fallback: delete every row. Supabase REST requires a filter; "not.is.null" on a non-null column matches all rows.
   const delRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}?number=not.is.null`,
-    { method: "DELETE", headers: QUIZ_WRITE_HEADERS }
+    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?quiz_id=eq.${encodeURIComponent(collectionId)}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
   );
-  if (!delRes.ok && delRes.status !== 404) {
+  if (!delRes.ok) {
     throw new Error(`delete-all-rows failed for ${collectionId}: ${await delRes.text()}`);
   }
 }
@@ -238,14 +198,14 @@ export async function reorderCollectionQuestions(
   collectionId: string,
   orderedNumbers: number[]
 ): Promise<void> {
-  const tableUrl = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(collectionId)}`;
+  const tableUrl = `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}`;
 
   // phase 1: each row → unique negative temp number
   await Promise.all(
     orderedNumbers.map((current, i) =>
-      fetch(`${tableUrl}?number=eq.${current}`, {
+      fetch(`${tableUrl}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${current}`, {
         method: "PATCH",
-        headers: QUIZ_WRITE_HEADERS,
+        headers: WRITE_HEADERS,
         body: JSON.stringify({ number: -(i + 1) }),
       }).then(async r => {
         if (!r.ok) throw new Error(await r.text());
@@ -256,9 +216,9 @@ export async function reorderCollectionQuestions(
   // phase 2: temp negative → final positive
   await Promise.all(
     orderedNumbers.map((_, i) =>
-      fetch(`${tableUrl}?number=eq.${-(i + 1)}`, {
+      fetch(`${tableUrl}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${-(i + 1)}`, {
         method: "PATCH",
-        headers: QUIZ_WRITE_HEADERS,
+        headers: WRITE_HEADERS,
         body: JSON.stringify({ number: i + 1 }),
       }).then(async r => {
         if (!r.ok) throw new Error(await r.text());
@@ -302,14 +262,7 @@ export async function upsertQuizQuestions(
       return row;
     });
 
-  try {
-    await doUpsert(collectionId, rows);
-  } catch (err: any) {
-    if (!err.tableNotFound) throw err;
-    // table doesn't exist — create it and retry once
-    await createCollectionTable(collectionId);
-    await doUpsert(collectionId, rows);
-  }
+  await doUpsert(collectionId, rows);
 
   return { upserted: rows.length };
 }
