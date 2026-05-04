@@ -135,25 +135,29 @@ export async function POST(request: Request) {
 
     try {
       const tableId = resolveTableName(collectionId, activeLanguage);
-      if (await collectionTableExists(tableId) && !forceSet.has(collectionId)) {
+      const exists = await collectionTableExists(tableId);
+      if (exists && !forceSet.has(collectionId)) {
         conflicts[collectionId] = `題庫「${collectionId}」已存在，確定要覆蓋嗎？`;
         continue;
       }
       const result = await upsertQuizQuestions(tableId, normalized);
       const gridName = findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
 
-      // Add (or rename) the homepage nav entry. Failure here doesn't fail the whole upload.
+      // Only create/update homepage nav entry for a brand-new quiz_id.
+      // Overwrite flow should update questions only and avoid creating new categories rows.
       let navCreated = false;
       let navWarning: string | undefined;
-      try {
-        const nav = await ensureTopLevelItem({
-          language,
-          name: gridName,
-          href: `/test/${encodeURIComponent(collectionId)}`,
-        });
-        navCreated = nav.created;
-      } catch (err: any) {
-        navWarning = `首頁導覽列更新失敗：${err?.message ?? err}`;
+      if (!exists) {
+        try {
+          const nav = await ensureTopLevelItem({
+            language,
+            name: gridName,
+            href: `/test/${encodeURIComponent(collectionId)}`,
+          });
+          navCreated = nav.created;
+        } catch (err: any) {
+          navWarning = `首頁導覽列更新失敗：${err?.message ?? err}`;
+        }
       }
 
       results[collectionId] = {
