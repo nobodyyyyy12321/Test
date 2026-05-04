@@ -39,6 +39,8 @@ function getLabels(language: string) {
     deselectAll:    en ? "Deselect All" : "取消全選",
     selectWrong:    en ? "Select Wrong" : "勾選答錯題",
     deselectWrong:  en ? "Deselect" : "取消勾選",
+    prevPage:       en ? "Previous Page" : "上一頁",
+    nextPage:       en ? "Next Page" : "下一頁",
     shareFrom:      "from testtttt.io",
   };
 }
@@ -81,10 +83,13 @@ type Props = {
 
 export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit }: Props) {
   const L = getLabels(language);
+  const quizPageSize = limit ?? (id === "englishWords" ? 50 : null);
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [userAnswers, setUserAnswers] = useState<(string | string[] | null)[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [allUserAnswers, setAllUserAnswers] = useState<(string | string[] | null)[]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState<number | null>(quizPageSize);
   const originalQuestionsRef = useRef<Question[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [checkedIdxs, setCheckedIdxs] = useState<Set<number>>(new Set());
@@ -98,6 +103,14 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const beforeUnloadHandlerRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const effectivePageSize = pageSize ?? allQuestions.length;
+  const pageStart = effectivePageSize > 0 ? pageIndex * effectivePageSize : 0;
+  const pageEnd = effectivePageSize > 0 ? pageStart + effectivePageSize : allQuestions.length;
+  const questions = effectivePageSize > 0 ? allQuestions.slice(pageStart, pageEnd) : allQuestions;
+  const userAnswers = effectivePageSize > 0 ? allUserAnswers.slice(pageStart, pageEnd) : allUserAnswers;
+  const totalPages = effectivePageSize > 0 ? Math.max(1, Math.ceil(allQuestions.length / effectivePageSize)) : 1;
+  const canGoPrevPage = pageIndex > 0;
+  const canGoNextPage = pageIndex < totalPages - 1;
 
   useLayoutEffect(() => {
     const isFormal = localStorage.getItem("quizMode") === "formal";
@@ -205,8 +218,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
               const displayed = sorted.filter(q => q.type === "group" || answerMap.has(q.number));
               const answers = displayed.map(q => answerMap.get(q.number) ?? null);
               originalQuestionsRef.current = sorted;
-              setQuestions(displayed);
-              setUserAnswers(answers);
+              setAllQuestions(displayed);
+              setAllUserAnswers(answers);
+              setPageIndex(0);
+              setPageSize(null);
               setShowResults(true);
             })
             .catch(() => {});
@@ -226,10 +241,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         originalQuestionsRef.current = sorted;
         const hasGroups = sorted.some(q => q.type === "group");
         const shuffled = (ordered || hasGroups) ? sorted : shuffle(sorted);
-        const cap = limit ?? (id === "englishWords" ? 50 : null);
-        const displayed = cap != null ? shuffled.slice(0, cap) : shuffled;
-        setQuestions(displayed);
-        setUserAnswers(new Array(displayed.length).fill(null));
+        setAllQuestions(shuffled);
+        setAllUserAnswers(new Array(shuffled.length).fill(null));
+        setPageIndex(0);
+        setPageSize(quizPageSize);
         if (!formalMode && timerEnabled) { timerReset(); timerStart(); }
       })
       .catch(() => {});
@@ -288,9 +303,16 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       if (qt === "fill" || qt === "group") return;
       if (!q.options.some(o => o.label === label)) return;
       if (qt === "multiple") {
-        handleMultipleToggleAt(focusedIdx, label);
+        setAllUserAnswers(prev => {
+          const answerIdx = pageStart + focusedIdx;
+          const current = (prev[answerIdx] as string[] | null) ?? [];
+          const next = [...prev];
+          const updated = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
+          next[answerIdx] = updated.length > 0 ? updated : null;
+          return next;
+        });
       } else {
-        handleSingleAnswerAt(focusedIdx, label);
+        setAllUserAnswers(prev => { const next = [...prev]; next[pageStart + focusedIdx] = label; return next; });
         setFocusedIdx(prev => {
           const nextUnanswered = questions.findIndex((_, i) => i > prev && userAnswers[i] === null);
           return nextUnanswered !== -1 ? nextUnanswered : prev;
@@ -299,7 +321,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showResults, userAnswers, questions, focusedIdx, checkAnswers]);
+  }, [showResults, userAnswers, questions, focusedIdx, pageStart, checkAnswers]);
 
   useEffect(() => {
     const el = questionRefs.current[focusedIdx];
@@ -357,30 +379,34 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   }, [timerFinished, timerMode, showResults, checkAnswers]);
 
   const handleSingleAnswerAt = (idx: number, answer: string) => {
-    setUserAnswers(prev => { const next = [...prev]; next[idx] = answer; return next; });
+    setAllUserAnswers(prev => { const next = [...prev]; next[pageStart + idx] = answer; return next; });
   };
 
   const handleMultipleToggleAt = (idx: number, label: string) => {
-    setUserAnswers(prev => {
-      const current = (prev[idx] as string[] | null) ?? [];
+    setAllUserAnswers(prev => {
+      const answerIdx = pageStart + idx;
+      const current = (prev[answerIdx] as string[] | null) ?? [];
       const next = [...prev];
       const updated = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
-      next[idx] = updated.length > 0 ? updated : null;
+      next[answerIdx] = updated.length > 0 ? updated : null;
       return next;
     });
   };
 
   const handleFillChangeAt = (idx: number, value: string) => {
-    setUserAnswers(prev => { const next = [...prev]; next[idx] = value || null; return next; });
+    setAllUserAnswers(prev => { const next = [...prev]; next[pageStart + idx] = value || null; return next; });
   };
 
   const resetQuiz = () => {
     const orig = originalQuestionsRef.current;
-    const displayed = ordered ? orig : shuffle(orig);
+    const hasGroups = orig.some(q => q.type === "group");
+    const displayed = (ordered || hasGroups) ? orig : shuffle(orig);
     setIsRetryWrongMode(false);
     setShowResults(false);
-    setQuestions(displayed);
-    setUserAnswers(new Array(displayed.length).fill(null));
+    setAllQuestions(displayed);
+    setAllUserAnswers(new Array(displayed.length).fill(null));
+    setPageIndex(0);
+    setPageSize(quizPageSize);
     setCheckedIdxs(new Set());
     setFocusedIdx(0);
   };
@@ -389,9 +415,11 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     const wrong = questions.filter((q, idx) => q.type !== "group" && userAnswers[idx] !== null && !gradeAnswer(q, userAnswers[idx]));
     if (wrong.length === 0) return;
     setIsRetryWrongMode(true);
-    setQuestions(wrong);
+    setAllQuestions(wrong);
     setShowResults(false);
-    setUserAnswers(new Array(wrong.length).fill(null));
+    setAllUserAnswers(new Array(wrong.length).fill(null));
+    setPageIndex(0);
+    setPageSize(quizPageSize);
     setCheckedIdxs(new Set());
     setFocusedIdx(0);
   };
@@ -430,6 +458,15 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
 
   const answeredCount = userAnswers.filter((a, idx) => questions[idx]?.type !== "group" && a !== null).length;
   const correctCount = questions.filter((q, idx) => q.type !== "group" && gradeAnswer(q, userAnswers[idx])).length;
+
+  const goToQuestionPage = (direction: -1 | 1) => {
+    const next = Math.max(0, Math.min(pageIndex + direction, totalPages - 1));
+    if (next === pageIndex) return;
+    setPageIndex(next);
+    setShowResults(false);
+    setCheckedIdxs(new Set());
+    setFocusedIdx(0);
+  };
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
@@ -507,8 +544,29 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
           <h1 className="text-2xl font-bold zen-title">
             {showResults && <span>{L.score(correctCount, answeredCount)}</span>}
           </h1>
-          {!showResults ? (
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => goToQuestionPage(-1)}
+                disabled={!canGoPrevPage}
+                className="px-4 py-2 border rounded-full text-sm transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ background: "transparent", borderColor: "#b19739", color: "#b19739" }}
+              >
+                {L.prevPage}
+              </button>
+              <button
+                type="button"
+                onClick={() => goToQuestionPage(1)}
+                disabled={!canGoNextPage}
+                className="px-4 py-2 border rounded-full text-sm transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ background: "transparent", borderColor: "#b19739", color: "#b19739" }}
+              >
+                {L.nextPage}
+              </button>
+            </div>
+            {!showResults ? (
+              <>
               {session?.user && (
                 <BulkAddToListButton
                   questions={questions
@@ -532,9 +590,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
               >
                 {L.submit}
               </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
+              </>
+            ) : (
+              <>
               {session && (
                 <button
                   onClick={retryWrong}
@@ -551,8 +609,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
               >
                 {L.restart}
               </button>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="mt-4 w-full grid grid-cols-1 sm:gap-x-8 divide-y sm:divide-y-0 divide-zinc-100 dark:divide-zinc-800" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
