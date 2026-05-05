@@ -123,8 +123,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     return null;
   };
 
-  const toggleOpenKey = (key: string) => {
+  const toggleOpenKey = (key: string, depth: number = 0) => {
     setOpenKeys(prev => {
+      if (depth === 0) {
+        // accordion at top level: close everything, or collapse if already open
+        if (prev.has(key)) return new Set();
+        return new Set([key]);
+      }
+      // sub-folders: toggle independently
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -134,10 +140,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
   const toggleOpenPinnedKey = (key: string) => {
     setOpenPinnedKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+      if (prev.has(key)) return new Set();
+      return new Set([key]);
     });
   };
 
@@ -163,7 +167,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               type="button"
               className={`${itemClass} ${isOpen ? "active-category" : ""}`.trim()}
               style={btnStyle}
-              onClick={() => toggleOpenKey(key)}
+              onClick={() => toggleOpenKey(key, depth)}
             >
               <span className="mr-1">📁</span>{node.name}
             </button>
