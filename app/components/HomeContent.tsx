@@ -277,6 +277,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         if (Array.isArray(d.pinnedProfileTabs)) setPinnedProfileTabs(d.pinnedProfileTabs);
       })
       .catch(() => {});
+    // Pre-load profile language so profile page uses the correct language immediately
+    fetch("/api/user/profile")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const lang = d?.user?.profileLanguage as string | undefined;
+        if (lang) localStorage.setItem("profileLanguage", lang);
+      })
+      .catch(() => {});
   }, [loggedIn]);
 
   useEffect(() => {

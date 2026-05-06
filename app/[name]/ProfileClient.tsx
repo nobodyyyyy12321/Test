@@ -242,23 +242,41 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const isLoggedIn = !!session?.user;
 
   useEffect(() => {
-    const syncLanguage = () => {
-      // Profile language is independent — use profileLanguage key, fall back to siteLanguage
-      const profileLang = localStorage.getItem("profileLanguage") as SupportedUILanguage | null;
-      const siteLang = localStorage.getItem("siteLanguage") as SupportedUILanguage | null;
-      setUiLang(profileLang ?? siteLang ?? "zh-TW");
-    };
-    syncLanguage();
-    window.addEventListener("profile-language-change", syncLanguage);
-    return () => {
-      window.removeEventListener("profile-language-change", syncLanguage);
-    };
-  }, []);
+    // For logged-in owners: load profileLanguage from Supabase, fall back to localStorage -> siteLanguage
+    const localLang = localStorage.getItem("profileLanguage") as SupportedUILanguage | null;
+    const siteLang = localStorage.getItem("siteLanguage") as SupportedUILanguage | null;
+
+    if (isOwner) {
+      fetch("/api/user/profile")
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          const serverLang = d?.user?.profileLanguage as SupportedUILanguage | undefined;
+          const resolved = serverLang ?? localLang ?? siteLang ?? "zh-TW";
+          setUiLang(resolved);
+          // Sync localStorage so it's available immediately on next visit before fetch
+          if (serverLang) localStorage.setItem("profileLanguage", serverLang);
+        })
+        .catch(() => {
+          setUiLang(localLang ?? siteLang ?? "zh-TW");
+        });
+    } else {
+      setUiLang(localLang ?? siteLang ?? "zh-TW");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner]);
 
   const setProfileLanguage = (lang: SupportedUILanguage) => {
     localStorage.setItem("profileLanguage", lang);
     setUiLang(lang);
     window.dispatchEvent(new Event("profile-language-change"));
+    // Persist to Supabase for logged-in owners
+    if (isOwner) {
+      fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileLanguage: lang }),
+      }).catch(() => {});
+    }
   };
 
   const t = (key: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, key);

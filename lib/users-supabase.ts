@@ -27,6 +27,7 @@ export type User = {
   emailPublic?: boolean;
   googleId?: string;
   pendingGoogleLinkExpires?: string;
+  profileLanguage?: string;
   records?: Array<{
     answered: number;
     correct: number;
@@ -62,6 +63,7 @@ function rowToUser(row: Record<string, unknown>): User {
     emailPublic: (row.email_public as boolean | null) ?? false,
     googleId: (row.google_id as string | null) ?? undefined,
     pendingGoogleLinkExpires: (row.pending_google_link_expires as string | null) ?? undefined,
+    profileLanguage: (row.profile_language as string | null) ?? undefined,
   };
 }
 
@@ -206,6 +208,7 @@ export async function saveUser(user: User): Promise<void> {
     social_links: user.socialLinks ?? {},
     recitations_public: user.recitationsPublic ?? false,
     email_public: user.emailPublic ?? false,
+    profile_language: user.profileLanguage ?? null,
   };
   const { error } = await db.from("users").upsert(row);
   if (error) throw error;
@@ -231,6 +234,7 @@ export async function updateUser(
   if (updates.emailPublic !== undefined) row.email_public = updates.emailPublic;
   if (updates.googleId !== undefined) row.google_id = updates.googleId ?? null;
   if (updates.pendingGoogleLinkExpires !== undefined) row.pending_google_link_expires = updates.pendingGoogleLinkExpires ?? null;
+  if (updates.profileLanguage !== undefined) row.profile_language = updates.profileLanguage ?? null;
 
   if (Object.keys(row).length === 0) {
     return (await findUserById(id)) ?? null;
