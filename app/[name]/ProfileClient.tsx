@@ -243,17 +243,23 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   useEffect(() => {
     const syncLanguage = () => {
-      const stored = (localStorage.getItem("siteLanguage") as SupportedUILanguage | null) ?? "zh-TW";
-      setUiLang(stored);
+      // Profile language is independent — use profileLanguage key, fall back to siteLanguage
+      const profileLang = localStorage.getItem("profileLanguage") as SupportedUILanguage | null;
+      const siteLang = localStorage.getItem("siteLanguage") as SupportedUILanguage | null;
+      setUiLang(profileLang ?? siteLang ?? "zh-TW");
     };
     syncLanguage();
-    window.addEventListener("storage", syncLanguage);
-    window.addEventListener("site-language-change", syncLanguage);
+    window.addEventListener("profile-language-change", syncLanguage);
     return () => {
-      window.removeEventListener("storage", syncLanguage);
-      window.removeEventListener("site-language-change", syncLanguage);
+      window.removeEventListener("profile-language-change", syncLanguage);
     };
   }, []);
+
+  const setProfileLanguage = (lang: SupportedUILanguage) => {
+    localStorage.setItem("profileLanguage", lang);
+    setUiLang(lang);
+    window.dispatchEvent(new Event("profile-language-change"));
+  };
 
   const t = (key: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, key);
   const dateLocale = normalizeProfileLanguage(uiLang) === "en" ? "en-US" : "zh-TW";
@@ -1026,6 +1032,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             <h1 className="text-2xl md:text-3xl font-bold zen-title" style={{ color: "#b19739" }}>{urlName}</h1>
           </div>
           <div className="flex items-center gap-2">
+            {/* profile-page language selector */}
+            <select
+              value={uiLang}
+              onChange={e => setProfileLanguage(e.target.value as SupportedUILanguage)}
+              className="text-xs px-2 py-1 rounded-full border outline-none cursor-pointer transition-colors hover:opacity-80"
+              style={{ borderColor: "#5fa870", color: "#5fa870", background: "var(--zen-bg)" }}
+              aria-label="Profile page language"
+            >
+              <option value="zh-TW">中文繁體</option>
+              <option value="en">English</option>
+            </select>
             {isOwner && (
               <button
                 onClick={handleSignOut}
