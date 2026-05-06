@@ -86,7 +86,7 @@ export default function LanguageGate({ children }: { children: React.ReactNode }
 
   const blocked = useMemo(() => {
     if (!mounted) return false;
-    if (language === "zh-TW") return false;
+    if (language === "zh-TW" || language === "en") return false;
     if (isAllowedForLanguage(language, pathname || "/")) return false;
     return isQuizPath(pathname || "/");
   }, [mounted, language, pathname]);

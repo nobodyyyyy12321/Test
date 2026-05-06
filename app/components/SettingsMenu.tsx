@@ -10,6 +10,7 @@ export default function SettingsMenu() {
   const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [domMounted, setDomMounted] = useState(false);
+  const [language, setLanguage] = useState("zh-TW");
   const [quizMode, setQuizMode] = useState<"practice" | "formal">("practice");
   const [showModeModal, setShowModeModal] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -28,6 +29,21 @@ export default function SettingsMenu() {
 
   useEffect(() => {
     setDomMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const syncLanguage = () => {
+      const stored = localStorage.getItem("siteLanguage") ?? "zh-TW";
+      setLanguage(stored);
+    };
+
+    syncLanguage();
+    window.addEventListener("storage", syncLanguage);
+    window.addEventListener("site-language-change", syncLanguage);
+    return () => {
+      window.removeEventListener("storage", syncLanguage);
+      window.removeEventListener("site-language-change", syncLanguage);
+    };
   }, []);
 
   useEffect(() => {
@@ -105,6 +121,7 @@ export default function SettingsMenu() {
 
   const userName = displayName || session.user.name || "";
   const blockedHref = userName ? `/${encodeURIComponent(userName)}?tab=blocked` : "/";
+  const premiumHref = language === "en" ? "/" : "/under-construction";
 
   return (
     <>
@@ -126,7 +143,7 @@ export default function SettingsMenu() {
           <div className="hidden sm:block absolute right-0 top-full mt-2 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
             <div className="py-1">
               <Link href="/upload" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
-              <Link href="/under-construction" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+              <Link href={premiumHref} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
               <button
                 onClick={() => { setIsMenuOpen(false); setShowModeModal(true); }}
                 className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -203,7 +220,7 @@ export default function SettingsMenu() {
             style={{ boxShadow: '0 -4px 16px rgba(0,0,0,0.10)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             <Link href="/upload" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
-            <Link href="/under-construction" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+            <Link href={premiumHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
             <button
               onClick={() => { setIsMenuOpen(false); setShowModeModal(true); }}
               className="w-full text-center px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800"

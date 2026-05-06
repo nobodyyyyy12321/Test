@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { auth } from "../../auth";
 import { findUserByName, findUserByEmail } from "../../lib/users";
 import ProfileClient from "./ProfileClient";
@@ -9,11 +10,14 @@ type Props = { params: Promise<{ name: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { name } = await params;
   const urlName = decodeURIComponent(name);
+  const cookieStore = await cookies();
+  const lang = cookieStore.get("siteLanguage")?.value ?? "zh-TW";
+  const isEn = lang === "en";
   const user = await findUserByName(urlName).catch(() => null);
-  if (!user) return { title: "找不到使用者" };
+  if (!user) return { title: isEn ? "User Not Found" : "找不到使用者" };
   return {
     title: `${user.name} — Test`,
-    description: user.bio || `${user.name} 的個人頁面`,
+    description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
     openGraph: {
       title: `${user.name} — Test`,
       description: user.bio || undefined,

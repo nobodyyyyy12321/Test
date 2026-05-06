@@ -11,6 +11,7 @@ import type { CategoryNode } from "../components/CategoryNode";
 import { PersonalListsView } from "../components/PersonalListsView";
 import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
+import { getProfileText, normalizeProfileLanguage, type SupportedUILanguage } from "../lib/i18n/profile";
 
 // ── locale helpers ────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ type QuizRecord = {
 function recordToUrl(set: string, replayKey?: string): string | null {
   const sep = set.lastIndexOf("@@");
   const key = sep > 0 ? set.slice(sep + 2) : set;
-  if (key.startsWith("個人試卷")) return null;
+  if (key.startsWith("個人試卷") || key.toLowerCase().startsWith("personal")) return null;
   const colonIdx = key.indexOf(":");
   let url: string;
   if (colonIdx !== -1) {
@@ -104,11 +105,11 @@ function recordDisplaySet(set: string): string {
 }
 
 const ENGLISH_SET_NAMES: Record<string, string> = {
-  "englishWords:1,2": "2000單",
-  "englishWords:3,4": "4000單",
-  "englishWords:5,6": "6000單",
-  englishWords: "英文",
-  quoteChinese: "名言佳句",
+  "englishWords:1,2": "2000 Words",
+  "englishWords:3,4": "4000 Words",
+  "englishWords:5,6": "6000 Words",
+  englishWords: "English Words",
+  quoteChinese: "Quotes",
 };
 
 export type InitialProfile = {
@@ -132,6 +133,7 @@ type Props = {
 
 export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile }: Props) {
   const { data: session, status } = useSession();
+  const [uiLang, setUiLang] = useState<SupportedUILanguage>("zh-TW");
 
   const isOwner = React.useMemo(() => {
     if (initialIsOwner) return true;
@@ -238,6 +240,23 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [pinnedTabs, setPinnedTabs] = useState<PinnedTab[]>([]);
   const [tabCtxMenu, setTabCtxMenu] = useState<{ tab: Tab; label: string; x: number; y: number } | null>(null);
   const isLoggedIn = !!session?.user;
+
+  useEffect(() => {
+    const syncLanguage = () => {
+      const stored = (localStorage.getItem("siteLanguage") as SupportedUILanguage | null) ?? "zh-TW";
+      setUiLang(stored);
+    };
+    syncLanguage();
+    window.addEventListener("storage", syncLanguage);
+    window.addEventListener("site-language-change", syncLanguage);
+    return () => {
+      window.removeEventListener("storage", syncLanguage);
+      window.removeEventListener("site-language-change", syncLanguage);
+    };
+  }, []);
+
+  const t = (key: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, key);
+  const dateLocale = normalizeProfileLanguage(uiLang) === "en" ? "en-US" : "zh-TW";
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -526,7 +545,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       setGroupInvitedIds(prev => new Set(prev).add(userId));
       loadActiveGroup(activeGroupId);
     } else {
-      setGroupInviteError(d.error ?? "邀請失敗");
+      setGroupInviteError(d.error ?? `${t("invite")} failed`);
     }
     setGroupInviteLoading(false);
   };
@@ -547,7 +566,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       body: JSON.stringify({ listId: groupShareListId }),
     });
     const d = await res.json();
-    setGroupShareMsg(d.ok ? `已分享給 ${d.shared} 位成員` : (d.error ?? "分享失敗"));
+    setGroupShareMsg(d.ok ? `${t("share")} ${d.shared} ${t("sharedCountSuffix")}` : (d.error ?? t("shareFailed")));
     setGroupShareLoading(false);
   };
 
@@ -623,7 +642,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   async function uploadAvatar(file: File) {
     setSaveError(null);
-    if (file.size > 15 * 1024 * 1024) { setSaveError("圖片過大，請選擇 15MB 以下檔案"); return; }
+    if (file.size > 15 * 1024 * 1024) { setSaveError(t("imageTooLarge")); return; }
     const src = await new Promise<string>((res, rej) => {
       const r = new FileReader();
       r.onload = () => res(String(r.result || ""));
@@ -657,7 +676,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       setAvatarUrl(j.url);
       window.dispatchEvent(new Event("profile:updated"));
     } else {
-      setSaveError(j?.error || "頭像上傳失敗");
+      setSaveError(j?.error || t("avatarUploadFailed"));
     }
   }
 
@@ -670,7 +689,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     });
     const j = await res.json();
     setSaving(false);
-    if (!res.ok) { setSaveError(j?.error || "儲存失敗"); return; }
+    if (!res.ok) { setSaveError(j?.error || t("saveFailed")); return; }
     setEditing(false);
     window.dispatchEvent(new Event("profile:updated"));
   }
@@ -845,13 +864,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   // ── tabs config ───────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
-    { id: "profile", label: "個人檔案" },
-    { id: "lists", label: "個人分類" },
-    { id: "shared", label: "分享給我", ownerOnly: true },
-    { id: "record", label: "紀錄", ownerOnly: true },
-    { id: "groups", label: "群組", ownerOnly: true },
-    { id: "followers", label: "追蹤者" },
-    { id: "following", label: "追蹤中" },
+    { id: "profile", label: t("tabProfile") },
+    { id: "lists", label: t("tabLists") },
+    { id: "shared", label: t("tabShared"), ownerOnly: true },
+    { id: "record", label: t("tabRecord"), ownerOnly: true },
+    { id: "groups", label: t("tabGroups"), ownerOnly: true },
+    { id: "followers", label: t("tabFollowers") },
+    { id: "following", label: t("tabFollowing") },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
@@ -864,7 +883,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     return (
       <div className="px-4 py-4 flex flex-col gap-5" style={{ backgroundColor: "var(--zen-bg)" }}>
         {activeGroupLoading && !activeGroup && (
-          <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>載入中...</p>
+          <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>{t("loading")}</p>
         )}
         {activeGroup && (
           <>
@@ -873,15 +892,15 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               <div className="flex items-center gap-2">
                 <NextImage src={activeGroup.ownerAvatarUrl || AVATAR_PLACEHOLDER} alt={activeGroup.ownerName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                 <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{activeGroup.ownerName}</span>
-                <span className="text-xs opacity-40 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>群主</span>
+                <span className="text-xs opacity-40 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>{t("groupOwner")}</span>
               </div>
             )}
 
             {/* members */}
             <div className="flex flex-col gap-3">
-              <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>成員</p>
+              <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("groupMembers")}</p>
               {activeGroup.members?.length === 0 && (
-                <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>尚無成員</p>
+                <p className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{t("noMembers")}</p>
               )}
               {activeGroup.members?.map(m => (
                 <div key={m.userId} className="flex items-center justify-between">
@@ -889,11 +908,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     <NextImage src={m.avatarUrl || AVATAR_PLACEHOLDER} alt={m.userName} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
                     <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{m.userName}</span>
                     {m.status === "pending" && (
-                      <span className="text-xs opacity-50 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>待接受</span>
+                      <span className="text-xs opacity-50 border rounded-full px-2" style={{ borderColor: "currentColor", color: "var(--zen-ink)" }}>{t("pendingAccept")}</span>
                     )}
                   </div>
                   {isGroupOwner && (
-                    <button onClick={() => handleRemoveMember(m.userId)} className="text-xs opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">移除</button>
+                    <button onClick={() => handleRemoveMember(m.userId)} className="text-xs opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">{t("remove")}</button>
                   )}
                 </div>
               ))}
@@ -902,19 +921,19 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             {/* invite */}
             {canInvite && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>邀請成員</p>
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("inviteMember")}</p>
                 <input
                   className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
                   style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                  placeholder="搜尋帳號名稱"
+                  placeholder={t("searchAccountPlaceholder")}
                   value={groupInviteInput}
                   onChange={e => handleInviteSearch(e.target.value)}
                 />
                 {groupSearchLoading && (
-                  <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>
+                  <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>{t("searching")}</p>
                 )}
                 {!groupSearchLoading && groupInviteInput.trim() && groupSearchResults.length === 0 && (
-                  <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>找不到使用者</p>
+                  <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>{t("noUserFound")}</p>
                 )}
                 {groupSearchResults.length > 0 && (
                   <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
@@ -928,16 +947,16 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                             <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                           </div>
                           {alreadyMember ? (
-                            <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>已在群組</span>
+                            <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>{t("alreadyInGroup")}</span>
                           ) : justInvited ? (
-                            <span className="text-xs" style={{ color: "#5fa870" }}>已邀請</span>
+                            <span className="text-xs" style={{ color: "#5fa870" }}>{t("invited")}</span>
                           ) : (
                             <button
                               onClick={() => handleInvite(u.name, u.id)}
                               disabled={groupInviteLoading}
                               className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
                               style={{ borderColor: "#b19739", color: "#b19739" }}
-                            >邀請</button>
+                            >{t("invite")}</button>
                           )}
                         </div>
                       );
@@ -951,7 +970,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             {/* share list */}
             {isGroupOwner && lists.length > 0 && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>分享試卷給全群組</p>
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("shareListToGroup")}</p>
                 <div className="flex gap-2">
                   <select
                     className="flex-1 px-3 py-2 rounded-xl border text-sm outline-none"
@@ -959,7 +978,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     value={groupShareListId}
                     onChange={e => { setGroupShareListId(e.target.value); setGroupShareMsg(null); }}
                   >
-                    <option value="">選擇試卷</option>
+                    <option value="">{t("selectList")}</option>
                     {lists.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
                   </select>
                   <button
@@ -967,7 +986,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     disabled={groupShareLoading || !groupShareListId}
                     className="px-4 py-2 rounded-xl text-sm transition-opacity hover:opacity-80 disabled:opacity-30"
                     style={{ backgroundColor: "#5fa870", color: "#fff" }}
-                  >分享</button>
+                  >{t("share")}</button>
                 </div>
                 {groupShareMsg && <p className="text-xs opacity-70" style={{ color: "var(--zen-ink)" }}>{groupShareMsg}</p>}
               </div>
@@ -975,10 +994,10 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
             {/* delete / leave */}
             {isGroupOwner && (
-              <button onClick={() => handleDeleteGroup(activeGroupId!)} className="text-xs self-start opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">刪除群組</button>
+              <button onClick={() => handleDeleteGroup(activeGroupId!)} className="text-xs self-start opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">{t("deleteGroup")}</button>
             )}
             {joinedGroups.some(g => g.id === activeGroupId) && (
-              <button onClick={() => handleLeaveGroup(activeGroupId!)} className="text-xs self-start opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">離開群組</button>
+              <button onClick={() => handleLeaveGroup(activeGroupId!)} className="text-xs self-start opacity-40 hover:opacity-80 hover:text-red-500 transition-colors">{t("leaveGroup")}</button>
             )}
           </>
         )}
@@ -1013,7 +1032,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 className="text-xs px-3 py-1.5 rounded-full border transition-colors"
                 style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
               >
-                登出
+                {t("signOut")}
               </button>
             )}
             {!isOwner && session?.user && (
@@ -1027,14 +1046,14 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     : { borderColor: "#5fa870", color: "white", background: "#5fa870" }
                   }
                 >
-                  {isFollowing ? "已追蹤" : "追蹤"}
+                  {isFollowing ? t("followed") : t("follow")}
                 </button>
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(m => !m)}
                     className="text-sm w-7 h-7 flex items-center justify-center rounded-full border transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", color: "var(--zen-ink)" }}
-                    aria-label="更多選項"
+                    aria-label={t("moreOptions")}
                   >⋯</button>
                   {showUserMenu && (
                     <>
@@ -1047,7 +1066,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
                           style={{ color: "#5fa870" }}
                         >
-                          {isFollowing ? "取消追蹤" : "追蹤"}
+                          {isFollowing ? t("unfollow") : t("follow")}
                         </button>
                         <button
                           type="button"
@@ -1056,7 +1075,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
                           style={{ color: isBlocking ? "#ef4444" : "var(--zen-ink)" }}
                         >
-                          {isBlocking ? "解除封鎖" : "封鎖"}
+                          {isBlocking ? t("unblock") : t("block")}
                         </button>
                       </div>
                     </>
@@ -1107,7 +1126,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       className="px-4 py-2 border rounded-full border-zinc-300 dark:border-zinc-600 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                       style={{ color: "var(--zen-ink)" }}
                       onClick={() => fileInputRef.current?.click()}>
-                      更換頭像
+                      {t("changeAvatar")}
                     </button>
                   </div>
                 </div>
@@ -1115,26 +1134,26 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
               {/* name */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1">顯示名稱</label>
+                <label className="block text-xs text-zinc-400 mb-1">{t("displayName")}</label>
                 {editing
                   ? <input className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm outline-none"
                       style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
                       value={name} onChange={e => setName(e.target.value)} />
-                  : <p className="text-sm" style={{ color: "var(--zen-ink)" }}>{name || <span className="text-zinc-400">未設定</span>}</p>
+                  : <p className="text-sm" style={{ color: "var(--zen-ink)" }}>{name || <span className="text-zinc-400">{t("notSet")}</span>}</p>
                 }
               </div>
 
               {/* email */}
               {(isOwner || emailPublic) && (
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Email</label>
-                  <p className="text-sm" style={{ color: "var(--zen-ink)" }}>{email || <span className="text-zinc-400">未設定</span>}</p>
+                  <label className="block text-xs text-zinc-400 mb-1">{t("email")}</label>
+                  <p className="text-sm" style={{ color: "var(--zen-ink)" }}>{email || <span className="text-zinc-400">{t("notSet")}</span>}</p>
                   {isOwner && editing && (
                     <label className="flex items-center gap-2 mt-2 cursor-pointer">
                       <input type="checkbox" checked={emailPublic}
                         onChange={e => setEmailPublic(e.target.checked)}
                         className="w-4 h-4" />
-                      <span className="text-xs text-zinc-400">公開電子郵件</span>
+                      <span className="text-xs text-zinc-400">{t("publicEmail")}</span>
                     </label>
                   )}
                 </div>
@@ -1142,18 +1161,18 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
               {/* bio */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1">自我介紹</label>
+                <label className="block text-xs text-zinc-400 mb-1">{t("bio")}</label>
                 {editing
                   ? <textarea className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm outline-none resize-none"
                       style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
                       rows={4} value={bio} onChange={e => setBio(e.target.value)} />
-                  : <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--zen-ink)" }}>{bio || <span className="text-zinc-400">尚未設定</span>}</p>
+                  : <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--zen-ink)" }}>{bio || <span className="text-zinc-400">{t("notSetYet")}</span>}</p>
                 }
               </div>
 
               {/* social links */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1">社群連結</label>
+                <label className="block text-xs text-zinc-400 mb-1">{t("socialLinks")}</label>
                 {editing ? (
                   <div className="flex flex-col gap-2">
                     {(["facebook", "instagram", "threads", "x", "website"] as const).map(p => (
@@ -1187,7 +1206,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                         </a>
                       );
                     })}
-                    {!Object.values(socialLinks).some(Boolean) && <span className="text-sm text-zinc-400">尚未設定</span>}
+                    {!Object.values(socialLinks).some(Boolean) && <span className="text-sm text-zinc-400">{t("notSetYet")}</span>}
                   </div>
                 )}
               </div>
@@ -1201,17 +1220,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     ? <button onClick={() => setEditing(true)}
                         className="px-4 py-2 text-sm rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                         style={{ color: "var(--zen-ink)" }}>
-                        編輯
+                        {t("edit")}
                       </button>
                     : <>
                         <button onClick={saveProfile} disabled={saving}
                           className="px-4 py-2 text-sm rounded-full bg-white text-black border hover:opacity-90 transition-opacity disabled:opacity-50">
-                          {saving ? "儲存中..." : "儲存"}
+                          {saving ? t("saving") : t("save")}
                         </button>
                         <button onClick={() => setEditing(false)}
                           className="px-4 py-2 text-sm rounded-full border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                           style={{ color: "var(--zen-ink)" }}>
-                          取消
+                          {t("cancel")}
                         </button>
                       </>
                   }
@@ -1244,11 +1263,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* ── record tab ──────────────────────────────────────────────────── */}
         {activeTab === "record" && (
           <div>
-            <p className="text-xs text-zinc-400 mb-4">保留最近十筆測驗紀錄</p>
+            <p className="text-xs text-zinc-400 mb-4">{t("recordHint")}</p>
             {recordLoading ? (
-              <p className="text-sm zen-subtle">載入中...</p>
+              <p className="text-sm zen-subtle">{t("loading")}</p>
             ) : quizRecords.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">尚無紀錄</p>
+              <p className="text-sm zen-subtle opacity-50">{t("noRecords")}</p>
             ) : (
               <div className="space-y-3">
                 {[...quizRecords]
@@ -1268,12 +1287,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                           </span>
                           <span className="inline-block px-2 py-0.5 rounded text-xs border border-zinc-300 dark:border-zinc-600" style={{ color: "var(--zen-ink)" }}>
                             {item.category === "詩文背誦"
-                              ? (item.success ? "✓ 成功" : "✗ 失敗")
+                              ? (item.success ? t("recitationSuccess") : t("recitationFail"))
                               : `${item.correct}/${item.answered}`}
                           </span>
                         </div>
                         <p className="text-xs text-zinc-400">
-                          {new Date(item.timestamp).toLocaleDateString("zh-TW", {
+                          {new Date(item.timestamp).toLocaleDateString(dateLocale, {
                             year: "numeric", month: "2-digit", day: "2-digit",
                           })}
                         </p>
@@ -1299,9 +1318,9 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {activeTab === "followers" && (
           <div>
             {followersLoading ? (
-              <p className="text-sm zen-subtle">載入中...</p>
+              <p className="text-sm zen-subtle">{t("loading")}</p>
             ) : followers.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">尚無追蹤者</p>
+              <p className="text-sm zen-subtle opacity-50">{t("noFollowers")}</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {followers.map(u => (
@@ -1320,12 +1339,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* ── groups tab ──────────────────────────────────────────────────── */}
         {activeTab === "groups" && (
           <div className="flex flex-col gap-6">
-            {groupsLoading && <p className="text-sm zen-subtle opacity-50">載入中...</p>}
+            {groupsLoading && <p className="text-sm zen-subtle opacity-50">{t("loading")}</p>}
 
             {/* pending invites */}
             {pendingInvites.length > 0 && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>待接受邀請</p>
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("pendingInvites")}</p>
                 {pendingInvites.map(inv => (
                   <div key={inv.groupId} className="flex items-center justify-between px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <div>
@@ -1336,7 +1355,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       onClick={() => handleAcceptInvite(inv.groupId)}
                       className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
                       style={{ borderColor: "#5fa870", color: "#5fa870" }}
-                    >接受</button>
+                    >{t("accept")}</button>
                   </div>
                 ))}
               </div>
@@ -1347,7 +1366,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               <input
                 className="flex-1 px-3 py-2 rounded-xl border text-sm outline-none"
                 style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                placeholder="新增群組名稱"
+                placeholder={t("groupNamePlaceholder")}
                 value={newGroupName}
                 onChange={e => setNewGroupName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleCreateGroup(); }}
@@ -1357,14 +1376,14 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 disabled={creatingGroup || !newGroupName.trim()}
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-30"
                 style={{ backgroundColor: "#5fa870", color: "#fff" }}
-              >建立</button>
+              >{t("create")}</button>
             </div>
 
 
             {/* owned groups */}
             {ownedGroups.length > 0 && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>我建立的群組</p>
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("myGroups")}</p>
                 {ownedGroups.map(g => (
                   <div key={g.id} className="flex flex-col">
                     <button
@@ -1373,7 +1392,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       style={{ borderColor: activeGroupId === g.id ? "#b19739" : "color-mix(in srgb, var(--zen-ink) 15%, transparent)", borderBottomLeftRadius: activeGroupId === g.id ? 0 : undefined, borderBottomRightRadius: activeGroupId === g.id ? 0 : undefined }}
                     >
                       <span className="text-sm font-medium" style={{ color: "#b19739" }}>{g.name}</span>
-                      <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.memberCount ?? 0} 位成員</span>
+                      <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.memberCount ?? 0} {t("membersCountSuffix")}</span>
                     </button>
                     {activeGroupId === g.id && (
                       <div className="hidden sm:block border border-t-0 rounded-b-xl overflow-hidden" style={{ borderColor: "#b19739" }}>
@@ -1388,7 +1407,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             {/* joined groups */}
             {joinedGroups.length > 0 && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>加入的群組</p>
+                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("joinedGroups")}</p>
                 {joinedGroups.map(g => (
                   <div key={g.id} className="flex flex-col">
                     <button
@@ -1417,7 +1436,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             )}
 
             {!groupsLoading && ownedGroups.length === 0 && joinedGroups.length === 0 && groupsLoaded && (
-              <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>尚無群組</p>
+              <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>{t("noGroups")}</p>
             )}
           </div>
         )}
@@ -1439,7 +1458,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               {/* header */}
               <div className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid color-mix(in srgb, var(--zen-ink) 8%, transparent)" }}>
                 <span className="font-semibold text-base" style={{ color: "var(--zen-ink)" }}>
-                  {activeGroupLoading ? "載入中..." : activeGroup?.name}
+                  {activeGroupLoading ? t("loading") : activeGroup?.name}
                 </span>
                 <button
                   onClick={() => closeGroupSheet()}
@@ -1460,9 +1479,9 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {activeTab === "following" && (
           <div>
             {followingLoading ? (
-              <p className="text-sm zen-subtle">載入中...</p>
+              <p className="text-sm zen-subtle">{t("loading")}</p>
             ) : following.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">尚無追蹤中的使用者</p>
+              <p className="text-sm zen-subtle opacity-50">{t("noFollowing")}</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {following.map(u => (
@@ -1482,9 +1501,9 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {activeTab === "shared" && (
           <div>
             {sharedLoading ? (
-              <p className="text-sm zen-subtle">載入中...</p>
+              <p className="text-sm zen-subtle">{t("loading")}</p>
             ) : sharedCats.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">尚無分享項目</p>
+              <p className="text-sm zen-subtle opacity-50">{t("sharedWithMeEmpty")}</p>
             ) : (
               <div className="bookshelf-grid">
                 {(() => {
@@ -1520,9 +1539,9 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {activeTab === "blocked" && (
           <div className="pt-[calc(2rem+3cm)]">
             {blockedLoading ? (
-              <p className="text-sm zen-subtle">載入中...</p>
+              <p className="text-sm zen-subtle">{t("loading")}</p>
             ) : blockedUsers.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">尚無封鎖帳號</p>
+              <p className="text-sm zen-subtle opacity-50">{t("noBlocked")}</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {blockedUsers.map(u => (
@@ -1537,7 +1556,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                       className="shrink-0 text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
                       style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 30%, transparent)", color: "var(--zen-ink)" }}
                     >
-                      {unblockingId === u.id ? "解封中..." : "解除封鎖"}
+                        {unblockingId === u.id ? t("unblocking") : t("unblock")}
                     </button>
                   </li>
                 ))}
@@ -1562,7 +1581,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               style={{ color: "var(--zen-ink)" }}
             >
-              {isTabPinned(tabCtxMenu.tab) ? "從首頁移除" : "顯示在首頁"}
+              {isTabPinned(tabCtxMenu.tab) ? t("removeFromHome") : t("showOnHome")}
             </button>
           </div>
         </>,
