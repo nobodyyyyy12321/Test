@@ -1,49 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
 import type { Question } from "../../../lib/questions";
 import RenderContent from "../../components/RenderContent";
 import { useTimer } from "../../providers/TimerContext";
+import { getTestLabels } from "../../lib/i18n/test";
 
 const QUIZ_GUARD_STATE = { __quizGuard: true };
-
-function getLabels(language: string) {
-  const en = language === "en";
-  return {
-    score:          (correct: number, answered: number) => en ? `${correct}/${answered}` : `寫 ${correct}/${answered}`,
-    submit:         en ? "Submit" : "交卷",
-    retryWrong:     en ? "Retry Wrong" : "錯題重練",
-    restart:        en ? "Restart" : "重新開始",
-    groupLabel:     en ? "Passage" : "題組說明",
-    noGroupText:    en ? "(No passage text provided)" : "（此題組未提供說明文字）",
-    multipleBadge:  en ? "Multi" : "多選",
-    fillBadge:      en ? "Fill" : "填充",
-    fillPlaceholder:en ? "Type your answer" : "輸入答案",
-    correct:        en ? "Correct" : "答對",
-    correctAnswer:  en ? "Answer: " : "正確答案：",
-    examTerminated: en ? "Quiz Ended" : "測驗已終止",
-    leftPage:       en ? "You left the page. This attempt is void." : "偵測到離開頁面，本次測驗已作廢",
-    confirm:        en ? "OK" : "確認",
-    abandonTitle:   en ? "Abandon quiz?" : "放棄測驗？",
-    abandonBody:    en ? "You cannot resume after leaving." : "離開後將無法繼續本次測驗",
-    continueBtn:    en ? "Continue" : "繼續作答",
-    abandonBtn:     en ? "Abandon" : "放棄測驗",
-    formalWarning:  en ? "You may not leave the screen during the quiz." : "開始後交卷前不得離開測驗畫面",
-    start:          en ? "Start" : "開始",
-    speakLabel:     en ? "Speak" : "朗讀英文",
-    checkLabel:     en ? "Select" : "勾選",
-    selectAll:      en ? "Select All" : "全選",
-    deselectAll:    en ? "Deselect All" : "取消全選",
-    selectWrong:    en ? "Select Wrong" : "勾選答錯題",
-    deselectWrong:  en ? "Deselect" : "取消勾選",
-    prevPage:       en ? "Previous Page" : "上一頁",
-    nextPage:       en ? "Next Page" : "下一頁",
-    shareFrom:      "from testtttt.io",
-  };
-}
 
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
   if (userAns === null) return false;
@@ -82,7 +48,7 @@ type Props = {
 };
 
 export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit }: Props) {
-  const L = getLabels(language);
+  const L = useMemo(() => getTestLabels(language), [language]);
   const quizPageSize = limit ?? (id === "englishWords" ? 50 : null);
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
@@ -364,15 +330,12 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       return gradeAnswer(q, userAnswers[idx]);
     }).length;
     const score = Math.round((correctCount / total) * 100);
-    const en = language === "en";
     const url = typeof window !== "undefined" ? window.location.href : "https://testtttt.io";
-    const card = en
-      ? `I scored ${score}/100 on "${pageTitle}"! Come and challenge yourself!`
-      : `我在「${pageTitle}」中拿了 ${score}/100 分，快來挑戰！`;
+    const card = L.shareScoreCard(score, pageTitle);
     setShareTitle(pageTitle);
     setShareScoreCard(card);
     setShareText(url);
-  }, [showResults, checkedIdxs.size, questions, userAnswers, pageTitle, language, setShareText, setShareTitle, setShareScoreCard]);
+  }, [showResults, checkedIdxs.size, questions, userAnswers, pageTitle, L, setShareText, setShareTitle, setShareScoreCard]);
 
   useEffect(() => {
     if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
@@ -534,7 +497,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
               className="px-10 py-3 rounded-full text-base font-medium transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#5fa870", color: "#fff" }}
             >
-              開始
+              {L.start}
             </button>
           </div>
         </div>
@@ -664,7 +627,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-base rounded transition-all" style={{ color: "#5fa870", backgroundColor: idx === focusedIdx && !showResults && qt !== "fill" ? "rgba(95,168,112,0.15)" : "transparent" }}><RenderContent inline>{q.title}</RenderContent></span>
                     {id === "englishWords" && (
-                      <button type="button" onClick={() => speakQuestion(q.title)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-white hover:bg-zinc-600" aria-label="朗讀英文">
+                      <button type="button" onClick={() => speakQuestion(q.title)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-white hover:bg-zinc-600" aria-label={L.speakLabel}>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
                       </button>
                     )}

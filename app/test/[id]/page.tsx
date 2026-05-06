@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getListById } from "../../../lib/lists-supabase";
 import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
 import { getSupabaseAdmin } from "../../../lib/supabase-admin";
+import { getTestMetadataDescription } from "../../lib/i18n/test";
 import TestClient from "./TestClient";
 
 // deduplicate within same request (generateMetadata + TestPage both call this)
@@ -78,7 +79,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   return {
     title: `${title} — Test`,
-    description: `${title} 練習題`,
+    description: getTestMetadataDescription(title, activeLang),
   };
 }
 
