@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const { data: languageRows } = await supabase
     .from("pcategories")
     .select("name")
-    .eq("collection_id", decodedId)
+    .eq("quiz_id", decodedId)
     .eq("language", language)
     .limit(1);
   const languageTitle = languageRows?.[0]?.name as string | undefined;
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   const { data: anyRows } = await supabase
     .from("pcategories")
     .select("name")
-    .eq("collection_id", decodedId)
+    .eq("quiz_id", decodedId)
     .limit(1);
   const fallbackTitle = anyRows?.[0]?.name as string | undefined;
 

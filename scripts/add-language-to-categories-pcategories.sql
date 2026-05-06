@@ -1,4 +1,4 @@
--- Add language columns to categories / pcategories so collection IDs can coexist by language.
+-- Add language columns to categories / pcategories so quiz IDs can coexist by language.
 -- Run in Supabase SQL editor.
 
 begin;
@@ -14,7 +14,7 @@ where language is null;
 alter table public.pcategories
   alter column language set not null;
 
--- drop legacy unique(user_id, collection_id) regardless of constraint name
+-- drop legacy unique(user_id, quiz_id) regardless of constraint name
 DO $$
 DECLARE c record;
 BEGIN
@@ -33,7 +33,7 @@ END $$;
 
 alter table public.pcategories
   add constraint pcategories_user_language_collection_unique
-  unique (user_id, language, collection_id);
+  unique (user_id, language, quiz_id);
 
 create index if not exists pcategories_user_lang_idx
   on public.pcategories(user_id, language);

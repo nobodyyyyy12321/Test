@@ -47,7 +47,7 @@ async function resolveTitle(id: string, levels?: string | null, language?: strin
   const { data: languageRows } = await supabase
     .from("pcategories")
     .select("name")
-    .eq("collection_id", id)
+    .eq("quiz_id", id)
     .eq("language", lang)
     .limit(1);
   const languageTitle = languageRows?.[0]?.name as string | undefined;
@@ -56,7 +56,7 @@ async function resolveTitle(id: string, levels?: string | null, language?: strin
   const { data: anyRows } = await supabase
     .from("pcategories")
     .select("name")
-    .eq("collection_id", id)
+    .eq("quiz_id", id)
     .limit(1);
   const fallbackTitle = anyRows?.[0]?.name as string | undefined;
   return fallbackTitle ?? id;
