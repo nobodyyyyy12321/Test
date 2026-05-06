@@ -165,14 +165,93 @@ const profileEn: ProfileDictionary = {
   showOnHome: "Show on Home",
 };
 
-const PROFILE_TEXTS: Record<"zh-TW" | "en", ProfileDictionary> = {
+const profileZhCN: ProfileDictionary = {
+  tabProfile: "个人档案",
+  tabLists: "个人分类",
+  tabShared: "分享给我",
+  tabRecord: "记录",
+  tabGroups: "群组",
+  tabFollowers: "关注者",
+  tabFollowing: "关注中",
+
+  signOut: "登出",
+  follow: "关注",
+  followed: "已关注",
+  unfollow: "取消关注",
+  block: "屏蔽",
+  unblock: "解除屏蔽",
+  moreOptions: "更多选项",
+
+  displayName: "显示名称",
+  email: "Email",
+  bio: "个人简介",
+  socialLinks: "社交链接",
+  changeAvatar: "更换头像",
+  edit: "编辑",
+  save: "保存",
+  saving: "保存中...",
+  cancel: "取消",
+  notSet: "未设置",
+  notSetYet: "尚未设置",
+  publicEmail: "公开电子邮件",
+  avatarUploadFailed: "头像上传失败",
+  imageTooLarge: "图片过大，请选择 15MB 以下文件",
+  saveFailed: "保存失败",
+
+  recordHint: "保留最近十笔测验记录",
+  loading: "加载中...",
+  noRecords: "暂无记录",
+  recitationSuccess: "✓ 成功",
+  recitationFail: "✗ 失败",
+
+  noFollowers: "暂无关注者",
+  noFollowing: "暂无正在关注的用户",
+  noBlocked: "暂无屏蔽账号",
+  unblocking: "解除中...",
+
+  pendingInvites: "待接受邀请",
+  accept: "接受",
+  groupNamePlaceholder: "新增群组名称",
+  create: "建立",
+  myGroups: "我建立的群组",
+  joinedGroups: "加入的群组",
+  noGroups: "暂无群组",
+  groupMembers: "成员",
+  noMembers: "暂无成员",
+  pendingAccept: "待接受",
+  remove: "移除",
+  inviteMember: "邀请成员",
+  searchAccountPlaceholder: "搜索账号名称",
+  searching: "搜索中...",
+  noUserFound: "找不到用户",
+  alreadyInGroup: "已在群组",
+  invited: "已邀请",
+  invite: "邀请",
+  shareListToGroup: "分享试卷给全群组",
+  selectList: "选择试卷",
+  share: "分享",
+  shareFailed: "分享失败",
+  deleteGroup: "删除群组",
+  leaveGroup: "离开群组",
+  groupOwner: "群主",
+  membersCountSuffix: "位成员",
+  sharedCountSuffix: "位成员",
+
+  sharedWithMeEmpty: "暂无分享项目",
+  removeFromHome: "从首页移除",
+  showOnHome: "显示在首页",
+};
+
+const PROFILE_TEXTS: Record<"zh-TW" | "zh-CN" | "en", ProfileDictionary> = {
   "zh-TW": profileZhTW,
+  "zh-CN": profileZhCN,
   en: profileEn,
 };
 
-export function normalizeProfileLanguage(lang?: string | null): "zh-TW" | "en" {
+export function normalizeProfileLanguage(lang?: string | null): "zh-TW" | "zh-CN" | "en" {
   if (!lang) return "zh-TW";
   if (lang === "en") return "en";
+  if (lang === "zh-CN") return "zh-CN";
   return "zh-TW";
 }
 

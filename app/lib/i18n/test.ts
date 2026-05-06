@@ -1,4 +1,4 @@
-type TestLocale = "zh-TW" | "en";
+type TestLocale = "zh-TW" | "zh-CN" | "en";
 
 type TestTextKey =
   | "submit"
@@ -97,13 +97,47 @@ const testEn: TestDictionary = {
   practiceDescriptionSuffix: "practice questions",
 };
 
+const testZhCN: TestDictionary = {
+  submit: "交卷",
+  retryWrong: "错题重练",
+  restart: "重新开始",
+  groupLabel: "题组说明",
+  noGroupText: "（此题组未提供说明文字）",
+  multipleBadge: "多选",
+  fillBadge: "填空",
+  fillPlaceholder: "输入答案",
+  correct: "答对",
+  correctAnswer: "正确答案：",
+  examTerminated: "测验已终止",
+  leftPage: "检测到离开页面，本次测验已作废",
+  confirm: "确认",
+  abandonTitle: "放弃测验？",
+  abandonBody: "离开后将无法继续本次测验",
+  continueBtn: "继续作答",
+  abandonBtn: "放弃测验",
+  formalWarning: "开始后交卷前不得离开测验画面",
+  start: "开始",
+  speakLabel: "朗读英文",
+  checkLabel: "勾选",
+  selectAll: "全选",
+  deselectAll: "取消全选",
+  selectWrong: "勾选答错题",
+  deselectWrong: "取消勾选",
+  prevPage: "上一页",
+  nextPage: "下一页",
+  shareFrom: "from testtttt.io",
+  practiceDescriptionSuffix: "练习题",
+};
+
 const TEST_TEXTS: Record<TestLocale, TestDictionary> = {
   "zh-TW": testZhTW,
+  "zh-CN": testZhCN,
   en: testEn,
 };
 
 export function normalizeTestLanguage(lang?: string | null): TestLocale {
   if (lang === "en") return "en";
+  if (lang === "zh-CN") return "zh-CN";
   return "zh-TW";
 }
 
@@ -118,7 +152,7 @@ export function getTestLabels(lang: string | null | undefined) {
 
   return {
     score: (correct: number, answered: number) =>
-      normalized === "en" ? `${correct}/${answered}` : `寫 ${correct}/${answered}`,
+      normalized === "en" ? `${correct}/${answered}` : normalized === "zh-CN" ? `答 ${correct}/${answered}` : `寫 ${correct}/${answered}`,
     submit: t.submit,
     retryWrong: t.retryWrong,
     restart: t.restart,
@@ -150,6 +184,8 @@ export function getTestLabels(lang: string | null | undefined) {
     shareScoreCard: (score: number, title: string) =>
       normalized === "en"
         ? `I scored ${score}/100 on "${title}"! Come and challenge yourself!`
+        : normalized === "zh-CN"
+        ? `我在「${title}」中拿了 ${score}/100 分，快来挑战！`
         : `我在「${title}」中拿了 ${score}/100 分，快來挑戰！`,
   };
 }

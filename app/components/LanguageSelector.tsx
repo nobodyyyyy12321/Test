@@ -7,7 +7,7 @@ type LanguageCode = "zh-TW" | "zh-CN" | "en" | "es" | "th" | "id" | "ko";
 
 const LANGUAGES: { value: LanguageCode; label: string }[] = [
   { value: "zh-TW", label: "中文繁體" },
-  // { value: "zh-CN", label: "中文简体" },
+  { value: "zh-CN", label: "中文简体" },
   { value: "en", label: "English" },
   // { value: "es", label: "Español" },
   // { value: "th", label: "ไทย" },

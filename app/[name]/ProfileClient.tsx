@@ -280,7 +280,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   };
 
   const t = (key: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, key);
-  const dateLocale = normalizeProfileLanguage(uiLang) === "en" ? "en-US" : "zh-TW";
+  const normalizedProfileLang = normalizeProfileLanguage(uiLang);
+  const dateLocale = normalizedProfileLang === "en" ? "en-US" : normalizedProfileLang === "zh-CN" ? "zh-CN" : "zh-TW";
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -1059,6 +1060,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               aria-label="Profile page language"
             >
               <option value="zh-TW">中文繁體</option>
+              <option value="zh-CN">中文简体</option>
               <option value="en">English</option>
             </select>
             {isOwner && (
