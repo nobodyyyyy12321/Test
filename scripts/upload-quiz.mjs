@@ -13,6 +13,7 @@
  *   --language <lang>        語言標籤（預設 zh-TW）
  *   --position <n>           排列順序（預設 0）
  *   --category-only          只新增 category，不上傳題目
+ *   --new-schema             同時寫入新 i18n 表（quiz_sets / questions / question_i18n）
  *
  * 範例：
  *   node scripts/upload-quiz.mjs app/data/senior/TrigSenior.json --parentId abc-123 --problemsPerTest 10 --shuffle
@@ -49,6 +50,7 @@ let shuffleProblems = null; // null = 不設定（資料庫預設隨機）
 let language = "zh-TW";
 let position = 0;
 let categoryOnly = false;
+let newSchema = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--parentId" && args[i + 1]) {
@@ -65,6 +67,8 @@ for (let i = 0; i < args.length; i++) {
     position = parseInt(args[++i], 10);
   } else if (args[i] === "--category-only") {
     categoryOnly = true;
+  } else if (args[i] === "--new-schema") {
+    newSchema = true;
   } else if (!args[i].startsWith("--")) {
     filePaths.push(args[i]);
   }
@@ -78,6 +82,92 @@ if (filePaths.length === 0) {
 function newUUID() {
   return crypto.randomUUID();
 }
+
+// ── New i18n schema helpers ──────────────────────────────────────────────────
+
+/** Convert options object {"A":"text",...} to canonical array [{key,text},...] */
+function normalizeOptions(options) {
+  if (!options) return [];
+  if (Array.isArray(options)) return options;
+  return Object.entries(options).map(([key, text]) => ({ key, text: String(text) }));
+}
+
+/**
+ * Upload one collection into quiz_sets + quiz_set_i18n + questions + question_i18n.
+ * Safe to re-run: uses upsert on source_quiz_id / (question_id, lang).
+ */
+async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId) {
+  const reprHeaders = { ...headers, Prefer: "resolution=merge-duplicates,return=representation" };
+
+  // 1. Upsert quiz_sets (key = source_quiz_id)
+  const setRow = {
+    source_quiz_id: quizId,
+    category_id: categoryId ?? null,
+    problems_per_test: problemsPerTest ?? 10,
+    shuffle_problems: shuffleProblems ?? false,
+  };
+  const setRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/quiz_sets?on_conflict=source_quiz_id`,
+    { method: "POST", headers: reprHeaders, body: JSON.stringify([setRow]) }
+  );
+  if (!setRes.ok) { console.error("✗ quiz_sets upsert failed:", await setRes.text()); return; }
+  const [setResult] = await setRes.json();
+  const setId = setResult.id;
+
+  // 2. Upsert quiz_set_i18n (key = set_id + lang)
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/quiz_set_i18n?on_conflict=set_id,lang`,
+    { method: "POST", headers: reprHeaders, body: JSON.stringify([{ set_id: setId, lang, title: setName }]) }
+  );
+
+  // 3. Insert questions (key = set_id + number)
+  const BATCH = 200;
+  let totalInserted = 0;
+
+  for (let i = 0; i < rawQuestions.length; i += BATCH) {
+    const batch = rawQuestions.slice(i, i + BATCH);
+
+    const qRows = batch.map((q) => ({
+      set_id: setId,
+      number: q.number,
+      level: q.level ?? null,
+      group_id: null,
+    }));
+
+    const qRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/questions?on_conflict=set_id,number`,
+      { method: "POST", headers: reprHeaders, body: JSON.stringify(qRows) }
+    );
+    if (!qRes.ok) { console.error("✗ questions upsert failed:", await qRes.text()); continue; }
+    const insertedQs = await qRes.json();
+
+    // 4. Upsert question_i18n (key = question_id + lang)
+    const i18nRows = insertedQs.map((ins, idx) => {
+      const q = batch[idx];
+      return {
+        question_id: ins.id,
+        lang,
+        group_content: q.group_content ?? null,
+        content: q.title ?? "",
+        options: normalizeOptions(q.options),
+        answer: typeof q.answer === "string" ? q.answer : JSON.stringify(q.answer ?? ""),
+        is_machine_translated: lang !== "zh-TW",
+        is_reviewed: false,
+      };
+    });
+
+    const i18nRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/question_i18n?on_conflict=question_id,lang`,
+      { method: "POST", headers: reprHeaders, body: JSON.stringify(i18nRows) }
+    );
+    if (!i18nRes.ok) { console.error("✗ question_i18n upsert failed:", await i18nRes.text()); continue; }
+    totalInserted += batch.length;
+  }
+
+  console.log(`✓ [new-schema] ${quizId}: set_id=${setId}, ${totalInserted} questions`);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 async function upsertCategory(categoryRow) {
   const catHeaders = { ...headers, Prefer: "resolution=merge-duplicates,return=representation" };
@@ -137,6 +227,13 @@ async function uploadFile(filePath) {
         const err = await res.text();
         console.error(`✗ 上傳失敗（${quizId}）:`, err);
       }
+
+      // ── also write to new i18n schema if requested ──────────────────────
+      if (newSchema) {
+        const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
+        const setName = catEntry?.name ?? quizId;
+        await uploadNewSchema(quizId, data.collections[quizId], setName, language, null);
+      }
     }
   }
 
@@ -162,6 +259,17 @@ async function uploadFile(filePath) {
 
     console.log(`\n新增 category：`, JSON.stringify(categoryRow, null, 2));
     await upsertCategory(categoryRow);
+  }
+
+  // ── new schema upload when --category-only is not set but --new-schema is ─
+  // (already handled above inside the per-quizId loop when !categoryOnly)
+  // If --category-only + --new-schema, still write quiz_sets metadata only (no questions).
+  if (categoryOnly && newSchema) {
+    const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
+    const name = catEntry?.name ?? collectionIds[0];
+    for (const quizId of collectionIds) {
+      await uploadNewSchema(quizId, [], name, language, null);
+    }
   }
 }
 

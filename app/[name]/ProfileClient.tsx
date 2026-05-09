@@ -315,6 +315,9 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     return () => document.removeEventListener("keydown", onKey);
   }, [tabCtxMenu]);
 
+  // Only these tabs can be pinned to home page
+  const PINNABLE_TABS: Tab[] = ["lists", "shared"];
+  const isTabPinnable = (tab: Tab) => PINNABLE_TABS.includes(tab);
   const isTabPinned = (tab: Tab) => pinnedTabs.some(p => p.name === urlName && p.tab === tab);
   const persistPinnedTabs = (next: PinnedTab[]) => {
     if (isLoggedIn) {
@@ -328,6 +331,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     }
   };
   const togglePinTab = (tab: Tab, label: string) => {
+    // Only allow pinning of specific tabs
+    if (!isTabPinnable(tab)) return;
     setPinnedTabs(prev => {
       const exists = prev.some(p => p.name === urlName && p.tab === tab);
       const next = exists
@@ -1605,7 +1610,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       </main>
 
       {/* ── tab right-click menu ─────────────────────────────────────────── */}
-      {tabCtxMenu && typeof window !== "undefined" && createPortal(
+      {tabCtxMenu && isTabPinnable(tabCtxMenu.tab) && typeof window !== "undefined" && createPortal(
         <>
           <div className="fixed inset-0 z-40" onClick={() => setTabCtxMenu(null)} onContextMenu={e => { e.preventDefault(); setTabCtxMenu(null); }} />
           <div

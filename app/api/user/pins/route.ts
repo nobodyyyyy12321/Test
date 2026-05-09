@@ -5,6 +5,9 @@ import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 
 type PinnedProfileTab = { name: string; tab: string; label: string };
 
+// Only these tabs can be pinned to home page
+const PINNABLE_TABS = ["lists", "shared"];
+
 function sanitizeProfileTabs(input: unknown): PinnedProfileTab[] | null {
   if (!Array.isArray(input)) return null;
   const out: PinnedProfileTab[] = [];
@@ -12,6 +15,8 @@ function sanitizeProfileTabs(input: unknown): PinnedProfileTab[] | null {
     if (!item || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
     if (typeof o.name !== "string" || typeof o.tab !== "string" || typeof o.label !== "string") continue;
+    // Only allow specific pinnable tabs
+    if (!PINNABLE_TABS.includes(o.tab)) continue;
     out.push({ name: o.name, tab: o.tab, label: o.label });
   }
   return out;
