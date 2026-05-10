@@ -1,6 +1,38 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
+
+// ── Single-question form state ────────────────────────────────────────────────
+type QuestionType = "single" | "multiple" | "fill";
+
+interface SingleForm {
+  collectionId: string;
+  language: string;
+  number: string;
+  title: string;
+  type: QuestionType;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  /** For single → one letter; for multiple → comma-separated; for fill → free text */
+  answer: string;
+  level: string;
+}
+
+const BLANK_FORM: SingleForm = {
+  collectionId: "",
+  language: "zh-TW",
+  number: "1",
+  title: "",
+  type: "single",
+  optionA: "",
+  optionB: "",
+  optionC: "",
+  optionD: "",
+  answer: "",
+  level: "",
+};
 
 const EXAMPLE = JSON.stringify(
   {
@@ -32,12 +64,96 @@ type UploadResult = {
 };
 
 export default function MyUploadClient() {
+  // ── tab ──────────────────────────────────────────────────────────────────
+  const [tab, setTab] = useState<"json" | "single">("json");
+
+  // ── JSON-upload state ─────────────────────────────────────────────────────
   const [jsonText, setJsonText] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   const [pendingOverwrite, setPendingOverwrite] = useState<{ parsed: unknown; ids: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Single-question state ─────────────────────────────────────────────────
+  const [form, setForm] = useState<SingleForm>(BLANK_FORM);
+  const [singleUploading, setSingleUploading] = useState(false);
+  const [singleResult, setSingleResult] = useState<UploadResult | null>(null);
+  const [singleError, setSingleError] = useState<string | null>(null);
+
+  const setField = useCallback(<K extends keyof SingleForm>(key: K, value: SingleForm[K]) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setSingleError(null);
+    setSingleResult(null);
+  }, []);
+
+  const handleSingleUpload = async () => {
+    setSingleError(null);
+    setSingleResult(null);
+
+    // ── basic validation ──────────────────────────────────────────────────
+    if (!form.collectionId.trim()) { setSingleError("請填寫題庫 ID"); return; }
+    if (!/^[A-Za-z0-9_-]+$/.test(form.collectionId.trim())) { setSingleError("題庫 ID 只能包含英數、底線、連字號"); return; }
+    const num = Number(form.number);
+    if (!form.number || !Number.isFinite(num) || num <= 0) { setSingleError("題號必須是正整數"); return; }
+    if (!form.title.trim()) { setSingleError("請填寫題目"); return; }
+
+    // ── build answer ──────────────────────────────────────────────────────
+    let answer: string | string[] = form.answer.trim();
+    if (form.type === "multiple") {
+      answer = form.answer.split(/[,，\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+      if (answer.length === 0) { setSingleError("多選題請填寫答案"); return; }
+    } else if (form.type === "single") {
+      answer = form.answer.trim().toUpperCase();
+      if (!answer) { setSingleError("請填寫答案選項（A/B/C/D）"); return; }
+    }
+
+    // ── build options ─────────────────────────────────────────────────────
+    let options: Record<string, string> | null = null;
+    if (form.type !== "fill") {
+      options = {};
+      if (form.optionA.trim()) options["A"] = form.optionA.trim();
+      if (form.optionB.trim()) options["B"] = form.optionB.trim();
+      if (form.optionC.trim()) options["C"] = form.optionC.trim();
+      if (form.optionD.trim()) options["D"] = form.optionD.trim();
+      if (Object.keys(options).length === 0) options = null;
+    }
+
+    const payload = {
+      language: form.language,
+      collections: {
+        [form.collectionId.trim()]: [
+          {
+            number: num,
+            title: form.title.trim(),
+            type: form.type,
+            ...(options ? { options } : {}),
+            answer,
+            ...(form.level && Number.isFinite(Number(form.level)) ? { level: Number(form.level) } : {}),
+          },
+        ],
+      },
+    };
+
+    setSingleUploading(true);
+    try {
+      const res = await fetch("/api/my-collections/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data: UploadResult = await res.json();
+      setSingleResult(data);
+      if (data.ok) {
+        // advance question number for next entry
+        setForm((f) => ({ ...f, number: String(num + 1), title: "", answer: "", optionA: "", optionB: "", optionC: "", optionD: "" }));
+      }
+    } catch {
+      setSingleResult({ ok: false, error: "網路錯誤" });
+    } finally {
+      setSingleUploading(false);
+    }
+  };
 
   const handleFile = (file: File) => {
     if (!file.name.endsWith(".json")) {
@@ -110,11 +226,194 @@ export default function MyUploadClient() {
   return (
     <div className="min-h-screen p-6 max-w-2xl mx-auto" style={{ color: "var(--zen-ink)" }}>
       <h1 className="text-xl font-bold mb-1">上傳個人題庫</h1>
-      <p className="text-sm text-zinc-400 mb-6">
+      <p className="text-sm text-zinc-400 mb-5">
         上傳後題庫會立刻出現在首頁「個人分類」，點擊即可作答。
       </p>
 
-      {/* drop zone */}
+      {/* ── Tab switcher ─────────────────────────────────────────────────── */}
+      <div className="flex gap-1 mb-6 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 w-fit">
+        {(["json", "single"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="px-4 py-1.5 text-sm rounded-lg transition-colors"
+            style={
+              tab === t
+                ? { background: "#5fa870", color: "#fff", fontWeight: 600 }
+                : { background: "transparent", color: "var(--zen-ink)" }
+            }
+          >
+            {t === "json" ? "JSON 批次上傳" : "逐題填寫"}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          Single-question form
+      ═══════════════════════════════════════════════════════════════════ */}
+      {tab === "single" && (
+        <div className="space-y-4">
+          {/* Row 1: collection id + language */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500">題庫 ID（英數底線）<span className="text-red-400">*</span></span>
+              <input
+                value={form.collectionId}
+                onChange={(e) => setField("collectionId", e.target.value)}
+                placeholder="myQuiz"
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500">語言</span>
+              <select
+                value={form.language}
+                onChange={(e) => setField("language", e.target.value)}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              >
+                <option value="zh-TW">zh-TW（繁中）</option>
+                <option value="zh-CN">zh-CN（簡中）</option>
+                <option value="en">en（英文）</option>
+              </select>
+            </label>
+          </div>
+
+          {/* Row 2: number + type + level */}
+          <div className="grid grid-cols-3 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500">題號<span className="text-red-400">*</span></span>
+              <input
+                type="number"
+                min={1}
+                value={form.number}
+                onChange={(e) => setField("number", e.target.value)}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500">題型<span className="text-red-400">*</span></span>
+              <select
+                value={form.type}
+                onChange={(e) => setField("type", e.target.value as QuestionType)}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              >
+                <option value="single">單選 single</option>
+                <option value="multiple">多選 multiple</option>
+                <option value="fill">填空 fill</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500">難度（選填）</span>
+              <input
+                type="number"
+                min={1}
+                value={form.level}
+                onChange={(e) => setField("level", e.target.value)}
+                placeholder="1"
+                className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+            </label>
+          </div>
+
+          {/* Title */}
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-zinc-500">題目<span className="text-red-400">*</span></span>
+            <textarea
+              value={form.title}
+              onChange={(e) => setField("title", e.target.value)}
+              placeholder="請輸入題目文字..."
+              rows={3}
+              className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none resize-y"
+              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+            />
+          </label>
+
+          {/* Options (only for single / multiple) */}
+          {form.type !== "fill" && (
+            <div className="grid grid-cols-2 gap-3">
+              {(["A", "B", "C", "D"] as const).map((letter) => {
+                const key = `option${letter}` as keyof SingleForm;
+                return (
+                  <label key={letter} className="flex flex-col gap-1">
+                    <span className="text-xs text-zinc-500">選項 {letter}</span>
+                    <input
+                      value={form[key] as string}
+                      onChange={(e) => setField(key, e.target.value)}
+                      placeholder={`選項 ${letter}`}
+                      className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+                      style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Answer */}
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-zinc-500">
+              答案<span className="text-red-400">*</span>
+              {form.type === "single" && <span className="ml-1 text-zinc-400">（填 A / B / C / D）</span>}
+              {form.type === "multiple" && <span className="ml-1 text-zinc-400">（多個答案以逗號分隔，例：A,C）</span>}
+              {form.type === "fill" && <span className="ml-1 text-zinc-400">（填字串）</span>}
+            </span>
+            <input
+              value={form.answer}
+              onChange={(e) => setField("answer", e.target.value)}
+              placeholder={form.type === "fill" ? "答案文字" : form.type === "multiple" ? "A,C" : "A"}
+              className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+            />
+          </label>
+
+          {singleError && <p className="text-xs text-red-500">{singleError}</p>}
+
+          {singleResult && (
+            <div
+              className={`rounded-xl border p-3 text-sm ${
+                singleResult.ok
+                  ? "border-green-400 bg-green-50 dark:bg-green-900/10"
+                  : "border-red-400 bg-red-50 dark:bg-red-900/10"
+              }`}
+            >
+              {singleResult.ok ? (
+                <p className="text-green-600 dark:text-green-400 text-xs">
+                  ✓ 上傳成功！題號已自動加 1，可繼續填寫下一題。
+                </p>
+              ) : (
+                <p className="text-red-600 dark:text-red-400 text-xs">錯誤：{singleResult.error}</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              onClick={handleSingleUpload}
+              disabled={singleUploading}
+              className="px-5 py-2 text-sm rounded-full disabled:opacity-40 transition-colors"
+              style={{ background: "#5fa870", color: "#fff" }}
+            >
+              {singleUploading ? "上傳中..." : "上傳這一題"}
+            </button>
+            <button
+              onClick={() => { setForm(BLANK_FORM); setSingleError(null); setSingleResult(null); }}
+              className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+            >
+              重置表單
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          JSON upload (original UI)
+      ═══════════════════════════════════════════════════════════════════ */}
+      {tab === "json" && (<>
       <div
         onDrop={(e) => {
           e.preventDefault();
@@ -300,6 +599,7 @@ export default function MyUploadClient() {
   }
 }`}</pre>
       </details>
+      </>)}
     </div>
   );
 }

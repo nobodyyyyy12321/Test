@@ -12,6 +12,7 @@
  *   --no-shuffle             固定題目順序（shuffleProblems = false）
  *   --language <lang>        語言標籤（預設 zh-TW）
  *   --position <n>           排列順序（預設 0）
+ *   --userId <id>            個人上傳使用者 ID（寫入 categories.owner_id）
  *   --category-only          只新增 category，不上傳題目
  *   --new-schema             同時寫入新 i18n 表（quiz_sets / questions / question_i18n）
  *
@@ -51,6 +52,7 @@ let language = "zh-TW";
 let position = 0;
 let categoryOnly = false;
 let newSchema = false;
+let userId = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--parentId" && args[i + 1]) {
@@ -65,6 +67,8 @@ for (let i = 0; i < args.length; i++) {
     language = args[++i];
   } else if (args[i] === "--position" && args[i + 1]) {
     position = parseInt(args[++i], 10);
+  } else if (args[i] === "--userId" && args[i + 1]) {
+    userId = args[++i];
   } else if (args[i] === "--category-only") {
     categoryOnly = true;
   } else if (args[i] === "--new-schema") {
@@ -83,6 +87,10 @@ function newUUID() {
   return crypto.randomUUID();
 }
 
+function personalCategoryId(ownerId, lang, quizId) {
+  return `personal:${ownerId}:${lang}:${quizId}`;
+}
+
 // ── New i18n schema helpers ──────────────────────────────────────────────────
 
 /** Convert options object {"A":"text",...} to canonical array [{key,text},...] */
@@ -92,27 +100,48 @@ function normalizeOptions(options) {
   return Object.entries(options).map(([key, text]) => ({ key, text: String(text) }));
 }
 
+async function findExistingSetId(sourceQuizId, ownerId) {
+  let url = `${SUPABASE_URL}/rest/v1/quiz_sets?select=id&source_quiz_id=eq.${encodeURIComponent(sourceQuizId)}&limit=1`;
+  if (ownerId) {
+    url += `&owner_id=eq.${encodeURIComponent(ownerId)}`;
+  } else {
+    url += `&owner_id=is.null`;
+  }
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    console.error("✗ quiz_sets lookup failed:", await res.text());
+    return null;
+  }
+  const rows = await res.json().catch(() => []);
+  return rows[0]?.id ?? null;
+}
+
 /**
  * Upload one collection into quiz_sets + quiz_set_i18n + questions + question_i18n.
- * Safe to re-run: uses upsert on source_quiz_id / (question_id, lang).
+ * Safe to re-run with owner-aware identity: (owner_id, source_quiz_id).
  */
-async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId) {
+async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId, ownerId) {
   const reprHeaders = { ...headers, Prefer: "resolution=merge-duplicates,return=representation" };
 
-  // 1. Upsert quiz_sets (key = source_quiz_id)
-  const setRow = {
-    source_quiz_id: quizId,
-    category_id: categoryId ?? null,
-    problems_per_test: problemsPerTest ?? 10,
-    shuffle_problems: shuffleProblems ?? false,
-  };
-  const setRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/quiz_sets?on_conflict=source_quiz_id`,
-    { method: "POST", headers: reprHeaders, body: JSON.stringify([setRow]) }
-  );
-  if (!setRes.ok) { console.error("✗ quiz_sets upsert failed:", await setRes.text()); return; }
-  const [setResult] = await setRes.json();
-  const setId = setResult.id;
+  // 1. Resolve existing set by (owner_id, source_quiz_id), otherwise insert.
+  let setId = await findExistingSetId(quizId, ownerId);
+  if (!setId) {
+    const setRow = {
+      owner_id: ownerId ?? null,
+      source_quiz_id: quizId,
+      category_id: ownerId ? null : (categoryId ?? null),
+      problems_per_test: problemsPerTest ?? 10,
+      shuffle_problems: shuffleProblems ?? false,
+    };
+    const setRes = await fetch(`${SUPABASE_URL}/rest/v1/quiz_sets`, {
+      method: "POST",
+      headers: reprHeaders,
+      body: JSON.stringify([setRow]),
+    });
+    if (!setRes.ok) { console.error("✗ quiz_sets insert failed:", await setRes.text()); return; }
+    const [setResult] = await setRes.json();
+    setId = setResult.id;
+  }
 
   // 2. Upsert quiz_set_i18n (key = set_id + lang)
   await fetch(
@@ -164,7 +193,7 @@ async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId) 
     totalInserted += batch.length;
   }
 
-  console.log(`✓ [new-schema] ${quizId}: set_id=${setId}, ${totalInserted} questions`);
+  console.log(`✓ [new-schema] ${quizId}: set_id=${setId}, owner=${ownerId ?? "global"}, ${totalInserted} questions`);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -232,13 +261,33 @@ async function uploadFile(filePath) {
       if (newSchema) {
         const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
         const setName = catEntry?.name ?? quizId;
-        await uploadNewSchema(quizId, data.collections[quizId], setName, language, null);
+        await uploadNewSchema(quizId, data.collections[quizId], setName, language, null, userId);
       }
     }
   }
 
-  // ── 新增 category ─────────────────────────────────────────────────────────
-  if (parentId !== null || problemsPerTest !== null || shuffleProblems !== null || categoryOnly) {
+  // ── 新增 category（global 或 personal）────────────────────────────────────
+  if (userId) {
+    const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
+    const name = catEntry?.name ?? collectionIds[0];
+    for (const quizId of collectionIds) {
+      const categoryRow = {
+        id: personalCategoryId(userId, language, quizId),
+        parent_id: parentId,
+        language,
+        owner_id: userId,
+        name,
+        href: `/test/${quizId}`,
+        position,
+        dropdown: [],
+        dropdown_align: null,
+        ...(problemsPerTest !== null && { problems_per_test: problemsPerTest }),
+        ...(shuffleProblems !== null && { shuffle_problems: shuffleProblems }),
+      };
+      console.log(`\n新增 personal category（categories.owner_id）：`, JSON.stringify(categoryRow, null, 2));
+      await upsertCategory(categoryRow);
+    }
+  } else if (parentId !== null || problemsPerTest !== null || shuffleProblems !== null || categoryOnly) {
     // 從 JSON 的 categories 陣列取名稱與 href
     const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
     const name = catEntry?.name ?? collectionIds[0];
@@ -268,7 +317,7 @@ async function uploadFile(filePath) {
     const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
     const name = catEntry?.name ?? collectionIds[0];
     for (const quizId of collectionIds) {
-      await uploadNewSchema(quizId, [], name, language, null);
+      await uploadNewSchema(quizId, [], name, language, null, userId);
     }
   }
 }

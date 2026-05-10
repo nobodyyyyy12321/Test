@@ -10,6 +10,7 @@ alter table if exists categories rename to categories_old;
 -- ordinary folders/items have language_code null.
 create table categories (
   id             text primary key,
+  owner_id       text references users(id) on delete cascade,
   parent_id      text references categories(id) on delete cascade,
   position       int  not null default 0,
   href           text,
@@ -26,3 +27,4 @@ create unique index categories_language_code_unique
   on categories(language_code) where language_code is not null;
 
 create index categories_parent_position_idx on categories(parent_id, position);
+create index categories_owner_id_idx on categories(owner_id);

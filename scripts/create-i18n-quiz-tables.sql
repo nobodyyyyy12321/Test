@@ -8,14 +8,45 @@
 -- ── quiz_sets ────────────────────────────────────────────────────────────────
 create table if not exists quiz_sets (
   id                uuid primary key default gen_random_uuid(),
-  source_quiz_id    text unique,          -- original quiz_id from quiz_questions_all (migration aid)
-  category_id       uuid references categories(id) on delete set null,
-  problems_per_test int  not null default 10,
+  owner_id          text references users(id) on delete cascade,
+  source_quiz_id    text not null,        -- original quiz_id from quiz_questions_all (migration aid)
+  category_id       text references categories(id) on delete set null,
+  problems_per_test int  not null default 10 check (problems_per_test > 0),
   shuffle_problems  boolean not null default false,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
 
+-- Backward-compatible migration for existing deployments.
+alter table quiz_sets
+  add column if not exists owner_id text references users(id) on delete cascade,
+  add column if not exists source_quiz_id text,
+  add column if not exists category_id text;
+
+alter table quiz_sets
+  alter column category_id type text using category_id::text;
+
+alter table quiz_sets
+  drop constraint if exists quiz_sets_category_id_fkey;
+
+alter table quiz_sets
+  add constraint quiz_sets_category_id_fkey
+  foreign key (category_id) references categories(id) on delete set null;
+
+alter table quiz_sets
+  drop constraint if exists quiz_sets_source_quiz_id_key;
+
+-- owner_id is null: global sets (one source_quiz_id only once)
+create unique index if not exists quiz_sets_global_source_uidx
+  on quiz_sets(source_quiz_id)
+  where owner_id is null;
+
+-- owner_id is not null: personal sets (same source_quiz_id allowed across users)
+create unique index if not exists quiz_sets_owner_source_uidx
+  on quiz_sets(owner_id, source_quiz_id)
+  where owner_id is not null;
+
+create index if not exists quiz_sets_owner_id_idx on quiz_sets(owner_id);
 create index if not exists quiz_sets_category_id_idx on quiz_sets(category_id);
 
 -- ── quiz_set_i18n ─────────────────────────────────────────────────────────────

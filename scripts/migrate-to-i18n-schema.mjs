@@ -1,6 +1,10 @@
 /**
- * Migrate existing quiz_questions_all + categories data into the new i18n tables:
+ * Migrate existing quiz_questions_all + categories + pcategories data into the new i18n tables:
  *   quiz_sets, quiz_set_i18n, questions, question_i18n
+ *
+ * Ownership mapping:
+ * - categories -> global sets (owner_id = null)
+ * - pcategories -> personal sets (owner_id = user_id)
  *
  * SAFE TO RE-RUN: uses upsert / ON CONFLICT DO NOTHING.
  * Does NOT delete old data from quiz_questions_all or categories.
@@ -22,7 +26,7 @@ const headers = {
   "Content-Type": "application/json",
   Prefer: "return=representation",
 };
-const headersMinimal = { ...headers, Prefer: "return=minimal" };
+const GLOBAL_OWNER_KEY = "__global__";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -74,14 +78,19 @@ function inferLang(quizId) {
   return "zh-TW";
 }
 
+function setMapKey(quizId, ownerId) {
+  return `${ownerId ?? GLOBAL_OWNER_KEY}::${quizId}`;
+}
+
 // ── fetch all rows from a table (handles pagination) ─────────────────────────
 
-async function fetchAll(table, select = "*", pageSize = 1000) {
+async function fetchAll(table, select = "*", pageSize = 1000, extraQuery = "") {
   const rows = [];
   let from = 0;
   while (true) {
+    const querySuffix = extraQuery ? `&${extraQuery}` : "";
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=${pageSize}&offset=${from}`,
+      `${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=${pageSize}&offset=${from}${querySuffix}`,
       { headers: { ...headers, "Range-Unit": "items" } }
     );
     if (!res.ok) throw new Error(`fetchAll ${table} failed: ${await res.text()}`);
@@ -98,8 +107,8 @@ async function fetchAll(table, select = "*", pageSize = 1000) {
 
 console.log(DRY_RUN ? "=== DRY RUN ===" : "=== MIGRATING ===");
 
-// 1. Load categories (for title, language, problems_per_test, shuffle_problems, id)
-console.log("\n[1/4] Loading categories...");
+// 1. Load categories (global metadata)
+console.log("\n[1/5] Loading categories...");
 const categories = await fetchAll(
   "categories",
   "id,href,name,language,problems_per_test,shuffle_problems"
@@ -108,8 +117,21 @@ const categories = await fetchAll(
 const catByHref = new Map(categories.map((c) => [c.href, c]));
 console.log(`  Found ${categories.length} categories`);
 
-// 2. Load all quiz_questions_all rows
-console.log("\n[2/4] Loading quiz_questions_all...");
+// 2. Load personal category ownership from pcategories
+console.log("\n[2/5] Loading pcategories...");
+const pcategories = await fetchAll(
+  "pcategories",
+  "user_id,quiz_id,language,name"
+);
+const personalByQuizId = new Map();
+for (const row of pcategories) {
+  if (!personalByQuizId.has(row.quiz_id)) personalByQuizId.set(row.quiz_id, []);
+  personalByQuizId.get(row.quiz_id).push(row);
+}
+console.log(`  Found ${pcategories.length} personal category rows`);
+
+// 3. Load all quiz_questions_all rows
+console.log("\n[3/5] Loading quiz_questions_all...");
 const allQuestions = await fetchAll(
   "quiz_questions_all",
   "id,quiz_id,number,title,type,options,answer,level,group_range,group_content"
@@ -124,99 +146,135 @@ for (const q of allQuestions) {
 }
 console.log(`  Distinct quiz_ids: ${byQuizId.size}`);
 
-// 3. Upsert quiz_sets + quiz_set_i18n
-console.log("\n[3/4] Upserting quiz_sets and quiz_set_i18n...");
+// Build owner-scoped migration targets (global + personal).
+const targets = [];
+for (const quizId of byQuizId.keys()) {
+  const href = `/test/${quizId}`;
+  const cat = catByHref.get(href) ?? null;
 
-// Load existing quiz_sets to avoid duplicating (keyed by source_quiz_id)
-const existingSets = await fetchAll("quiz_sets", "id,source_quiz_id");
-const setIdByQuizId = new Map(existingSets.map((s) => [s.source_quiz_id, s.id]));
+  // Global target (always create to preserve current category behavior).
+  targets.push({
+    quizId,
+    ownerId: null,
+    categoryId: cat?.id ?? null,
+    lang: cat?.language ?? inferLang(quizId),
+    setName: cat?.name ?? quizId,
+    problemsPerTest: cat?.problems_per_test ?? 10,
+    shuffleProblems: cat?.shuffle_problems ?? false,
+  });
+
+  // Personal targets from pcategories.
+  const pRows = personalByQuizId.get(quizId) ?? [];
+  for (const p of pRows) {
+    targets.push({
+      quizId,
+      ownerId: p.user_id,
+      categoryId: null,
+      lang: p.language ?? inferLang(quizId),
+      setName: p.name ?? quizId,
+      problemsPerTest: cat?.problems_per_test ?? 10,
+      shuffleProblems: cat?.shuffle_problems ?? false,
+    });
+  }
+}
+console.log(`  Migration targets: ${targets.length} (global + personal)`);
+
+// 4. Upsert quiz_sets + quiz_set_i18n
+console.log("\n[4/5] Upserting quiz_sets and quiz_set_i18n...");
+
+// Load existing quiz_sets keyed by (owner_id, source_quiz_id).
+const existingSets = await fetchAll("quiz_sets", "id,source_quiz_id,owner_id");
+const setIdByKey = new Map(existingSets.map((s) => [setMapKey(s.source_quiz_id, s.owner_id), s.id]));
 
 let setsCreated = 0;
 let setsSkipped = 0;
+let setTitlesUpserted = 0;
 
-for (const [quizId, questions] of byQuizId) {
-  if (setIdByQuizId.has(quizId)) {
-    setsSkipped++;
-    continue; // already migrated
-  }
-
-  const href = `/test/${quizId}`;
-  const cat = catByHref.get(href) ?? null;
-  const lang = cat?.language ?? inferLang(quizId);
-  const setName = cat?.name ?? quizId;
-
-  const setRow = {
-    source_quiz_id: quizId,
-    category_id: cat?.id ?? null,
-    problems_per_test: cat?.problems_per_test ?? 10,
-    shuffle_problems: cat?.shuffle_problems ?? false,
-  };
+for (const target of targets) {
+  const key = setMapKey(target.quizId, target.ownerId);
+  let setId = setIdByKey.get(key);
 
   if (DRY_RUN) {
-    console.log(`  [DRY] Would create set: ${quizId} (lang=${lang}, name="${setName}", ${questions.length} q)`);
-    setsCreated++;
+    const questions = byQuizId.get(target.quizId) ?? [];
+    const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
+    console.log(`  [DRY] Would upsert set: ${target.quizId} (${scope}, lang=${target.lang}, name="${target.setName}", ${questions.length} q)`);
+    if (!setId) setsCreated++;
+    else setsSkipped++;
+    setTitlesUpserted++;
     continue;
   }
 
-  // Insert quiz_sets row
-  const [setResult] = await supabasePost("quiz_sets", [setRow], "source_quiz_id");
-  const setId = setResult.id;
-  setIdByQuizId.set(quizId, setId);
+  // source_quiz_id now uses owner-scoped uniqueness; avoid on_conflict with partial indexes.
+  if (!setId) {
+    const setRow = {
+      owner_id: target.ownerId,
+      source_quiz_id: target.quizId,
+      category_id: target.categoryId,
+      problems_per_test: target.problemsPerTest,
+      shuffle_problems: target.shuffleProblems,
+    };
+    const [setResult] = await supabasePost("quiz_sets", [setRow]);
+    setId = setResult.id;
+    setIdByKey.set(key, setId);
+    setsCreated++;
+  } else {
+    setsSkipped++;
+  }
 
-  // Insert quiz_set_i18n row
+  // Ensure title row exists for target language.
   await supabasePost(
     "quiz_set_i18n",
-    [{ set_id: setId, lang, title: setName }],
+    [{ set_id: setId, lang: target.lang, title: target.setName }],
     "set_id,lang"
   );
+  setTitlesUpserted++;
 
-  setsCreated++;
-  process.stdout.write(`  ✓ ${quizId} (set_id=${setId})\n`);
+  const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
+  process.stdout.write(`  ✓ ${target.quizId} (${scope}) set_id=${setId}\n`);
 }
 
-console.log(`  Created: ${setsCreated}, Skipped (already exist): ${setsSkipped}`);
+console.log(`  Created: ${setsCreated}, Existing: ${setsSkipped}, Title upserts: ${setTitlesUpserted}`);
 
-// 4. Upsert questions + question_i18n
-console.log("\n[4/4] Upserting questions and question_i18n...");
+// 5. Upsert questions + question_i18n
+console.log("\n[5/5] Upserting questions and question_i18n...");
 
 let qCreated = 0;
-let qSkipped = 0;
+let i18nUpserts = 0;
 const BATCH = 200; // insert in batches
 
-for (const [quizId, rawQuestions] of byQuizId) {
-  const setId = setIdByQuizId.get(quizId);
+for (const target of targets) {
+  const key = setMapKey(target.quizId, target.ownerId);
+  const setId = setIdByKey.get(key);
   if (!setId && !DRY_RUN) {
-    console.warn(`  ⚠ No set_id for ${quizId}, skipping`);
+    console.warn(`  ⚠ No set_id for ${target.quizId}, skipping`);
     continue;
   }
 
-  const href = `/test/${quizId}`;
-  const cat = catByHref.get(href) ?? null;
-  const lang = cat?.language ?? inferLang(quizId);
+  const rawQuestions = byQuizId.get(target.quizId) ?? [];
+  const lang = target.lang;
 
   if (DRY_RUN) {
-    console.log(`  [DRY] Would upsert ${rawQuestions.length} questions for ${quizId}`);
+    const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
+    console.log(`  [DRY] Would upsert ${rawQuestions.length} questions for ${target.quizId} (${scope}, lang=${lang})`);
     qCreated += rawQuestions.length;
+    i18nUpserts += rawQuestions.length;
     continue;
   }
 
-  // Fetch existing questions for this set to find those already migrated
+  // Fetch existing questions to preserve IDs and support re-runs after partial failures.
   const existingQ = await fetchAll(
-    `questions?set_id=eq.${setId}`,
-    "id,number"
+    "questions",
+    "id,number",
+    1000,
+    `set_id=eq.${encodeURIComponent(setId)}`
   );
-  const existingNumbers = new Set(existingQ.map((q) => String(q.number)));
+  const questionIdByNumber = new Map(existingQ.map((q) => [String(q.number), q.id]));
 
-  const newQuestions = rawQuestions.filter((q) => !existingNumbers.has(String(q.number)));
+  const missingQuestions = rawQuestions.filter((q) => !questionIdByNumber.has(String(q.number)));
 
-  if (newQuestions.length === 0) {
-    qSkipped += rawQuestions.length;
-    continue;
-  }
-
-  // Insert questions rows in batches
-  for (let i = 0; i < newQuestions.length; i += BATCH) {
-    const batch = newQuestions.slice(i, i + BATCH);
+  // Insert only missing question rows.
+  for (let i = 0; i < missingQuestions.length; i += BATCH) {
+    const batch = missingQuestions.slice(i, i + BATCH);
     const questionRows = batch.map((q) => ({
       set_id: setId,
       number: q.number,
@@ -225,30 +283,40 @@ for (const [quizId, rawQuestions] of byQuizId) {
     }));
 
     const inserted = await supabasePost("questions", questionRows);
+    inserted.forEach((ins) => {
+      questionIdByNumber.set(String(ins.number), ins.id);
+    });
+    qCreated += batch.length;
+  }
 
-    // Build question_i18n rows from inserted UUIDs
-    const i18nRows = inserted.map((ins, idx) => {
-      const q = batch[idx];
+  // Upsert i18n rows for every question to recover from partial runs.
+  const i18nAll = rawQuestions
+    .map((q) => {
+      const questionId = questionIdByNumber.get(String(q.number));
+      if (!questionId) return null;
       return {
-        question_id: ins.id,
+        question_id: questionId,
         lang,
         group_content: q.group_content ?? null,
         content: q.title ?? "",
         options: normalizeOptions(q.options),
         answer: normalizeAnswer(q.answer),
-        is_machine_translated: lang !== "zh-TW", // source data is zh-TW; others are translated
+        is_machine_translated: lang !== "zh-TW",
         is_reviewed: false,
       };
-    });
+    })
+    .filter(Boolean);
 
-    await supabasePost("question_i18n", i18nRows);
-    qCreated += batch.length;
+  for (let i = 0; i < i18nAll.length; i += BATCH) {
+    const batch = i18nAll.slice(i, i + BATCH);
+    await supabasePost("question_i18n", batch, "question_id,lang");
+    i18nUpserts += batch.length;
   }
 
-  qSkipped += rawQuestions.length - newQuestions.length;
-  console.log(`  ✓ ${quizId}: ${newQuestions.length} questions migrated`);
+  const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
+  console.log(`  ✓ ${target.quizId} (${scope}, lang=${lang}): ${missingQuestions.length} question rows inserted, ${i18nAll.length} i18n rows upserted`);
 }
 
-console.log(`  Created: ${qCreated}, Skipped (already exist): ${qSkipped}`);
+console.log(`  Question rows inserted: ${qCreated}, i18n rows upserted: ${i18nUpserts}`);
 console.log("\n=== DONE ===");
 if (DRY_RUN) console.log("(No data was written — dry run)");
