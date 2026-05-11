@@ -674,8 +674,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                         const isCorrectOpt = qt === "multiple"
                           ? (q.answer as string[]).includes(option.label)
                           : q.answer === option.label;
-                        // After submit, always frame correct options in green.
-                        const showCorrectFrame = showResults && isCorrectOpt;
+                        const isUnanswered = showResults && ans === null;
+                        // After submit, correct options are green when answered; red when unanswered.
+                        const showCorrectFrameGreen = showResults && isCorrectOpt && !isUnanswered;
+                        const showCorrectFrameRed = showResults && isCorrectOpt && isUnanswered;
                         // After submit, wrong selected options get red background only.
                         const showWrongSel = showResults && isSel && !isCorrectOpt;
                         return (
@@ -689,15 +691,18 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                             onMouseEnter={e => { if (!showResults) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(95,168,112,0.15)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ""; }}
                             style={{
-                              color: showWrongSel ? "#b91c1c" : "#5fa870",
-                              border: showCorrectFrame
+                              color: "#5fa870",
+                              border: showCorrectFrameGreen
                                 ? "1.5px solid #16a34a"
-                                : showWrongSel
-                                ? "1.5px solid transparent"
+                                : showCorrectFrameRed
+                                ? "1.5px solid #ef4444"
                                 : isSel
                                 ? "1.5px solid #5fa870"
                                 : "1.5px solid transparent",
-                              backgroundColor: showWrongSel ? "rgba(239,68,68,0.08)" : undefined,
+                              backgroundColor: undefined,
+                              textDecoration: showWrongSel ? "line-through" : undefined,
+                              textDecorationColor: showWrongSel ? "#ef4444" : undefined,
+                              textDecorationThickness: showWrongSel ? "2px" : undefined,
                               cursor: showResults ? "default" : "pointer",
                             }}
                           >
