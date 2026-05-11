@@ -2,6 +2,16 @@
 
 import { useEffect } from "react";
 
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error instanceof Event) return `Event(${error.type})`;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 export default function PWARegister() {
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -44,8 +54,14 @@ export default function PWARegister() {
 export async function triggerPWAInstall(): Promise<"accepted" | "dismissed" | "unavailable"> {
   const prompt = (window as any).__pwaPrompt;
   if (!prompt) return "unavailable";
-  prompt.prompt();
-  const { outcome } = await prompt.userChoice;
-  (window as any).__pwaPrompt = null;
-  return outcome === "accepted" ? "accepted" : "dismissed";
+  try {
+    await prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    (window as any).__pwaPrompt = null;
+    return outcome === "accepted" ? "accepted" : "dismissed";
+  } catch (error) {
+    console.error("PWA install prompt failed:", formatUnknownError(error));
+    (window as any).__pwaPrompt = null;
+    return "unavailable";
+  }
 }

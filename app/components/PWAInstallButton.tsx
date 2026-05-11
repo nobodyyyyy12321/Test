@@ -27,9 +27,13 @@ export default function PWAInstallButton() {
   return (
     <button
       onClick={async () => {
-        const result = await triggerPWAInstall();
-        if (result === "accepted") setInstalled(true);
-        if (result !== "unavailable") setInstallable(false);
+        try {
+          const result = await triggerPWAInstall();
+          if (result === "accepted") setInstalled(true);
+          if (result !== "unavailable") setInstallable(false);
+        } catch (error) {
+          console.error("Install button handler failed:", error);
+        }
       }}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
       title="安裝 App 到桌面"
