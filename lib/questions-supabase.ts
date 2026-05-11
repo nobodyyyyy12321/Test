@@ -31,6 +31,7 @@ const QUIZ_SETS_TABLE = "quiz_sets";
 const QUIZ_SET_I18N_TABLE = "quiz_set_i18n";
 const QUESTIONS_TABLE = "questions";
 const QUESTION_I18N_TABLE = "question_i18n";
+const CATEGORIES_TABLE = "categories";
 
 export type QuizQuestionRow = {
   number: number;
@@ -83,6 +84,10 @@ function inferQuizLanguage(collectionId: string, language?: string | null): stri
 
 async function findGlobalQuizSetId(collectionId: string): Promise<string | null> {
   const candidates = Array.from(new Set([canonicalQuizId(collectionId), collectionId]));
+
+  // Admin/global sets: any quiz_sets row with owner_id IS NULL is public by
+  // design (see quiz_sets_global_source_uidx). Categories may live under a
+  // dropdown rather than as their own row, so do not require a categories hit.
   for (const candidate of candidates) {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?select=id&source_quiz_id=eq.${encodeURIComponent(candidate)}&owner_id=is.null&limit=1`,
@@ -92,6 +97,31 @@ async function findGlobalQuizSetId(collectionId: string): Promise<string | null>
     const rows: Array<{ id: string }> = await res.json();
     if (rows[0]?.id) return rows[0].id;
   }
+
+  // Personal sets shared publicly: gated by a categories row whose href matches
+  // and is flagged is_public = true.
+  const href = `/test/${encodeURIComponent(collectionId)}`;
+  const catRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${CATEGORIES_TABLE}?select=owner_id&href=eq.${encodeURIComponent(href)}&is_public=eq.true&owner_id=not.is.null`,
+    { headers: READ_HEADERS, cache: "no-store" }
+  );
+  if (!catRes.ok) throw new Error(await catRes.text());
+  const catRows: Array<{ owner_id: string | null }> = await catRes.json();
+  const publicOwnerIds = Array.from(
+    new Set(catRows.map((row) => row.owner_id).filter((id): id is string => !!id))
+  );
+  for (const ownerId of publicOwnerIds) {
+    for (const candidate of candidates) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?select=id&source_quiz_id=eq.${encodeURIComponent(candidate)}&owner_id=eq.${encodeURIComponent(ownerId)}&limit=1`,
+        { headers: READ_HEADERS, cache: "no-store" }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const rows: Array<{ id: string }> = await res.json();
+      if (rows[0]?.id) return rows[0].id;
+    }
+  }
+
   return null;
 }
 
