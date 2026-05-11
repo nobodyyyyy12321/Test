@@ -379,7 +379,7 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
         is_reviewed: false,
       };
     })
-    .filter(Boolean);
+    .filter((row): row is NonNullable<typeof row> => row !== null);
 
   for (let i = 0; i < i18nRows.length; i += 200) {
     await postRows(QUESTION_I18N_TABLE, i18nRows.slice(i, i + 200), "question_id,lang");
