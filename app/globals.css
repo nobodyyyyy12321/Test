@@ -6,6 +6,12 @@
   animation: sheet-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+@keyframes loadingBarPulse {
+  0% { width: 100%; }
+  50% { width: 50%; }
+  100% { width: 100%; }
+}
+
 html.formal-quiz-active aside,
 html.formal-quiz-active #mobile-bottom-bar {
   display: none !important;
