@@ -674,10 +674,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                         const isCorrectOpt = qt === "multiple"
                           ? (q.answer as string[]).includes(option.label)
                           : q.answer === option.label;
-                        // correct option not selected → show red border (missing)
-                        const showCorrectFrame = isWrongResult && isCorrectOpt && !isSel;
-                        // wrongly selected option (selected but not in correct answers) → show red
-                        const showWrongSel = isWrongResult && isSel && !isCorrectOpt;
+                        // After submit, always frame correct options in green.
+                        const showCorrectFrame = showResults && isCorrectOpt;
+                        // After submit, wrong selected options get red background only.
+                        const showWrongSel = showResults && isSel && !isCorrectOpt;
                         return (
                           <button
                             key={option.label}
@@ -689,9 +689,11 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                             onMouseEnter={e => { if (!showResults) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(95,168,112,0.15)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ""; }}
                             style={{
-                              color: showCorrectFrame || showWrongSel ? "#ef4444" : "#5fa870",
-                              border: showCorrectFrame || showWrongSel
-                                ? "1.5px solid #ef4444"
+                              color: showWrongSel ? "#b91c1c" : "#5fa870",
+                              border: showCorrectFrame
+                                ? "1.5px solid #16a34a"
+                                : showWrongSel
+                                ? "1.5px solid transparent"
                                 : isSel
                                 ? "1.5px solid #5fa870"
                                 : "1.5px solid transparent",
