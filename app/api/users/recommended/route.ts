@@ -95,7 +95,8 @@ export async function GET(request: NextRequest) {
           problemsPerTest: cat.problems_per_test,
           shuffleProblems: cat.shuffle_problems,
         })),
-      }));
+      }))
+      .filter(u => u.categories.length > 0);
 
     return NextResponse.json({ users: result });
   } catch (err) {
