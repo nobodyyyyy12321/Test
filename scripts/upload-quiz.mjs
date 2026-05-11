@@ -1,5 +1,5 @@
 /**
- * 上傳一或多個 quiz JSON 檔到 Supabase quiz_questions_all 表
+ * 上傳一或多個 quiz JSON 檔到 Supabase 新 i18n 四表
  * 可選擇同時在 categories 表新增一筆分類資料
  *
  * 用法：
@@ -14,7 +14,7 @@
  *   --position <n>           排列順序（預設 0）
  *   --userId <id>            個人上傳使用者 ID（寫入 categories.owner_id）
  *   --category-only          只新增 category，不上傳題目
- *   --new-schema             同時寫入新 i18n 表（quiz_sets / questions / question_i18n）
+ *   --new-schema             已預設寫入新 i18n 表（保留相容，不需另外指定）
  *
  * 範例：
  *   node scripts/upload-quiz.mjs app/data/senior/TrigSenior.json --parentId abc-123 --problemsPerTest 10 --shuffle
@@ -32,7 +32,6 @@ const SUPABASE_URL = "https://wjfslomoaqsglojzybmb.supabase.co";
 const SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZnNsb21vYXFzZ2xvanp5Ym1iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTk0ODgzMCwiZXhwIjoyMDkxNTI0ODMwfQ.HwWC6j7TO343TuT8xz-YH1pQNW1YbSQ7Sv8Q3BZ5AE4";
 
-const TABLE = "quiz_questions_all";
 const CATEGORIES_TABLE = "categories";
 
 const headers = {
@@ -51,7 +50,7 @@ let shuffleProblems = null; // null = 不設定（資料庫預設隨機）
 let language = "zh-TW";
 let position = 0;
 let categoryOnly = false;
-let newSchema = false;
+let newSchema = true;
 let userId = null;
 
 for (let i = 0; i < args.length; i++) {
@@ -72,6 +71,7 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === "--category-only") {
     categoryOnly = true;
   } else if (args[i] === "--new-schema") {
+    // Kept for backward compatibility; new-schema upload is now always on.
     newSchema = true;
   } else if (!args[i].startsWith("--")) {
     filePaths.push(args[i]);
@@ -225,44 +225,14 @@ async function uploadFile(filePath) {
     return;
   }
 
-  // ── 上傳題目 ──────────────────────────────────────────────────────────────
+  // ── 上傳題目（新 i18n 四表）──────────────────────────────────────────────
   if (!categoryOnly) {
     for (const quizId of collectionIds) {
-      const questions = data.collections[quizId].map((q) => ({
-        quiz_id: quizId,
-        number: q.number,
-        title: q.title,
-        type: q.type,
-        options: q.options ?? null,
-        answer: q.answer ?? null,
-        level: q.level ?? null,
-        group_range: q.group_range ?? null,
-        group_content: q.group_content ?? null,
-        source_schema: "public",
-        source_table: quizId,
-      }));
-
-      console.log(`準備上傳 ${questions.length} 題（quiz_id = ${quizId}，來源：${filePath}）`);
-
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(questions),
-      });
-
-      if (res.ok) {
-        console.log(`✓ 成功上傳 ${questions.length} 題（${quizId}）`);
-      } else {
-        const err = await res.text();
-        console.error(`✗ 上傳失敗（${quizId}）:`, err);
-      }
-
-      // ── also write to new i18n schema if requested ──────────────────────
-      if (newSchema) {
-        const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
-        const setName = catEntry?.name ?? quizId;
-        await uploadNewSchema(quizId, data.collections[quizId], setName, language, null, userId);
-      }
+      const rawQuestions = data.collections[quizId] ?? [];
+      console.log(`準備上傳 ${rawQuestions.length} 題到新 i18n 表（quiz_id = ${quizId}，來源：${filePath}）`);
+      const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
+      const setName = catEntry?.name ?? quizId;
+      await uploadNewSchema(quizId, rawQuestions, setName, language, null, userId);
     }
   }
 
@@ -310,10 +280,8 @@ async function uploadFile(filePath) {
     await upsertCategory(categoryRow);
   }
 
-  // ── new schema upload when --category-only is not set but --new-schema is ─
-  // (already handled above inside the per-quizId loop when !categoryOnly)
-  // If --category-only + --new-schema, still write quiz_sets metadata only (no questions).
-  if (categoryOnly && newSchema) {
+  // ── category-only 時仍建立 set metadata（不含 questions）──────────────────
+  if (categoryOnly) {
     const catEntry = Array.isArray(data.categories) ? data.categories[0] : null;
     const name = catEntry?.name ?? collectionIds[0];
     for (const quizId of collectionIds) {

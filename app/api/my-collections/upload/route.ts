@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { upsertQuizQuestions, collectionTableExists, resolveTableName } from "@/lib/questions-supabase";
+import { collectionTableExists, resolveTableName, upsertPersonalQuizQuestionsNewSchema } from "@/lib/questions-supabase";
 import { upsertUserCollection, userOwnsCollection } from "@/lib/user-collections-supabase";
 
 type QuestionRow = {
@@ -127,22 +127,28 @@ export async function POST(request: Request) {
 
     try {
       const tableId = resolveTableName(collectionId, activeLanguage);
+      const owns = await userOwnsCollection(user.id, collectionId, activeLanguage);
       // Block if table exists AND this user does not own it (check across all languages —
       // same collectionId always maps to the same table regardless of language).
       if (await collectionTableExists(tableId)) {
-        const owns = await userOwnsCollection(user.id, collectionId);
         if (!owns) {
           errors[collectionId] = `題庫名稱「${collectionId}」已被使用，請改用其他名稱`;
           continue;
         }
-        if (!forceSet.has(collectionId)) {
-          conflicts[collectionId] = `題庫「${collectionId}」已存在，確定要覆蓋嗎？`;
-          continue;
-        }
       }
-      const result = await upsertQuizQuestions(tableId, normalized);
+      if (owns && !forceSet.has(collectionId)) {
+        conflicts[collectionId] = `題庫「${collectionId}」已存在，確定要覆蓋嗎？`;
+        continue;
+      }
       const displayName =
         findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
+      const result = await upsertPersonalQuizQuestionsNewSchema({
+        userId: user.id,
+        collectionId,
+        language: activeLanguage,
+        displayName,
+        questions: normalized,
+      });
       await upsertUserCollection(user.id, collectionId, displayName, false, activeLanguage);
       results[collectionId] = { upserted: result.upserted, gridName: displayName };
     } catch (err: any) {

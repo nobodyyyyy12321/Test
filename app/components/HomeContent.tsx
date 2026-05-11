@@ -19,7 +19,13 @@ type UserResult = {
   id: string; 
   name: string; 
   avatarUrl?: string;
-  categories?: Array<{ id: string; name: string; href?: string }>;
+  categories?: Array<{
+    id: string;
+    name: string;
+    href?: string;
+    problemsPerTest?: number | null;
+    shuffleProblems?: boolean | null;
+  }>;
 };
 type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned" | "category-ref-pinned"; };
 type Group = { id: string; name: string };
@@ -87,6 +93,16 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     const extra: string[] = [];
     if (n.problemsPerTest != null) extra.push(`count=${encodeURIComponent(n.problemsPerTest)}`);
     if (n.shuffleProblems === false) extra.push(`ordered=true`);
+    if (extra.length === 0) return base;
+    return base + (base.includes("?") ? "&" : "?") + extra.join("&");
+  };
+
+  const appendHrefOptions = (href?: string, problemsPerTest?: number | null, shuffleProblems?: boolean | null): string => {
+    const base = href || "#";
+    if (base === "#") return base;
+    const extra: string[] = [];
+    if (problemsPerTest != null) extra.push(`count=${encodeURIComponent(problemsPerTest)}`);
+    if (shuffleProblems === false) extra.push("ordered=true");
     if (extra.length === 0) return base;
     return base + (base.includes("?") ? "&" : "?") + extra.join("&");
   };
@@ -1098,7 +1114,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                   {u.categories.map((cat: any) => (
                                     <Link
                                       key={cat.id}
-                                      href={cat.href || "#"}
+                                      href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
                                       className="book-link bookshelf-btn"
                                     >
                                       {cat.name}

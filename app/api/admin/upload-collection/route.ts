@@ -140,8 +140,8 @@ export async function POST(request: Request) {
         conflicts[collectionId] = `題庫「${collectionId}」已存在，確定要覆蓋嗎？`;
         continue;
       }
-      const result = await upsertQuizQuestions(tableId, normalized);
       const gridName = findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
+      const result = await upsertQuizQuestions(tableId, normalized, { language: activeLanguage, title: gridName });
 
       // Only create/update homepage nav entry for a brand-new quiz_id.
       // Overwrite flow should update questions only and avoid creating new categories rows.

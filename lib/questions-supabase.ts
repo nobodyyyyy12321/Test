@@ -27,7 +27,10 @@ const WRITE_HEADERS = {
   "Content-Type": "application/json",
 };
 
-const QUIZ_QUESTIONS_TABLE = "quiz_questions_all";
+const QUIZ_SETS_TABLE = "quiz_sets";
+const QUIZ_SET_I18N_TABLE = "quiz_set_i18n";
+const QUESTIONS_TABLE = "questions";
+const QUESTION_I18N_TABLE = "question_i18n";
 
 export type QuizQuestionRow = {
   number: number;
@@ -41,100 +44,571 @@ export type QuizQuestionRow = {
   content?: string | null;
 };
 
+type NewSchemaQuestionInput = {
+  number: number;
+  title: string;
+  type?: string;
+  options?: Record<string, string> | null;
+  answer?: string | string[] | null;
+  level?: number | null;
+  groupRange?: string | null;
+  group_range?: string | null;
+};
+
+function normalizeNewSchemaOptions(options?: Record<string, string> | null): Array<{ key: string; text: string }> {
+  if (!options) return [];
+  return Object.entries(options).map(([key, text]) => ({ key, text: String(text) }));
+}
+
+function normalizeNewSchemaAnswer(answer?: string | string[] | null): string {
+  if (Array.isArray(answer)) return JSON.stringify(answer);
+  if (answer == null) return "";
+  return String(answer);
+}
+
+function canonicalQuizId(collectionId: string): string {
+  return String(collectionId)
+    .replace(/_(en|zhcn|ja|ko)$/i, "")
+    .replace(/_(zh-tw|zh_tw|zh-cn|zh_cn)$/i, "");
+}
+
+function inferQuizLanguage(collectionId: string, language?: string | null): string {
+  if (language) return language;
+  if (/_en$/i.test(collectionId)) return "en";
+  if (/_zhcn$/i.test(collectionId) || /_(zh-cn|zh_cn)$/i.test(collectionId)) return "zh-CN";
+  if (/_ja$/i.test(collectionId)) return "ja";
+  if (/_ko$/i.test(collectionId)) return "ko";
+  return "zh-TW";
+}
+
+async function findGlobalQuizSetId(collectionId: string): Promise<string | null> {
+  const candidates = Array.from(new Set([canonicalQuizId(collectionId), collectionId]));
+  for (const candidate of candidates) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?select=id&source_quiz_id=eq.${encodeURIComponent(candidate)}&owner_id=is.null&limit=1`,
+      { headers: READ_HEADERS, cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const rows: Array<{ id: string }> = await res.json();
+    if (rows[0]?.id) return rows[0].id;
+  }
+  return null;
+}
+
+async function findPersonalQuizSetId(collectionId: string, userId: string): Promise<string | null> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?select=id&source_quiz_id=eq.${encodeURIComponent(collectionId)}&owner_id=eq.${encodeURIComponent(userId)}&limit=1`,
+    { headers: READ_HEADERS, cache: "no-store" }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  const rows: Array<{ id: string }> = await res.json();
+  return rows[0]?.id ?? null;
+}
+
+async function fetchSetQuestions(setId: string): Promise<Map<string, string>> {
+  const rows: Array<{ id: string; number: number }> = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`,
+      { headers: READ_HEADERS, cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const page: Array<{ id: string; number: number }> = await res.json();
+    rows.push(...page);
+    if (page.length < 1000) break;
+    offset += 1000;
+  }
+  return new Map(rows.map((row) => [String(row.number), row.id]));
+}
+
+type SetQuestionRow = { id: string; number: number; level: number | null };
+
+async function fetchSetQuestionRows(setId: string): Promise<SetQuestionRow[]> {
+  const rows: SetQuestionRow[] = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`,
+      { headers: READ_HEADERS, cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const page: SetQuestionRow[] = await res.json();
+    rows.push(...page);
+    if (page.length < 1000) break;
+    offset += 1000;
+  }
+  return rows;
+}
+
+function denormalizeNewSchemaOptions(options: unknown): Record<string, string> | null {
+  if (!Array.isArray(options)) return null;
+  const entries = options
+    .map((option) => {
+      if (!option || typeof option !== "object") return null;
+      const key = typeof (option as { key?: unknown }).key === "string" ? (option as { key: string }).key : null;
+      const text = typeof (option as { text?: unknown }).text === "string" ? (option as { text: string }).text : null;
+      return key && text !== null ? [key, text] : null;
+    })
+    .filter(Boolean) as Array<[string, string]>;
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
+function denormalizeNewSchemaAnswer(answer: unknown): string | string[] | null {
+  if (typeof answer !== "string") return null;
+  const trimmed = answer.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.map((item) => String(item));
+    } catch {}
+  }
+  return trimmed;
+}
+
+function inferNewSchemaType(number: number, options: Record<string, string> | null, answer: string | string[] | null): string {
+  if (!Number.isInteger(number)) return "group";
+  if (!options || Object.keys(options).length === 0) return "fill";
+  if (Array.isArray(answer)) return "multiple";
+  return "single";
+}
+
+async function findQuestionIdByNumber(setId: string, number: number): Promise<string | null> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id&set_id=eq.${encodeURIComponent(setId)}&number=eq.${number}&limit=1`,
+    { headers: READ_HEADERS, cache: "no-store" }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  const rows: Array<{ id: string }> = await res.json();
+  return rows[0]?.id ?? null;
+}
+
+async function fetchQuestionI18n(questionId: string, language: string): Promise<{
+  content: string;
+  group_content: string | null;
+  options: unknown;
+  answer: string;
+} | null> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=content,group_content,options,answer&question_id=eq.${encodeURIComponent(questionId)}&lang=eq.${encodeURIComponent(language)}&limit=1`,
+    { headers: READ_HEADERS, cache: "no-store" }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  const rows = await res.json();
+  return rows[0] ?? null;
+}
+
+async function fetchSetQuestionRowsForRead(
+  setId: string,
+  revalidate: number | false = 3600,
+  cacheTag?: string
+): Promise<SetQuestionRow[]> {
+  const rows: SetQuestionRow[] = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`,
+      {
+        headers: READ_HEADERS,
+        ...(revalidate === false
+          ? { cache: "no-store" as const }
+          : { next: { revalidate, tags: cacheTag ? [cacheTag] : undefined } }),
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const page: SetQuestionRow[] = await res.json();
+    rows.push(...page);
+    if (page.length < 1000) break;
+    offset += 1000;
+  }
+  return rows;
+}
+
+async function fetchQuestionI18nMap(
+  questionIds: string[],
+  language: string,
+  revalidate: number | false = 3600,
+  cacheTag?: string
+): Promise<Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>> {
+  const preferred = new Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>();
+  const fallback = new Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>();
+  const fetchInit = revalidate === false
+    ? { headers: READ_HEADERS, cache: "no-store" as const }
+    : { headers: READ_HEADERS, next: { revalidate, tags: cacheTag ? [cacheTag] : undefined } };
+
+  for (let i = 0; i < questionIds.length; i += 200) {
+    const batch = questionIds.slice(i, i + 200);
+    const batchQuery = batch.map((id) => encodeURIComponent(id)).join(",");
+
+    const preferredRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options,answer&lang=eq.${encodeURIComponent(language)}&question_id=in.(${batchQuery})`,
+      fetchInit
+    );
+    if (!preferredRes.ok) throw new Error(await preferredRes.text());
+    const preferredRows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown; answer: string }> = await preferredRes.json();
+    for (const row of preferredRows) {
+      preferred.set(row.question_id, {
+        content: row.content,
+        group_content: row.group_content,
+        options: row.options,
+        answer: row.answer,
+      });
+    }
+
+    if (language !== "zh-TW") {
+      const missingIds = batch.filter((id) => !preferred.has(id));
+      if (missingIds.length > 0) {
+        const fallbackRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options,answer&lang=eq.zh-TW&question_id=in.(${missingIds.map((id) => encodeURIComponent(id)).join(",")})`,
+          fetchInit
+        );
+        if (!fallbackRes.ok) throw new Error(await fallbackRes.text());
+        const fallbackRows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown; answer: string }> = await fallbackRes.json();
+        for (const row of fallbackRows) {
+          fallback.set(row.question_id, {
+            content: row.content,
+            group_content: row.group_content,
+            options: row.options,
+            answer: row.answer,
+          });
+        }
+      }
+    }
+  }
+
+  const merged = new Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>();
+  for (const id of questionIds) {
+    const row = preferred.get(id) ?? fallback.get(id);
+    if (row) merged.set(id, row);
+  }
+  return merged;
+}
+
+function rowToNewSchemaQuestionRow(
+  question: SetQuestionRow,
+  i18n: { content: string; group_content: string | null; options: unknown; answer: string }
+): QuizQuestionRow {
+  const options = denormalizeNewSchemaOptions(i18n.options);
+  const answer = denormalizeNewSchemaAnswer(i18n.answer);
+  const type = inferNewSchemaType(question.number, options, answer);
+  return {
+    number: question.number,
+    title: i18n.content,
+    type,
+    options,
+    answer,
+    level: question.level,
+    group_range: i18n.group_content,
+    group_content: i18n.group_content,
+    content: i18n.content,
+  };
+}
+
+async function postRows(table: string, rows: object[], onConflict?: string): Promise<any[]> {
+  if (rows.length === 0) return [];
+  const url = onConflict
+    ? `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`
+    : `${SUPABASE_URL}/rest/v1/${table}`;
+  const prefer = onConflict ? "resolution=merge-duplicates,return=representation" : "return=representation";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { ...WRITE_HEADERS, Prefer: prefer },
+    body: JSON.stringify(rows),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function upsertPersonalQuizQuestionsNewSchema(opts: {
+  userId: string;
+  collectionId: string;
+  language: string;
+  displayName: string;
+  questions: NewSchemaQuestionInput[];
+}): Promise<{ setId: string; upserted: number }> {
+  const { userId, collectionId, language, displayName, questions } = opts;
+
+  let setId = await findPersonalQuizSetId(collectionId, userId);
+  if (!setId) {
+    const insertedSets = await postRows(QUIZ_SETS_TABLE, [{
+      owner_id: userId,
+      source_quiz_id: collectionId,
+      category_id: null,
+      problems_per_test: 10,
+      shuffle_problems: false,
+    }]);
+    setId = insertedSets[0]?.id;
+  }
+  if (!setId) throw new Error(`Failed to resolve quiz set for ${collectionId}`);
+
+  await postRows(QUIZ_SET_I18N_TABLE, [{
+    set_id: setId,
+    lang: language,
+    title: displayName,
+  }], "set_id,lang");
+
+  const existingQuestionIds = await fetchSetQuestions(setId);
+  const missingQuestions = questions.filter((question) => !existingQuestionIds.has(String(question.number)));
+
+  for (let i = 0; i < missingQuestions.length; i += 200) {
+    const batch = missingQuestions.slice(i, i + 200).map((question) => ({
+      set_id: setId,
+      number: question.number,
+      level: question.level ?? null,
+      group_id: null,
+    }));
+    const insertedQuestions = await postRows(QUESTIONS_TABLE, batch, "set_id,number");
+    for (const row of insertedQuestions) {
+      existingQuestionIds.set(String(row.number), row.id);
+    }
+  }
+
+  const i18nRows = questions
+    .map((question) => {
+      const questionId = existingQuestionIds.get(String(question.number));
+      if (!questionId) return null;
+      return {
+        question_id: questionId,
+        lang: language,
+        group_content: question.type === "group" ? question.title : null,
+        content: question.title,
+        options: normalizeNewSchemaOptions(question.options ?? null),
+        answer: normalizeNewSchemaAnswer(question.answer ?? null),
+        is_machine_translated: language !== "zh-TW",
+        is_reviewed: false,
+      };
+    })
+    .filter(Boolean);
+
+  for (let i = 0; i < i18nRows.length; i += 200) {
+    await postRows(QUESTION_I18N_TABLE, i18nRows.slice(i, i + 200), "question_id,lang");
+  }
+
+  return { setId, upserted: questions.length };
+}
+
+export async function fetchPersonalQuizQuestionsFresh(
+  userId: string,
+  collectionId: string,
+  language: string
+): Promise<QuizQuestionRow[]> {
+  const setId = await findPersonalQuizSetId(collectionId, userId);
+  if (!setId) return [];
+
+  const questionRows = await fetchSetQuestionRows(setId);
+  if (questionRows.length === 0) return [];
+
+  const questionIds = questionRows.map((row) => row.id);
+  const i18nByQuestionId = new Map<string, {
+    content: string;
+    group_content: string | null;
+    options: unknown;
+    answer: string;
+  }>();
+
+  for (let i = 0; i < questionIds.length; i += 200) {
+    const batch = questionIds.slice(i, i + 200);
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options,answer&lang=eq.${encodeURIComponent(language)}&question_id=in.(${batch.map((id) => encodeURIComponent(id)).join(",")})`,
+      { headers: READ_HEADERS, cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const rows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown; answer: string }> = await res.json();
+    for (const row of rows) i18nByQuestionId.set(row.question_id, row);
+  }
+
+  return questionRows
+    .map((question) => {
+      const i18n = i18nByQuestionId.get(question.id);
+      if (!i18n) return null;
+      const options = denormalizeNewSchemaOptions(i18n.options);
+      const answer = denormalizeNewSchemaAnswer(i18n.answer);
+      return {
+        number: question.number,
+        title: i18n.content,
+        type: inferNewSchemaType(question.number, options, answer),
+        options,
+        answer,
+        level: question.level,
+        group_range: i18n.group_content,
+        group_content: i18n.group_content,
+      } satisfies QuizQuestionRow;
+    })
+    .filter(Boolean) as QuizQuestionRow[];
+}
+
+export async function updatePersonalQuizQuestion(
+  userId: string,
+  collectionId: string,
+  language: string,
+  number: number,
+  updates: {
+    title?: string;
+    type?: string;
+    options?: Record<string, string> | null;
+    answer?: string | string[] | null;
+    level?: number | null;
+    group_content?: string | null;
+  }
+): Promise<void> {
+  const setId = await findPersonalQuizSetId(collectionId, userId);
+  if (!setId) throw new Error(`No personal quiz set found for ${collectionId}`);
+  const questionId = await findQuestionIdByNumber(setId, number);
+  if (!questionId) throw new Error(`No question ${number} found for ${collectionId}`);
+
+  if (updates.level !== undefined) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?id=eq.${encodeURIComponent(questionId)}`,
+      { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify({ level: updates.level }) }
+    );
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  const existingI18n = await fetchQuestionI18n(questionId, language);
+  const mergedI18n = {
+    question_id: questionId,
+    lang: language,
+    content: updates.title ?? existingI18n?.content ?? "",
+    group_content:
+      updates.group_content !== undefined
+        ? updates.group_content
+        : (existingI18n?.group_content ?? null),
+    options:
+      updates.options !== undefined
+        ? normalizeNewSchemaOptions(updates.options)
+        : (existingI18n?.options ?? []),
+    answer:
+      updates.answer !== undefined
+        ? normalizeNewSchemaAnswer(updates.answer)
+        : (existingI18n?.answer ?? ""),
+    is_machine_translated: language !== "zh-TW",
+    is_reviewed: false,
+  };
+
+  await postRows(QUESTION_I18N_TABLE, [mergedI18n], "question_id,lang");
+}
+
+export async function deletePersonalQuizQuestion(
+  userId: string,
+  collectionId: string,
+  language: string,
+  number: number
+): Promise<void> {
+  const setId = await findPersonalQuizSetId(collectionId, userId);
+  if (!setId) throw new Error(`No personal quiz set found for ${collectionId}`);
+  const questionId = await findQuestionIdByNumber(setId, number);
+  if (!questionId) throw new Error(`No question ${number} found for ${collectionId}`);
+
+  const i18nDeleteRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?question_id=eq.${encodeURIComponent(questionId)}&lang=eq.${encodeURIComponent(language)}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
+  );
+  if (!i18nDeleteRes.ok) throw new Error(await i18nDeleteRes.text());
+
+  const remainingRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id&question_id=eq.${encodeURIComponent(questionId)}&limit=1`,
+    { headers: READ_HEADERS, cache: "no-store" }
+  );
+  if (!remainingRes.ok) throw new Error(await remainingRes.text());
+  const remainingRows: Array<{ question_id: string }> = await remainingRes.json();
+  if (remainingRows.length > 0) return;
+
+  const questionDeleteRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?id=eq.${encodeURIComponent(questionId)}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
+  );
+  if (!questionDeleteRes.ok) throw new Error(await questionDeleteRes.text());
+}
+
+export async function reorderPersonalCollectionQuestions(
+  userId: string,
+  collectionId: string,
+  orderedNumbers: number[]
+): Promise<void> {
+  const setId = await findPersonalQuizSetId(collectionId, userId);
+  if (!setId) throw new Error(`No personal quiz set found for ${collectionId}`);
+
+  const tableUrl = `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}`;
+
+  await Promise.all(
+    orderedNumbers.map((current, i) =>
+      fetch(`${tableUrl}?set_id=eq.${encodeURIComponent(setId)}&number=eq.${current}`, {
+        method: "PATCH",
+        headers: WRITE_HEADERS,
+        body: JSON.stringify({ number: -(i + 1) }),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(await response.text());
+      })
+    )
+  );
+
+  await Promise.all(
+    orderedNumbers.map((_, i) =>
+      fetch(`${tableUrl}?set_id=eq.${encodeURIComponent(setId)}&number=eq.${-(i + 1)}`, {
+        method: "PATCH",
+        headers: WRITE_HEADERS,
+        body: JSON.stringify({ number: i + 1 }),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(await response.text());
+      })
+    )
+  );
+}
+
 export async function fetchQuizQuestions(opts: {
   collectionId: string;
   levels?: number[] | null;
   numbers?: number[] | null;
   revalidate?: number | false;
+  language?: string | null;
 }): Promise<QuizQuestionRow[]> {
-  const { collectionId, levels, numbers, revalidate = 3600 } = opts;
+  const { collectionId, levels, numbers, revalidate = 3600, language } = opts;
 
   if (numbers !== undefined && numbers !== null && numbers.length === 0) return [];
 
-  const chunks: QuizQuestionRow[][] = [];
+  const setId = await findGlobalQuizSetId(collectionId);
+  if (!setId) return [];
 
-  const numberBatches: (number[] | null)[] = numbers
-    ? Array.from({ length: Math.ceil(numbers.length / 500) }, (_, i) => numbers.slice(i * 500, (i + 1) * 500))
-    : [null];
+  const cacheTag = `quiz-questions-${canonicalQuizId(collectionId)}`;
+  const targetLanguage = inferQuizLanguage(collectionId, language);
+  const levelSet = levels?.length ? new Set(levels) : null;
+  const numberSet = numbers?.length ? new Set(numbers.map((value) => String(value))) : null;
 
-  for (const batch of numberBatches) {
-    const baseUrl = () => {
-      let url = `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?select=number,title,type,options,answer,level,group_range,group_content&quiz_id=eq.${encodeURIComponent(collectionId)}&order=number.asc&limit=1000`;
-      // Include group-header rows (type=group, level=null) even when level filter is active
-      if (levels?.length) url += `&or=(level.in.(${levels.join(",")}),type.eq.group)`;
-      if (batch !== null) url += `&number=in.(${batch.join(",")})`;
-      return url;
-    };
+  const questionRows = await fetchSetQuestionRowsForRead(setId, revalidate, cacheTag);
+  const filteredQuestions = questionRows.filter((question) => {
+    if (numberSet && !numberSet.has(String(question.number))) return false;
+    if (!levelSet) return true;
+    return !Number.isInteger(question.number) || (question.level != null && levelSet.has(question.level));
+  });
+  if (filteredQuestions.length === 0) return [];
 
-    let offset = 0;
-    while (true) {
-      const url = `${baseUrl()}&offset=${offset}`;
-      const res = await fetch(url, {
-        headers: { ...READ_HEADERS, Prefer: "count=none" },
-        next: revalidate === false ? { revalidate: 0 } : { revalidate, tags: [`quiz-questions-${collectionId}`] },
-      });
-      if (!res.ok) throw new Error(`Supabase fetch error: ${await res.text()}`);
-      const page: QuizQuestionRow[] = await res.json();
-      chunks.push(page);
-      if (page.length < 1000) break;
-      offset += 1000;
-    }
-  }
+  const i18nMap = await fetchQuestionI18nMap(
+    filteredQuestions.map((question) => question.id),
+    targetLanguage,
+    revalidate,
+    cacheTag
+  );
 
-  return chunks.flat();
+  return filteredQuestions
+    .map((question) => {
+      const i18n = i18nMap.get(question.id);
+      return i18n ? rowToNewSchemaQuestionRow(question, i18n) : null;
+    })
+    .filter(Boolean) as QuizQuestionRow[];
 }
 
 /**
- * Returns true if this collection already has questions in public.quiz_questions_all.
+ * Returns true if this collection already has a global quiz_set.
  */
 export async function collectionTableExists(collectionId: string): Promise<boolean> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?select=quiz_id&quiz_id=eq.${encodeURIComponent(collectionId)}&limit=1`,
-    { headers: READ_HEADERS, cache: "no-store" }
-  );
-  if (!res.ok) return false;
-  const rows: Array<{ quiz_id: string }> = await res.json();
-  return rows.length > 0;
-}
-
-async function doUpsert(collectionId: string, rows: object[]): Promise<void> {
-  for (let i = 0; i < rows.length; i += 400) {
-    const chunk = rows.slice(i, i + 400);
-    const payload = chunk.map((row) => ({
-      ...row,
-      quiz_id: collectionId,
-      source_schema: "public",
-      source_table: QUIZ_QUESTIONS_TABLE,
-    }));
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?on_conflict=quiz_id,number`, {
-      method: "POST",
-      headers: { ...WRITE_HEADERS, Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Supabase upsert error: ${text}`);
-    }
-  }
+  return (await findGlobalQuizSetId(collectionId)) !== null;
 }
 
 export async function fetchAllQuizQuestionsFresh(
   collectionId: string
 ): Promise<QuizQuestionRow[]> {
-  const out: QuizQuestionRow[] = [];
-  let offset = 0;
-  while (true) {
-    const url = `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?select=number,title,type,options,answer,level,group_range,group_content&quiz_id=eq.${encodeURIComponent(collectionId)}&order=number.asc&limit=1000&offset=${offset}`;
-    const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
-    if (!res.ok) {
-      throw new Error(await res.text());
-    }
-    const page: QuizQuestionRow[] = await res.json();
-    out.push(...page);
-    if (page.length < 1000) break;
-    offset += 1000;
-  }
-  return out;
+  return fetchQuizQuestions({ collectionId, revalidate: false });
 }
 
 export async function updateQuizQuestion(
@@ -149,42 +623,87 @@ export async function updateQuizQuestion(
     group_range?: string | null;
   }
 ): Promise<void> {
-  const row: Record<string, unknown> = {};
-  if (updates.title !== undefined) row.title = updates.title;
-  if (updates.type !== undefined) row.type = updates.type;
-  if (updates.options !== undefined) row.options = updates.options;
-  if (updates.answer !== undefined) row.answer = updates.answer;
-  if (updates.level !== undefined) row.level = updates.level;
-  if (updates.group_range !== undefined) row.group_range = updates.group_range;
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${number}`,
-    { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify(row) }
-  );
-  if (!res.ok) throw new Error(await res.text());
+  const setId = await findGlobalQuizSetId(collectionId);
+  if (!setId) throw new Error(`No quiz set found for ${collectionId}`);
+  const questionId = await findQuestionIdByNumber(setId, number);
+  if (!questionId) throw new Error(`No question ${number} found for ${collectionId}`);
+
+  if (updates.level !== undefined) {
+    const levelRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?id=eq.${encodeURIComponent(questionId)}`,
+      { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify({ level: updates.level }) }
+    );
+    if (!levelRes.ok) throw new Error(await levelRes.text());
+  }
+
+  const language = inferQuizLanguage(collectionId);
+  const existingI18n = await fetchQuestionI18n(questionId, language);
+  await postRows(QUESTION_I18N_TABLE, [{
+    question_id: questionId,
+    lang: language,
+    content: updates.title ?? existingI18n?.content ?? "",
+    group_content: updates.group_range !== undefined ? updates.group_range : (existingI18n?.group_content ?? null),
+    options: updates.options !== undefined ? normalizeNewSchemaOptions(updates.options) : (existingI18n?.options ?? []),
+    answer: updates.answer !== undefined ? normalizeNewSchemaAnswer(updates.answer) : (existingI18n?.answer ?? ""),
+    is_machine_translated: language !== "zh-TW",
+    is_reviewed: false,
+  }], "question_id,lang");
 }
 
 export async function deleteQuizQuestion(
   collectionId: string,
   number: number
 ): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${number}`,
+  const setId = await findGlobalQuizSetId(collectionId);
+  if (!setId) throw new Error(`No quiz set found for ${collectionId}`);
+  const questionId = await findQuestionIdByNumber(setId, number);
+  if (!questionId) throw new Error(`No question ${number} found for ${collectionId}`);
+
+  const language = inferQuizLanguage(collectionId);
+  const deleteI18nRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?question_id=eq.${encodeURIComponent(questionId)}&lang=eq.${encodeURIComponent(language)}`,
     { method: "DELETE", headers: WRITE_HEADERS }
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!deleteI18nRes.ok) throw new Error(await deleteI18nRes.text());
+
+  const remainingRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id&question_id=eq.${encodeURIComponent(questionId)}&limit=1`,
+    { headers: READ_HEADERS, cache: "no-store" }
+  );
+  if (!remainingRes.ok) throw new Error(await remainingRes.text());
+  const remainingRows: Array<{ question_id: string }> = await remainingRes.json();
+  if (remainingRows.length > 0) return;
+
+  const deleteQuestionRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?id=eq.${encodeURIComponent(questionId)}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
+  );
+  if (!deleteQuestionRes.ok) throw new Error(await deleteQuestionRes.text());
 }
 
 /**
- * Delete all question rows for one collection from public.quiz_questions_all.
+ * Delete the global quiz_set for a collection, cascading to questions/i18n.
  */
 export async function deleteAllQuizQuestions(collectionId: string): Promise<void> {
+  const setId = await findGlobalQuizSetId(collectionId);
+  if (!setId) return;
   const delRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}?quiz_id=eq.${encodeURIComponent(collectionId)}`,
+    `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?id=eq.${encodeURIComponent(setId)}`,
     { method: "DELETE", headers: WRITE_HEADERS }
   );
   if (!delRes.ok) {
     throw new Error(`delete-all-rows failed for ${collectionId}: ${await delRes.text()}`);
   }
+}
+
+export async function deletePersonalQuizSet(userId: string, collectionId: string): Promise<void> {
+  const setId = await findPersonalQuizSetId(collectionId, userId);
+  if (!setId) return;
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?id=eq.${encodeURIComponent(setId)}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
+  );
+  if (!res.ok) throw new Error(await res.text());
 }
 
 /**
@@ -198,12 +717,13 @@ export async function reorderCollectionQuestions(
   collectionId: string,
   orderedNumbers: number[]
 ): Promise<void> {
-  const tableUrl = `${SUPABASE_URL}/rest/v1/${QUIZ_QUESTIONS_TABLE}`;
+  const setId = await findGlobalQuizSetId(collectionId);
+  if (!setId) throw new Error(`No quiz set found for ${collectionId}`);
+  const tableUrl = `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}`;
 
-  // phase 1: each row → unique negative temp number
   await Promise.all(
     orderedNumbers.map((current, i) =>
-      fetch(`${tableUrl}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${current}`, {
+      fetch(`${tableUrl}?set_id=eq.${encodeURIComponent(setId)}&number=eq.${current}`, {
         method: "PATCH",
         headers: WRITE_HEADERS,
         body: JSON.stringify({ number: -(i + 1) }),
@@ -212,11 +732,9 @@ export async function reorderCollectionQuestions(
       })
     )
   );
-
-  // phase 2: temp negative → final positive
   await Promise.all(
     orderedNumbers.map((_, i) =>
-      fetch(`${tableUrl}?quiz_id=eq.${encodeURIComponent(collectionId)}&number=eq.${-(i + 1)}`, {
+      fetch(`${tableUrl}?set_id=eq.${encodeURIComponent(setId)}&number=eq.${-(i + 1)}`, {
         method: "PATCH",
         headers: WRITE_HEADERS,
         body: JSON.stringify({ number: i + 1 }),
@@ -239,7 +757,8 @@ export async function upsertQuizQuestions(
     groupRange?: string | null;
     group_range?: string | null;
     [key: string]: unknown;
-  }>
+  }>,
+  options?: { language?: string | null; title?: string; problemsPerTest?: number; shuffleProblems?: boolean }
 ): Promise<{ upserted: number }> {
   const rows = questions
     .filter(q => q.number != null && q.title != null)
@@ -262,7 +781,61 @@ export async function upsertQuizQuestions(
       return row;
     });
 
-  await doUpsert(collectionId, rows);
+  const sourceQuizId = canonicalQuizId(collectionId);
+  const language = inferQuizLanguage(collectionId, options?.language);
+  const title = options?.title ?? collectionId;
+
+  let setId = await findGlobalQuizSetId(collectionId);
+  if (!setId) {
+    const insertedSets = await postRows(QUIZ_SETS_TABLE, [{
+      owner_id: null,
+      source_quiz_id: sourceQuizId,
+      category_id: null,
+      problems_per_test: options?.problemsPerTest ?? 10,
+      shuffle_problems: options?.shuffleProblems ?? false,
+    }]);
+    setId = insertedSets[0]?.id;
+  }
+  if (!setId) throw new Error(`Failed to resolve quiz set for ${collectionId}`);
+
+  await postRows(QUIZ_SET_I18N_TABLE, [{
+    set_id: setId,
+    lang: language,
+    title,
+  }], "set_id,lang");
+
+  const questionIdByNumber = new Map<string, string>();
+  for (let i = 0; i < rows.length; i += 200) {
+    const batch = rows.slice(i, i + 200).map((row) => ({
+      set_id: setId,
+      number: row.number,
+      level: row.level ?? null,
+      group_id: null,
+    }));
+    const upsertedQuestions = await postRows(QUESTIONS_TABLE, batch, "set_id,number");
+    for (const row of upsertedQuestions) {
+      questionIdByNumber.set(String(row.number), row.id);
+    }
+  }
+
+  const i18nRows = rows.map((row) => {
+    const questionId = questionIdByNumber.get(String(row.number));
+    if (!questionId) throw new Error(`Missing question id for ${collectionId} #${row.number}`);
+    return {
+      question_id: questionId,
+      lang: language,
+      group_content: row.type === "group" ? row.title : null,
+      content: row.title,
+      options: normalizeNewSchemaOptions(row.options as Record<string, string> | null),
+      answer: normalizeNewSchemaAnswer(row.answer as string | string[] | null),
+      is_machine_translated: language !== "zh-TW",
+      is_reviewed: false,
+    };
+  });
+
+  for (let i = 0; i < i18nRows.length; i += 200) {
+    await postRows(QUESTION_I18N_TABLE, i18nRows.slice(i, i + 200), "question_id,lang");
+  }
 
   return { upserted: rows.length };
 }

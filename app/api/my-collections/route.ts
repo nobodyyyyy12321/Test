@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
 import { getUserCollections, deleteUserCollection, upsertUserCollection, updateUserCollection, userOwnsCollection, countCollectionRefs } from "@/lib/user-collections-supabase";
-import { deleteAllQuizQuestions } from "@/lib/questions-supabase";
+import { deletePersonalQuizSet } from "@/lib/questions-supabase";
 
 async function getUser() {
   const session = await auth();
@@ -77,10 +77,10 @@ export async function DELETE(req: Request) {
   let tableDeleteError: string | null = null;
   if (deletedOwn && remaining === 0) {
     try {
-      await deleteAllQuizQuestions(collectionId);
+      await deletePersonalQuizSet(user.id, collectionId);
     } catch (err) {
       tableDeleteError = err instanceof Error ? err.message : String(err);
-      console.error("deleteAllQuizQuestions failed:", err);
+      console.error("deletePersonalQuizSet failed:", err);
     }
   }
 

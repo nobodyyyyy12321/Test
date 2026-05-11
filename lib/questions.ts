@@ -104,7 +104,7 @@ function rowToQuestion(row: Awaited<ReturnType<typeof fetchQuizQuestions>>[numbe
 async function fetchCollectionQuestions(collectionId: string, levelsParam: string | null, language?: string | null): Promise<Question[]> {
   const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
   const tableId = resolveTableName(collectionId, language);
-  const rows = await fetchQuizQuestions({ collectionId: tableId, levels, revalidate: 3600 });
+  const rows = await fetchQuizQuestions({ collectionId: tableId, levels, revalidate: 3600, language });
   return rows.map(rowToQuestion);
 }
 
@@ -131,7 +131,7 @@ export async function fetchQuestions(opts: {
 
     const allQuestions: Question[] = [];
     for (const [collectionId, numbers] of Object.entries(byCollection)) {
-      const rows = await fetchQuizQuestions({ collectionId, numbers, revalidate: 3600 });
+      const rows = await fetchQuizQuestions({ collectionId, numbers, revalidate: 3600, language });
       allQuestions.push(...rows.map(rowToQuestion));
     }
     return allQuestions;

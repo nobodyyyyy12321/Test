@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
 import { findUserByEmail, findUserByName } from "../../../../lib/users";
 import { getUserCollectionRef } from "../../../../lib/user-collections-supabase";
-import { fetchAllQuizQuestionsFresh } from "../../../../lib/questions-supabase";
+import { fetchPersonalQuizQuestionsFresh } from "../../../../lib/questions-supabase";
 import CollectionEditClient from "./CollectionEditClient";
 
 type Props = { params: Promise<{ collectionId: string }> };
@@ -28,7 +28,7 @@ export default async function CollectionEditPage({ params }: Props) {
   // hide page for: not-owned, or grid-added (read-only references to system collections)
   if (!ref || ref.fromGrid) notFound();
 
-  const questions = await fetchAllQuizQuestionsFresh(collectionId).catch(() => []);
+  const questions = await fetchPersonalQuizQuestionsFresh(user.id, collectionId, ref.language).catch(() => []);
 
   return (
     <CollectionEditClient

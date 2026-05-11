@@ -83,48 +83,6 @@ create table if not exists list_questions (
 
 create index if not exists list_questions_list_id_idx on list_questions(list_id);
 
--- -- quiz_questions_all -------------------------------------------------------
--- Unified storage for questions across all quiz collection tables.
-create table if not exists quiz_questions_all (
-  id            bigserial primary key,
-  quiz_id       text not null,
-  number        numeric not null,
-  title         text not null,
-  type          text not null,
-  options       jsonb,
-  answer        jsonb,
-  level         int,
-  group_range   text,
-  group_content text,
-  source_schema text not null default 'public',
-  source_table  text not null,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now(),
-  unique (quiz_id, number)
-);
-
-create index if not exists quiz_questions_all_quiz_id_idx on quiz_questions_all(quiz_id);
-create index if not exists quiz_questions_all_level_idx on quiz_questions_all(level);
-
-grant select, insert, update, delete on quiz_questions_all to anon, authenticated, service_role;
-alter table quiz_questions_all enable row level security;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public'
-      and tablename = 'quiz_questions_all'
-      and policyname = 'allow_public_read'
-  ) then
-    create policy allow_public_read
-      on quiz_questions_all
-      for select
-      to anon, authenticated
-      using (true);
-  end if;
-end $$;
-
 -- ── follows ───────────────────────────────────────────────────────────────────
 create table if not exists follows (
   id                  text primary key,  -- Firestore doc ID
