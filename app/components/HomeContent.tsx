@@ -531,9 +531,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const removeCategoryRefById = async (refId: string) => {
     const ref = personalTree.categoryRefs.find(r => r.id === refId);
     setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== refId) }));
-    // also clean up any matching pcategories row (legacy / from-grid uploads).
-    // Server-side guard ensures this never drops a built-in collection's table:
-    // it only cascades if THIS user actually had a pcategories row.
+    // Clean up matching categories row. Server-side guard ensures this never drops a built-in collection's table.
     if (ref) {
       const collectionId = ref.key.split(":")[0];
       fetch(`/api/my-collections?collectionId=${encodeURIComponent(collectionId)}`, { method: "DELETE" })

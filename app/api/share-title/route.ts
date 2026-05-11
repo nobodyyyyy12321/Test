@@ -1,5 +1,5 @@
 import { getCategoriesCached, type CategoryNode } from "@/lib/categories";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { getAnyCollectionDisplayName } from "@/lib/user-collections-supabase";
 
 function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
   for (const node of nodes) {
@@ -40,24 +40,7 @@ export async function GET(request: Request) {
     return Response.json({ title: categoryName });
   }
 
-  const supabase = getSupabaseAdmin();
-  const { data: languageRows } = await supabase
-    .from("pcategories")
-    .select("name")
-    .eq("quiz_id", decodedId)
-    .eq("language", language)
-    .limit(1);
-  const languageTitle = languageRows?.[0]?.name as string | undefined;
-  if (languageTitle) {
-    return Response.json({ title: languageTitle });
-  }
-
-  const { data: anyRows } = await supabase
-    .from("pcategories")
-    .select("name")
-    .eq("quiz_id", decodedId)
-    .limit(1);
-  const fallbackTitle = anyRows?.[0]?.name as string | undefined;
+  const fallbackTitle = await getAnyCollectionDisplayName(decodedId, language);
 
   return Response.json({ title: fallbackTitle ?? decodedId });
 }

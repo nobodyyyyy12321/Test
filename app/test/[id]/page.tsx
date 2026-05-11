@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getListById } from "../../../lib/lists-supabase";
 import { getCategoriesCached, type CategoryNode } from "../../../lib/categories";
-import { getSupabaseAdmin } from "../../../lib/supabase-admin";
+import { getAnyCollectionDisplayName } from "../../../lib/user-collections-supabase";
 import { getTestMetadataDescription } from "../../lib/i18n/test";
 import TestClient from "./TestClient";
 
@@ -43,22 +43,7 @@ async function resolveTitle(id: string, levels?: string | null, language?: strin
   const categoryName = findNameInTree(categories, id, levels);
   if (categoryName) return categoryName;
 
-  const supabase = getSupabaseAdmin();
-  const { data: languageRows } = await supabase
-    .from("pcategories")
-    .select("name")
-    .eq("quiz_id", id)
-    .eq("language", lang)
-    .limit(1);
-  const languageTitle = languageRows?.[0]?.name as string | undefined;
-  if (languageTitle) return languageTitle;
-
-  const { data: anyRows } = await supabase
-    .from("pcategories")
-    .select("name")
-    .eq("quiz_id", id)
-    .limit(1);
-  const fallbackTitle = anyRows?.[0]?.name as string | undefined;
+  const fallbackTitle = await getAnyCollectionDisplayName(id, lang);
   return fallbackTitle ?? id;
 }
 

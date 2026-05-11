@@ -19,6 +19,7 @@ create table categories (
   language_code  text,                                  -- only set on language-root rows
   dropdown       jsonb not null default '[]'::jsonb,    -- [{ id, name, href }]
   dropdown_align text,
+  created_at     timestamptz default now(),
   updated_at     timestamptz default now()
 );
 
@@ -28,3 +29,20 @@ create unique index categories_language_code_unique
 
 create index categories_parent_position_idx on categories(parent_id, position);
 create index categories_owner_id_idx on categories(owner_id);
+
+alter table categories
+  add column if not exists from_grid boolean not null default false;
+
+alter table categories
+  add column if not exists is_public boolean not null default false;
+
+create index if not exists categories_owner_lang_created_idx
+  on categories(owner_id, language, created_at);
+
+create unique index if not exists categories_public_lang_href_uidx
+  on categories(language, href)
+  where owner_id is null and href is not null;
+
+create unique index if not exists categories_owner_lang_href_uidx
+  on categories(owner_id, language, href)
+  where owner_id is not null and href is not null;

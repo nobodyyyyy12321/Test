@@ -7,6 +7,7 @@ type QuestionType = "single" | "multiple" | "fill";
 
 interface SingleForm {
   collectionId: string;
+  name: string;
   language: string;
   number: string;
   title: string;
@@ -22,6 +23,7 @@ interface SingleForm {
 
 const BLANK_FORM: SingleForm = {
   collectionId: "",
+  name: "",
   language: "zh-TW",
   number: "1",
   title: "",
@@ -121,6 +123,7 @@ export default function MyUploadClient() {
 
     const payload = {
       language: form.language,
+      ...(form.name.trim() ? { categories: [{ name: form.name.trim(), href: `/test/${form.collectionId.trim()}` }] } : {}),
       collections: {
         [form.collectionId.trim()]: [
           {
@@ -280,7 +283,19 @@ export default function MyUploadClient() {
             </label>
           </div>
 
-          {/* Row 2: number + type + level */}
+          {/* Row 2: Collection name (optional) */}
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-zinc-500">題庫名稱（選填）</span>
+            <input
+              value={form.name}
+              onChange={(e) => setField("name", e.target.value)}
+              placeholder="我的英文題目"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-3 py-2 text-sm outline-none"
+              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+            />
+          </label>
+
+          {/* Row 3: number + type + level */}
           <div className="grid grid-cols-3 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-xs text-zinc-500">題號<span className="text-red-400">*</span></span>

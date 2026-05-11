@@ -7,9 +7,6 @@ const HEADERS = {
   "Content-Type": "application/json",
 };
 
-// Required migrations:
-//   ALTER TABLE pcategories ADD COLUMN IF NOT EXISTS from_grid  boolean NOT NULL DEFAULT false;
-//   ALTER TABLE pcategories ADD COLUMN IF NOT EXISTS is_public  boolean NOT NULL DEFAULT false;
 export type UserCollectionRef = {
   id: string;
   userId: string;
@@ -23,35 +20,52 @@ export type UserCollectionRef = {
 
 type Row = {
   id: string;
-  user_id: string;
+  owner_id: string;
   language?: string | null;
-  quiz_id: string;
+  href: string | null;
   name: string;
-  created_at: string;
+  created_at?: string | null;
   from_grid?: boolean | null;
   is_public?: boolean | null;
+  position?: number | null;
 };
+
+const CATEGORY_COLUMNS = "id,owner_id,language,href,name,created_at,from_grid,is_public,position";
+
+function collectionHref(collectionId: string): string {
+  return `/test/${encodeURIComponent(collectionId)}`;
+}
+
+function hrefToCollectionId(href: string | null | undefined): string {
+  if (!href) return "";
+  const match = href.match(/^\/test\/([^?]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function newId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function rowToRef(row: Row): UserCollectionRef {
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.owner_id,
     language: row.language ?? "zh-TW",
-    collectionId: row.quiz_id,
+    collectionId: hrefToCollectionId(row.href),
     displayName: row.name,
-    createdAt: row.created_at,
+    createdAt: row.created_at ?? new Date(0).toISOString(),
     fromGrid: row.from_grid ?? false,
     isPublic: row.is_public ?? false,
   };
 }
 
 export async function getUserCollections(userId: string, language?: string): Promise<UserCollectionRef[]> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`;
+  let url = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&href=not.is.null&order=created_at.asc`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return [];
   const rows: Row[] = await res.json();
-  return rows.map(rowToRef);
+  return rows.map(rowToRef).filter((row) => row.collectionId);
 }
 
 export async function upsertUserCollection(
@@ -61,68 +75,80 @@ export async function upsertUserCollection(
   fromGrid: boolean = false,
   language: string = "zh-TW"
 ): Promise<void> {
-  const url = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,language,quiz_id`;
-  const headers = { ...HEADERS, Prefer: "resolution=merge-duplicates" };
-  const fullBody = { user_id: userId, language, quiz_id: collectionId, name: displayName, from_grid: fromGrid };
-  let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fullBody) });
-  if (!res.ok) {
-    const text = await res.text();
-    // legacy DB without the from_grid/language columns — retry without optional columns.
-    if (text.includes("from_grid")) {
-      const fallbackBody = { user_id: userId, language, quiz_id: collectionId, name: displayName };
-      res = await fetch(url, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
-      if (!res.ok) throw new Error(await res.text());
-      return;
-    }
-    if (text.includes("column") && text.includes("language") && text.includes("does not exist")) {
-      // Truly legacy DB that has no language column at all — omit it.
-      const legacyUrl = `${SUPABASE_URL}/rest/v1/pcategories?on_conflict=user_id,quiz_id`;
-      const fallbackBody = { user_id: userId, quiz_id: collectionId, name: displayName, from_grid: fromGrid };
-      res = await fetch(legacyUrl, { method: "POST", headers, body: JSON.stringify(fallbackBody) });
-      if (!res.ok) throw new Error(await res.text());
-      return;
-    }
-    throw new Error(text);
+  const href = collectionHref(collectionId);
+  const existingUrl = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&href=eq.${encodeURIComponent(href)}&limit=1`;
+  const existingRes = await fetch(existingUrl, { headers: HEADERS, cache: "no-store" });
+  if (!existingRes.ok) throw new Error(await existingRes.text());
+  const existingRows: Row[] = await existingRes.json();
+
+  let position = existingRows[0]?.position ?? null;
+  if (position === null) {
+    const siblingRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/categories?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&href=not.is.null&order=position.desc&limit=1`,
+      { headers: HEADERS, cache: "no-store" }
+    );
+    if (!siblingRes.ok) throw new Error(await siblingRes.text());
+    const siblingRows: Array<{ position: number | null }> = await siblingRes.json();
+    position = siblingRows[0]?.position != null ? siblingRows[0].position + 1 : 0;
   }
+
+  const updatedAt = new Date().toISOString();
+  if (existingRows[0]) {
+    const patchUrl = `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(existingRows[0].id)}`;
+    const patchBody = {
+      name: displayName,
+      from_grid: fromGrid,
+      updated_at: updatedAt,
+    };
+    const patchRes = await fetch(patchUrl, {
+      method: "PATCH",
+      headers: HEADERS,
+      body: JSON.stringify(patchBody),
+    });
+    if (!patchRes.ok) throw new Error(await patchRes.text());
+    return;
+  }
+
+  const insertUrl = `${SUPABASE_URL}/rest/v1/categories`;
+  const insertBody = {
+    id: newId(),
+    owner_id: userId,
+    parent_id: null,
+    position,
+    href,
+    name: displayName,
+    language,
+    dropdown: [],
+    dropdown_align: null,
+    from_grid: fromGrid,
+    updated_at: updatedAt,
+  };
+  const insertRes = await fetch(insertUrl, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify(insertBody),
+  });
+  if (!insertRes.ok) throw new Error(await insertRes.text());
 }
 
-/**
- * Patch the user's pcategories row. Pass any subset of fields.
- * Falls back gracefully if `is_public` column hasn't been migrated yet.
- */
 export async function updateUserCollection(
   userId: string,
   collectionId: string,
   updates: { displayName?: string; isPublic?: boolean },
   language?: string
 ): Promise<void> {
-  const body: Record<string, unknown> = {};
+  const body: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.displayName !== undefined) body.name = updates.displayName;
   if (updates.isPublic !== undefined) body.is_public = updates.isPublic;
-  if (Object.keys(body).length === 0) return;
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&quiz_id=eq.${encodeURIComponent(collectionId)}`;
+  if (Object.keys(body).length === 1) return;
+  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
-  let res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(body) });
-  if (!res.ok) {
-    const text = await res.text();
-    if (text.includes("is_public") && body.is_public !== undefined) {
-      const fallback = { ...body };
-      delete fallback.is_public;
-      if (Object.keys(fallback).length === 0) return;
-      res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(fallback) });
-      if (!res.ok) throw new Error(await res.text());
-      return;
-    }
-    throw new Error(text);
-  }
+  const res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await res.text());
 }
 
-/**
- * Delete the user's pcategories row for this collection.
- * Returns true if a row was actually deleted, false otherwise.
- */
 export async function deleteUserCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&quiz_id=eq.${encodeURIComponent(collectionId)}`;
+  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { method: "DELETE", headers: { ...HEADERS, Prefer: "return=representation" } });
   if (!res.ok) throw new Error(await res.text());
@@ -131,7 +157,7 @@ export async function deleteUserCollection(userId: string, collectionId: string,
 }
 
 export async function userOwnsCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&quiz_id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}&select=id&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return false;
@@ -140,7 +166,7 @@ export async function userOwnsCollection(userId: string, collectionId: string, l
 }
 
 export async function getUserCollectionDisplayName(userId: string, collectionId: string, language?: string): Promise<string | null> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&quiz_id=eq.${encodeURIComponent(collectionId)}&select=name&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}&select=name&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
@@ -149,7 +175,7 @@ export async function getUserCollectionDisplayName(userId: string, collectionId:
 }
 
 export async function getUserCollectionRef(userId: string, collectionId: string, language?: string): Promise<UserCollectionRef | null> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?user_id=eq.${encodeURIComponent(userId)}&quiz_id=eq.${encodeURIComponent(collectionId)}&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
@@ -157,8 +183,26 @@ export async function getUserCollectionRef(userId: string, collectionId: string,
   return rows[0] ? rowToRef(rows[0]) : null;
 }
 
+export async function getAnyCollectionDisplayName(collectionId: string, language?: string): Promise<string | null> {
+  const href = collectionHref(collectionId);
+  let url = `${SUPABASE_URL}/rest/v1/categories?href=eq.${encodeURIComponent(href)}&owner_id=not.is.null&select=name&order=created_at.asc&limit=1`;
+  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
+  if (!res.ok) return null;
+  const rows: Array<{ name: string }> = await res.json();
+  if (rows[0]?.name) return rows[0].name;
+
+  const fallbackRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/categories?href=eq.${encodeURIComponent(href)}&owner_id=not.is.null&select=name&order=created_at.asc&limit=1`,
+    { headers: HEADERS, cache: "no-store" }
+  );
+  if (!fallbackRes.ok) return null;
+  const fallbackRows: Array<{ name: string }> = await fallbackRes.json();
+  return fallbackRows[0]?.name ?? null;
+}
+
 export async function countCollectionRefs(collectionId: string, language?: string): Promise<number> {
-  let url = `${SUPABASE_URL}/rest/v1/pcategories?quiz_id=eq.${encodeURIComponent(collectionId)}&select=id`;
+  let url = `${SUPABASE_URL}/rest/v1/categories?href=eq.${encodeURIComponent(collectionHref(collectionId))}&owner_id=not.is.null&select=id`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: { ...HEADERS, Prefer: "count=exact" }, cache: "no-store" });
   if (!res.ok) return 0;

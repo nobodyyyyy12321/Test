@@ -14,6 +14,7 @@ type DropdownItemRow = { id?: string; name: string; href: string };
 
 type CategoryRow = {
   id: string;
+  owner_id: string | null;
   parent_id: string | null;
   position: number;
   href: string | null;
@@ -25,7 +26,7 @@ type CategoryRow = {
   shuffle_problems: boolean | null;
 };
 
-const ROW_COLUMNS = "id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems";
+const ROW_COLUMNS = "id,owner_id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -37,6 +38,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   const { data, error } = await supabase
     .from("categories")
     .select(ROW_COLUMNS)
+    .is("owner_id", null)
     .eq("language", language)
     .order("position", { ascending: true });
   if (error || !data) {
@@ -51,7 +53,8 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   }
   console.log("[categories] fetched rows:", data.length, "for language:", language);
 
-  const rows = data as CategoryRow[];
+  // Defensive guard: keep homepage/public tree strictly public-only.
+  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null);
   const ids = new Set(rows.map(r => r.id));
 
   // Rows whose parent_id is not in our set are top-level (parent is the language root node)
@@ -105,11 +108,13 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
   const { data, error } = await supabase
     .from("categories")
     .select(ROW_COLUMNS)
+    .is("owner_id", null)
     .eq("language", language)
     .order("position", { ascending: true });
   if (error || !data) return [];
 
-  const rows = data as CategoryRow[];
+  // Defensive guard: keep admin public tree editor scoped to public rows only.
+  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null);
   const ids = new Set(rows.map(r => r.id));
 
   return rows.map(r => ({
@@ -177,7 +182,7 @@ export async function replaceCategories(language: string, incoming: CategoryNode
   const supabase = getCategoriesAdmin();
 
   // Wipe all existing rows for this language
-  const { error: delErr } = await supabase.from("categories").delete().eq("language", language);
+  const { error: delErr } = await supabase.from("categories").delete().is("owner_id", null).eq("language", language);
   if (delErr) throw new Error(`delete existing categories failed: ${delErr.message}`);
 
   const flat = flattenTree(incoming);
@@ -194,6 +199,7 @@ export async function replaceCategories(language: string, incoming: CategoryNode
     if (ready.length === 0) throw new Error("circular or orphaned categories detected during upsert");
     const payload = ready.map(r => ({
       id: r.id,
+      owner_id: null,
       parent_id: r.parent_id,
       position: r.position,
       href: r.href,
@@ -229,6 +235,7 @@ export async function ensureTopLevelItem(opts: {
   const { data: existing, error: findErr } = await supabase
     .from("categories")
     .select("id")
+    .is("owner_id", null)
     .eq("language", language)
     .eq("href", href)
     .is("parent_id", null)
@@ -250,6 +257,7 @@ export async function ensureTopLevelItem(opts: {
   const { data: siblings, error: sibErr } = await supabase
     .from("categories")
     .select("position")
+    .is("owner_id", null)
     .eq("language", language)
     .is("parent_id", null)
     .order("position", { ascending: false })
@@ -260,6 +268,7 @@ export async function ensureTopLevelItem(opts: {
   const rowId = newId();
   const { error: insErr } = await supabase.from("categories").insert({
     id: rowId,
+    owner_id: null,
     parent_id: null,
     position: nextPos,
     href,
@@ -293,7 +302,7 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
   const supabase = getCategoriesAdmin();
 
   // Wipe all existing rows for this language
-  const { error: delErr } = await supabase.from("categories").delete().eq("language", language);
+  const { error: delErr } = await supabase.from("categories").delete().is("owner_id", null).eq("language", language);
   if (delErr) throw new Error(`delete existing categories failed: ${delErr.message}`);
 
   // Assign ids to new items, compute per-parent position from array order
@@ -343,6 +352,7 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
     }
     const payload = ready.map(r => ({
       id: r.id,
+      owner_id: null,
       parent_id: r.parent_id,
       position: r.position,
       href: r.href,
