@@ -78,8 +78,34 @@ function inferLang(quizId) {
   return "zh-TW";
 }
 
-function setMapKey(quizId, ownerId) {
-  return `${ownerId ?? GLOBAL_OWNER_KEY}::${quizId}`;
+/**
+ * Map language-suffixed legacy quiz IDs to one canonical source_quiz_id.
+ * Example: Probability_en -> Probability
+ */
+function canonicalQuizId(quizId) {
+  if (!quizId) return quizId;
+  return String(quizId)
+    .replace(/_(en|zhcn|ja|ko)$/i, "")
+    .replace(/_(zh-tw|zh_tw|zh-cn|zh_cn)$/i, "");
+}
+
+function setMapKey(sourceQuizId, ownerId) {
+  return `${ownerId ?? GLOBAL_OWNER_KEY}::${sourceQuizId}`;
+}
+
+function targetMapKey(ownerId, sourceQuizId, lang) {
+  return `${ownerId ?? GLOBAL_OWNER_KEY}::${sourceQuizId}::${lang}`;
+}
+
+function chooseTarget(existing, candidate) {
+  if (!existing) return candidate;
+  // Prefer row with category binding.
+  if (!existing.categoryId && candidate.categoryId) return candidate;
+  // Prefer source variant whose ID already equals canonical ID.
+  if (existing.variantQuizId !== existing.sourceQuizId && candidate.variantQuizId === candidate.sourceQuizId) {
+    return candidate;
+  }
+  return existing;
 }
 
 // ── fetch all rows from a table (handles pagination) ─────────────────────────
@@ -111,24 +137,51 @@ console.log(DRY_RUN ? "=== DRY RUN ===" : "=== MIGRATING ===");
 console.log("\n[1/5] Loading categories...");
 const categories = await fetchAll(
   "categories",
-  "id,href,name,language,problems_per_test,shuffle_problems"
+  "id,owner_id,href,name,language,problems_per_test,shuffle_problems"
 );
 // Build map: href → category row
 const catByHref = new Map(categories.map((c) => [c.href, c]));
 console.log(`  Found ${categories.length} categories`);
 
-// 2. Load personal category ownership from pcategories
-console.log("\n[2/5] Loading pcategories...");
-const pcategories = await fetchAll(
-  "pcategories",
-  "user_id,quiz_id,language,name"
-);
+// 2. Load personal category ownership from categories.owner_id (primary)
+//    and pcategories (legacy optional fallback).
+console.log("\n[2/5] Loading personal category ownership...");
 const personalByQuizId = new Map();
-for (const row of pcategories) {
-  if (!personalByQuizId.has(row.quiz_id)) personalByQuizId.set(row.quiz_id, []);
-  personalByQuizId.get(row.quiz_id).push(row);
+
+for (const c of categories) {
+  if (!c.owner_id || !c.href) continue;
+  const m = String(c.href).match(/^\/test\/([^?]+)/);
+  if (!m) continue;
+  const quizId = decodeURIComponent(m[1]);
+  const row = {
+    user_id: c.owner_id,
+    quiz_id: quizId,
+    language: c.language ?? inferLang(quizId),
+    name: c.name ?? quizId,
+  };
+  if (!personalByQuizId.has(quizId)) personalByQuizId.set(quizId, []);
+  personalByQuizId.get(quizId).push(row);
 }
-console.log(`  Found ${pcategories.length} personal category rows`);
+
+let pcategories = [];
+try {
+  pcategories = await fetchAll("pcategories", "user_id,quiz_id,language,name");
+  for (const row of pcategories) {
+    if (!personalByQuizId.has(row.quiz_id)) personalByQuizId.set(row.quiz_id, []);
+    personalByQuizId.get(row.quiz_id).push(row);
+  }
+  console.log(`  Found ${pcategories.length} legacy pcategories rows (merged)`);
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("fetchAll pcategories failed")) {
+    console.log("  Legacy table pcategories not found; continuing with categories.owner_id only");
+  } else {
+    throw err;
+  }
+}
+
+const personalRowCount = Array.from(personalByQuizId.values()).reduce((sum, rows) => sum + rows.length, 0);
+console.log(`  Found ${personalRowCount} personal category rows (effective)`);
 
 // 3. Load all quiz_questions_all rows
 console.log("\n[3/5] Loading quiz_questions_all...");
@@ -147,36 +200,47 @@ for (const q of allQuestions) {
 console.log(`  Distinct quiz_ids: ${byQuizId.size}`);
 
 // Build owner-scoped migration targets (global + personal).
-const targets = [];
+// One target per (owner_id, canonical source_quiz_id, lang), while retaining
+// variant quiz_id as source for language-specific question text.
+const targetsByKey = new Map();
 for (const quizId of byQuizId.keys()) {
+  const sourceQuizId = canonicalQuizId(quizId);
   const href = `/test/${quizId}`;
   const cat = catByHref.get(href) ?? null;
 
   // Global target (always create to preserve current category behavior).
-  targets.push({
-    quizId,
+  const globalCandidate = {
+    variantQuizId: quizId,
+    sourceQuizId,
     ownerId: null,
     categoryId: cat?.id ?? null,
     lang: cat?.language ?? inferLang(quizId),
     setName: cat?.name ?? quizId,
     problemsPerTest: cat?.problems_per_test ?? 10,
     shuffleProblems: cat?.shuffle_problems ?? false,
-  });
+  };
+  const gKey = targetMapKey(globalCandidate.ownerId, globalCandidate.sourceQuizId, globalCandidate.lang);
+  targetsByKey.set(gKey, chooseTarget(targetsByKey.get(gKey), globalCandidate));
 
   // Personal targets from pcategories.
   const pRows = personalByQuizId.get(quizId) ?? [];
   for (const p of pRows) {
-    targets.push({
-      quizId,
+    const personalCandidate = {
+      variantQuizId: quizId,
+      sourceQuizId,
       ownerId: p.user_id,
       categoryId: null,
       lang: p.language ?? inferLang(quizId),
       setName: p.name ?? quizId,
       problemsPerTest: cat?.problems_per_test ?? 10,
       shuffleProblems: cat?.shuffle_problems ?? false,
-    });
+    };
+    const pKey = targetMapKey(personalCandidate.ownerId, personalCandidate.sourceQuizId, personalCandidate.lang);
+    targetsByKey.set(pKey, chooseTarget(targetsByKey.get(pKey), personalCandidate));
   }
 }
+
+const targets = Array.from(targetsByKey.values());
 console.log(`  Migration targets: ${targets.length} (global + personal)`);
 
 // 4. Upsert quiz_sets + quiz_set_i18n
@@ -191,13 +255,13 @@ let setsSkipped = 0;
 let setTitlesUpserted = 0;
 
 for (const target of targets) {
-  const key = setMapKey(target.quizId, target.ownerId);
+  const key = setMapKey(target.sourceQuizId, target.ownerId);
   let setId = setIdByKey.get(key);
 
   if (DRY_RUN) {
-    const questions = byQuizId.get(target.quizId) ?? [];
+    const questions = byQuizId.get(target.variantQuizId) ?? [];
     const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
-    console.log(`  [DRY] Would upsert set: ${target.quizId} (${scope}, lang=${target.lang}, name="${target.setName}", ${questions.length} q)`);
+    console.log(`  [DRY] Would upsert set: source=${target.sourceQuizId} from=${target.variantQuizId} (${scope}, lang=${target.lang}, name="${target.setName}", ${questions.length} q)`);
     if (!setId) setsCreated++;
     else setsSkipped++;
     setTitlesUpserted++;
@@ -208,7 +272,7 @@ for (const target of targets) {
   if (!setId) {
     const setRow = {
       owner_id: target.ownerId,
-      source_quiz_id: target.quizId,
+      source_quiz_id: target.sourceQuizId,
       category_id: target.categoryId,
       problems_per_test: target.problemsPerTest,
       shuffle_problems: target.shuffleProblems,
@@ -230,7 +294,7 @@ for (const target of targets) {
   setTitlesUpserted++;
 
   const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
-  process.stdout.write(`  ✓ ${target.quizId} (${scope}) set_id=${setId}\n`);
+  process.stdout.write(`  ✓ source=${target.sourceQuizId} from=${target.variantQuizId} (${scope}) set_id=${setId}\n`);
 }
 
 console.log(`  Created: ${setsCreated}, Existing: ${setsSkipped}, Title upserts: ${setTitlesUpserted}`);
@@ -243,19 +307,19 @@ let i18nUpserts = 0;
 const BATCH = 200; // insert in batches
 
 for (const target of targets) {
-  const key = setMapKey(target.quizId, target.ownerId);
+  const key = setMapKey(target.sourceQuizId, target.ownerId);
   const setId = setIdByKey.get(key);
   if (!setId && !DRY_RUN) {
-    console.warn(`  ⚠ No set_id for ${target.quizId}, skipping`);
+    console.warn(`  ⚠ No set_id for source=${target.sourceQuizId} (from=${target.variantQuizId}), skipping`);
     continue;
   }
 
-  const rawQuestions = byQuizId.get(target.quizId) ?? [];
+  const rawQuestions = byQuizId.get(target.variantQuizId) ?? [];
   const lang = target.lang;
 
   if (DRY_RUN) {
     const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
-    console.log(`  [DRY] Would upsert ${rawQuestions.length} questions for ${target.quizId} (${scope}, lang=${lang})`);
+    console.log(`  [DRY] Would upsert ${rawQuestions.length} questions for source=${target.sourceQuizId} from=${target.variantQuizId} (${scope}, lang=${lang})`);
     qCreated += rawQuestions.length;
     i18nUpserts += rawQuestions.length;
     continue;
@@ -314,7 +378,7 @@ for (const target of targets) {
   }
 
   const scope = target.ownerId ? `owner=${target.ownerId}` : "global";
-  console.log(`  ✓ ${target.quizId} (${scope}, lang=${lang}): ${missingQuestions.length} question rows inserted, ${i18nAll.length} i18n rows upserted`);
+  console.log(`  ✓ source=${target.sourceQuizId} from=${target.variantQuizId} (${scope}, lang=${lang}): ${missingQuestions.length} question rows inserted, ${i18nAll.length} i18n rows upserted`);
 }
 
 console.log(`  Question rows inserted: ${qCreated}, i18n rows upserted: ${i18nUpserts}`);

@@ -15,7 +15,12 @@ import type { QuestionList } from "../../lib/lists-supabase";
 import type { CategoryRef, PersonalTree } from "../../lib/personal-tree";
 import { EMPTY_TREE } from "../../lib/personal-tree";
 
-type UserResult = { id: string; name: string; avatarUrl?: string };
+type UserResult = { 
+  id: string; 
+  name: string; 
+  avatarUrl?: string;
+  categories?: Array<{ id: string; name: string; href?: string }>;
+};
 type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned" | "category-ref-pinned"; };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
@@ -55,6 +60,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [homeLists, setHomeLists] = useState<QuestionList[]>([]);
   const [homeListsLoaded, setHomeListsLoaded] = useState(false);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
+  const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
+  const [recommendedLoaded, setRecommendedLoaded] = useState(false);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -286,6 +293,38 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       })
       .catch(() => {});
   }, [loggedIn]);
+
+  // Load recommended accounts
+  useEffect(() => {
+    setRecommendedAccounts([]);
+    setRecommendedLoaded(false);
+    fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
+      .then(r => {
+        if (!r.ok) {
+          console.error("API error:", r.status, r.statusText);
+          return null;
+        }
+        return r.json();
+      })
+      .then(d => {
+        if (d && Array.isArray(d.users)) {
+          console.log("Recommended accounts loaded:", d.users.length);
+          setRecommendedAccounts(d.users.map((u: any) => ({ 
+            id: u.id, 
+            name: u.name, 
+            avatarUrl: u.avatarUrl,
+            categories: u.categories || [],
+          })));
+        } else {
+          console.log("No users in response", d);
+        }
+        setRecommendedLoaded(true);
+      })
+      .catch(err => {
+        console.error("Recommended accounts error:", err);
+        setRecommendedLoaded(true);
+      });
+  }, [language]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -1028,6 +1067,53 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {!query && recommendedLoaded && (
+                  <div className="mt-6">
+                    <p className="text-xs text-zinc-400 mb-3">
+                      {language === "en" ? "Recommended Creators" : "推薦創作者"}
+                    </p>
+                    {recommendedAccounts.length > 0 ? (
+                        <ul className="flex flex-col gap-6">
+                        {recommendedAccounts.map(u => (
+                            <li key={u.id}>
+                            <Link
+                              href={`/${encodeURIComponent(u.name)}`}
+                              className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
+                            >
+                              <Image
+                                src={u.avatarUrl || AVATAR_PLACEHOLDER}
+                                alt={u.name}
+                                width={40}
+                                height={40}
+                                unoptimized
+                                className="w-10 h-10 rounded-full object-cover shrink-0"
+                              />
+                              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                            </Link>
+                            {u.categories && u.categories.length > 0 && (
+                                <div className="bookshelf-grid">
+                                  {u.categories.map((cat: any) => (
+                                    <Link
+                                      key={cat.id}
+                                      href={cat.href || "#"}
+                                      className="book-link bookshelf-btn"
+                                    >
+                                      {cat.name}
+                                    </Link>
+                                  ))}
+                                </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm zen-subtle opacity-50">
+                        {language === "en" ? "No creators found" : "暫無創作者"}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
