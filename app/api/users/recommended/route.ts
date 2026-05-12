@@ -9,11 +9,20 @@ export async function GET(request: NextRequest) {
   try {
     const db = getSupabaseAdmin();
 
-    // Get users who own categories in the given language
+    // Get users who own public categories in the given language
     const { data: collections, error } = await db
       .from("categories")
       .select("owner_id")
       .eq("language", language)
+      .eq("is_public", true)
+      .not("owner_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const { data: publicLists, error: publicListsError } = await db
+      .from("lists")
+      .select("owner_id")
+      .eq("is_public", true)
       .not("owner_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -23,13 +32,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ users: [] });
     }
 
-    if (!collections || collections.length === 0) {
+    if (publicListsError) {
+      console.error("Fetch public lists error:", publicListsError);
       return NextResponse.json({ users: [] });
     }
 
-    // Group by owner_id and count occurrences
+    if ((!collections || collections.length === 0) && (!publicLists || publicLists.length === 0)) {
+      return NextResponse.json({ users: [] });
+    }
+
+    // Group by owner_id and count public content occurrences
     const userMap = new Map<string, number>();
-    for (const row of collections) {
+    for (const row of collections ?? []) {
+      if (row.owner_id) {
+        userMap.set(row.owner_id, (userMap.get(row.owner_id) ?? 0) + 1);
+      }
+    }
+    for (const row of publicLists ?? []) {
       if (row.owner_id) {
         userMap.set(row.owner_id, (userMap.get(row.owner_id) ?? 0) + 1);
       }
@@ -39,7 +58,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ users: [] });
     }
 
-    // Get top users (most collections first)
+    // Get top users (most public content first)
     const topUserIds = Array.from(userMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
