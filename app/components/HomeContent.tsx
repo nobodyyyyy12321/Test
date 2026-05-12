@@ -1243,41 +1243,33 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                               />
                               <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                             </Link>
-                            {u.categories && u.categories.length > 0 && (
+                            {((u.categories && u.categories.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
-                                  {renderRecommendedCategoryRoots(u.categories).map((cat) => {
+                                  {(u.categories ?? []).length > 0 && renderRecommendedCategoryRoots(u.categories).map((cat) => {
                                     if (isRecommendedFolder(cat)) {
                                       return renderRecommendedFolder(cat, u.categories, 0, u.id);
-                                    } else {
-                                      return (
-                                        <a
-                                          key={cat.id}
-                                          href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
-                                          className="book-link bookshelf-btn"
-                                          style={{ color: "#5fa870" }}
-                                        >
-                                          {cat.name}
-                                        </a>
-                                      );
                                     }
-                                  })}
-                                </div>
-                            )}
-                            {u.lists && u.lists.length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-xs text-zinc-400 mb-2">{language === "en" ? "Lists" : "列表"}</p>
-                                  <div className="bookshelf-grid">
-                                    {u.lists.map(list => (
+                                    return (
                                       <a
-                                        key={list.id}
-                                        href={`/lists/${encodeURIComponent(list.id)}`}
+                                        key={cat.id}
+                                        href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
                                         className="book-link bookshelf-btn"
                                         style={{ color: "#5fa870" }}
                                       >
-                                        {list.title}
+                                        {cat.name}
                                       </a>
-                                    ))}
-                                  </div>
+                                    );
+                                  })}
+                                  {(u.lists ?? []).map((list) => (
+                                    <a
+                                      key={`list-${list.id}`}
+                                      href={`/lists/${encodeURIComponent(list.id)}`}
+                                      className="book-link bookshelf-btn"
+                                      style={{ color: "#6ea8d8" }}
+                                    >
+                                      {list.title}
+                                    </a>
+                                  ))}
                                 </div>
                             )}
                           </li>
