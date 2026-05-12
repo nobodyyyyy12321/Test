@@ -80,6 +80,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch public lists for each user
+    const { data: userLists, error: listError } = await db
+      .from("lists")
+      .select("id,title,owner_id,is_public")
+      .in("owner_id", topUserIds)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false });
+
+    if (listError) {
+      console.error("Fetch lists error:", listError);
+    }
+
+    // Group lists by owner_id
+    const listsByOwner = new Map<string, typeof userLists>();
+    if (userLists) {
+      for (const list of userLists) {
+        if (!listsByOwner.has(list.owner_id)) {
+          listsByOwner.set(list.owner_id, []);
+        }
+        listsByOwner.get(list.owner_id)!.push(list);
+      }
+    }
+
     // Map to response format, maintaining order from topUserIds
     const result = topUserIds
       .map(uid => users.find(u => u.id === uid))
@@ -96,8 +119,12 @@ export async function GET(request: NextRequest) {
           problemsPerTest: cat.problems_per_test,
           shuffleProblems: cat.shuffle_problems,
         })),
+        lists: (listsByOwner.get(u!.id) || []).map(list => ({
+          id: list.id,
+          title: list.title,
+        })),
       }))
-      .filter(u => u.categories.length > 0);
+      .filter(u => u.categories.length > 0 || u.lists.length > 0);
 
     return NextResponse.json({ users: result });
   } catch (err) {

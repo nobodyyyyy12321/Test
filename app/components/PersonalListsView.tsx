@@ -6,10 +6,13 @@ import type { QuestionList } from "../../lib/lists-supabase";
 export type MyCollection = {
   id: string;
   collectionId: string;
+  href?: string | null;
   displayName: string;
   createdAt: string;
   fromGrid?: boolean;
   parentId?: string | null;
+  problemsPerTest?: number | null;
+  shuffleProblems?: boolean | null;
   approvalStatus?: string;
 };
 
@@ -42,8 +45,6 @@ export function PersonalListsView({
   const [foldersLoaded, setFoldersLoaded] = useState(false);
   const [addingTopFolder, setAddingTopFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
   const [editingFolderPublic, setEditingFolderPublic] = useState(false);
@@ -88,20 +89,6 @@ export function PersonalListsView({
     if (res.ok) {
       setNewFolderName("");
       setAddingTopFolder(false);
-      await loadFolders();
-    }
-  };
-
-  const renameFolder = async (folderId: string, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const res = await fetch("/api/my-categories", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "renameFolder", folderId, name: trimmed }),
-    });
-    if (res.ok) {
-      setRenamingFolderId(null);
       await loadFolders();
     }
   };
@@ -169,11 +156,27 @@ export function PersonalListsView({
   };
 
   const toggleFolderOpen = (id: string) => {
+    const getPathToFolder = (folderId: string): string[] => {
+      const path: string[] = [];
+      const visited = new Set<string>();
+      let currentId: string | null = folderId;
+      while (currentId) {
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        path.unshift(currentId);
+        const current = folders.find((f) => f.id === currentId);
+        currentId = current?.parentId ?? null;
+      }
+      return path;
+    };
+
     setOpenFolderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      const path = getPathToFolder(id);
+      if (path.length === 0) return new Set();
+      if (prev.has(id)) {
+        return new Set(path.slice(0, -1));
+      }
+      return new Set(path);
     });
   };
 
@@ -187,6 +190,16 @@ export function PersonalListsView({
 
   const foldersUnder = (folderId: string | null) =>
     folders.filter((f) => (f.parentId ?? null) === folderId);
+
+  const appendHrefOptions = (href?: string | null, problemsPerTest?: number | null, shuffleProblems?: boolean | null): string => {
+    const base = href || "#";
+    if (base === "#") return base;
+    const extra: string[] = [];
+    if (problemsPerTest != null) extra.push(`count=${encodeURIComponent(problemsPerTest)}`);
+    if (shuffleProblems === false) extra.push("ordered=true");
+    if (extra.length === 0) return base;
+    return base + (base.includes("?") ? "&" : "?") + extra.join("&");
+  };
 
   const pickableFolders = (excludeFolderId?: string): { id: string | null; label: string }[] => {
     const exclude = new Set<string>();
@@ -214,14 +227,13 @@ export function PersonalListsView({
     ];
   };
 
-  const renderFolder = (folder: UserFolder, depth: number): React.ReactNode => {
+  const renderFolder = (folder: UserFolder, depth: number, ancestorExpanded: boolean = false): React.ReactNode => {
     const isOpen = openFolderIds.has(folder.id);
+    const isHighlighted = ancestorExpanded || isOpen;
     const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     const childFolders = foldersUnder(folder.id);
     const childCollections = collectionsUnder(folder.id);
     const isEditing = editingFolderId === folder.id;
-    const isInsideExpanded = depth > 0;
-
     return (
       <div key={folder.id} className="contents">
         {isEditing ? (
@@ -302,7 +314,7 @@ export function PersonalListsView({
             <button
               type="button"
               className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-              style={{ ...margin, color: isOpen ? "#b19739" : "#5fa870" }}
+              style={{ ...margin, color: isHighlighted ? "#b19739" : "#5fa870" }}
               onClick={() => toggleFolderOpen(folder.id)}
               onContextMenu={(e) => {
                 if (!isOwner) return;
@@ -368,7 +380,7 @@ export function PersonalListsView({
         {isOpen && childCollections.map((col) => (
           <div key={`my-${col.id}`} className="relative">
             <a
-              href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+              href={appendHrefOptions(col.href ?? `/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
               className="book-link bookshelf-btn sub-item"
               style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
               onContextMenu={(e) => {
@@ -421,7 +433,7 @@ export function PersonalListsView({
           </div>
         ))}
 
-        {isOpen && childFolders.map((child) => renderFolder(child, depth + 1))}
+        {isOpen && childFolders.map((child) => renderFolder(child, depth + 1, isHighlighted))}
       </div>
     );
   };
@@ -440,138 +452,154 @@ export function PersonalListsView({
   }
 
   return (
-    <div className="bookshelf-grid">
-      {lists.map((list) => (
-        <div key={list.id} className="relative">
-          <a
-            href={`/test/list?listId=${list.id}&autostart=1`}
-            className="book-link bookshelf-btn"
-            style={{ color: "#6ea8d8" }}
-            onContextMenu={(e) => {
-              if (!isOwner) return;
-              e.preventDefault();
-              setListCtxMenuId(list.id);
-              setListCtxMenuPos({ x: e.clientX, y: e.clientY });
-              setColCtxMenuId(null);
-              setFolderCtxMenuId(null);
-            }}
-          >
-            {list.title}
-          </a>
-          {isOwner && listCtxMenuId === list.id && (
-            <>
-              <div className="fixed inset-0 z-40" onMouseDown={() => setListCtxMenuId(null)} />
-              <div
-                className="fixed z-50 w-36 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-                style={{ left: listCtxMenuPos.x, top: listCtxMenuPos.y }}
-              >
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={() => {
-                    setListCtxMenuId(null);
-                    window.location.href = `/lists/${list.id}/edit`;
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  style={{ color: "var(--zen-ink)" }}
-                >
-                  編輯
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-
-      {topCollections.map((col) => (
-        <div key={`my-${col.id}`} className="relative">
-          <a
-            href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-            className="book-link bookshelf-btn"
-            style={{ color: "#5fa870" }}
-            onContextMenu={(e) => {
-              if (!isOwner) return;
-              e.preventDefault();
-              setColCtxMenuId(col.id);
-              setColCtxMenuPos({ x: e.clientX, y: e.clientY });
-              setFolderCtxMenuId(null);
-              setListCtxMenuId(null);
-            }}
-          >
-            {col.displayName}
-          </a>
-          {isOwner && colCtxMenuId === col.id && (
-            <>
-              <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
-              <div
-                className="fixed z-50 w-40 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-                style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}
-              >
-                {!col.fromGrid && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => {
-                      setColCtxMenuId(null);
-                      window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`;
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}
-                  >
-                    編輯
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
+    <div className="flex flex-col gap-6">
+      {/* 我的列表 section */}
+      {lists.length > 0 && (
+        <div>
+          <p className="text-xs text-zinc-400 mb-3">我的列表</p>
+          <div className="bookshelf-grid">
+            {lists.map((list) => (
+              <div key={list.id} className="relative">
+                <a
+                  href={`/test/list?listId=${list.id}&autostart=1`}
+                  className="book-link bookshelf-btn"
+                  style={{ color: "#6ea8d8" }}
+                  onContextMenu={(e) => {
+                    if (!isOwner) return;
+                    e.preventDefault();
+                    setListCtxMenuId(list.id);
+                    setListCtxMenuPos({ x: e.clientX, y: e.clientY });
                     setColCtxMenuId(null);
-                    setMovePicker({ kind: "collection", id: col.id, name: col.displayName, x: e.clientX, y: e.clientY });
+                    setFolderCtxMenuId(null);
                   }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  style={{ color: "var(--zen-ink)" }}
                 >
-                  移到資料夾
-                </button>
+                  {list.title}
+                </a>
+                {isOwner && listCtxMenuId === list.id && (
+                  <>
+                    <div className="fixed inset-0 z-40" onMouseDown={() => setListCtxMenuId(null)} />
+                    <div
+                      className="fixed z-50 w-36 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                      style={{ left: listCtxMenuPos.x, top: listCtxMenuPos.y }}
+                    >
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => {
+                          setListCtxMenuId(null);
+                          window.location.href = `/lists/${list.id}/edit`;
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                        style={{ color: "var(--zen-ink)" }}
+                      >
+                        編輯
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          )}
+            ))}
+          </div>
         </div>
-      ))}
-
-      {topFolders.map((folder) => renderFolder(folder, 0))}
-
-      {isOwner && !addingTopFolder && (
-        <button
-          type="button"
-          onClick={() => setAddingTopFolder(true)}
-          className="book-link bookshelf-btn text-xs opacity-60 hover:opacity-90"
-          style={{ color: "var(--zen-ink)" }}
-        >
-          + 新增資料夾
-        </button>
       )}
 
-      {isOwner && addingTopFolder && (
-        <input
-          autoFocus
-          value={newFolderName}
-          onChange={(e) => setNewFolderName(e.target.value)}
-          placeholder="資料夾名稱"
-          onBlur={() => void addFolder(newFolderName, null)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void addFolder(newFolderName, null);
-            }
-            if (e.key === "Escape") {
-              setAddingTopFolder(false);
-              setNewFolderName("");
-            }
-          }}
-          className="book-link bookshelf-btn px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
-          style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-        />
+      {/* 個人分類 section */}
+      {(topCollections.length > 0 || topFolders.length > 0 || isOwner) && (
+        <div>
+          <p className="text-xs text-zinc-400 mb-3">個人分類</p>
+          <div className="bookshelf-grid">
+            {topCollections.map((col) => (
+              <div key={`my-${col.id}`} className="relative">
+                <a
+                  href={appendHrefOptions(col.href ?? `/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
+                  className="book-link bookshelf-btn"
+                  style={{ color: "#5fa870" }}
+                  onContextMenu={(e) => {
+                    if (!isOwner) return;
+                    e.preventDefault();
+                    setColCtxMenuId(col.id);
+                    setColCtxMenuPos({ x: e.clientX, y: e.clientY });
+                    setFolderCtxMenuId(null);
+                    setListCtxMenuId(null);
+                  }}
+                >
+                  {col.displayName}
+                </a>
+                {isOwner && colCtxMenuId === col.id && (
+                  <>
+                    <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
+                    <div
+                      className="fixed z-50 w-40 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                      style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}
+                    >
+                      {!col.fromGrid && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={() => {
+                            setColCtxMenuId(null);
+                            window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`;
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          style={{ color: "var(--zen-ink)" }}
+                        >
+                          編輯
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          setColCtxMenuId(null);
+                          setMovePicker({ kind: "collection", id: col.id, name: col.displayName, x: e.clientX, y: e.clientY });
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                        style={{ color: "var(--zen-ink)" }}
+                      >
+                        移到資料夾
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+
+            {topFolders.map((folder) => renderFolder(folder, 0))}
+
+            {isOwner && !addingTopFolder && (
+              <button
+                type="button"
+                onClick={() => setAddingTopFolder(true)}
+                className="book-link bookshelf-btn text-xs opacity-60 hover:opacity-90"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                + 新增資料夾
+              </button>
+            )}
+
+            {isOwner && addingTopFolder && (
+              <input
+                autoFocus
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="資料夾名稱"
+                onBlur={() => void addFolder(newFolderName, null)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void addFolder(newFolderName, null);
+                  }
+                  if (e.key === "Escape") {
+                    setAddingTopFolder(false);
+                    setNewFolderName("");
+                  }
+                }}
+                className="book-link bookshelf-btn px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       {movePicker && (
