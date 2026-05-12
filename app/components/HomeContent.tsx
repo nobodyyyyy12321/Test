@@ -25,6 +25,10 @@ type UserResult = {
     problemsPerTest?: number | null;
     shuffleProblems?: boolean | null;
   }>;
+  lists?: Array<{
+    id: string;
+    title: string;
+  }>;
 };
 type RecommendedCategory = {
   id: string;
@@ -49,6 +53,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
+  const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; parentId: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
@@ -611,6 +616,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     setOpenYearKey(null);
     setQuery("");
     setUserResults([]);
+    setOwnerCatResults([]);
 
     if (language === "zh-TW") {
       setCategories(initialCategories);
@@ -627,17 +633,19 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim()) { setUserResults([]); setSearchLoading(false); return; }
+    if (!query.trim()) { setUserResults([]); setOwnerCatResults([]); setSearchLoading(false); return; }
     setSearchLoading(true);
     debounceRef.current = setTimeout(() => {
-      fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`)
-        .then(r => r.json())
-        .then(d => setUserResults(d.users ?? []))
-        .catch(() => setUserResults([]))
-        .finally(() => setSearchLoading(false));
+      Promise.all([
+        fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`).then(r => r.json()).catch(() => ({ users: [] })),
+        fetch(`/api/search/categories?q=${encodeURIComponent(query.trim())}&language=${encodeURIComponent(language)}`).then(r => r.json()).catch(() => ({ results: [] })),
+      ]).then(([userData, catData]) => {
+        setUserResults(userData.users ?? []);
+        setOwnerCatResults(catData.results ?? []);
+      }).finally(() => setSearchLoading(false));
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query]);
+  }, [query, language]);
 
   const openCtx = (e: React.MouseEvent, id: string, name: string, from: CtxMenu["from"], href?: string) => {
     e.preventDefault();
@@ -1122,10 +1130,66 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   <p className="text-sm zen-subtle mt-6 opacity-50">搜尋中...</p>
                 )}
 
-                {!loadingLang && !searchLoading && subjects.length === 0 && userResults.length === 0 && query && (
+                {!loadingLang && !searchLoading && subjects.length === 0 && userResults.length === 0 && ownerCatResults.length === 0 && query && (
                   <p className="text-sm zen-subtle mt-6 opacity-50">
                     {language === "en" ? "No matching results" : "沒有符合的結果"}
                   </p>
+                )}
+
+                {ownerCatResults.length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-xs text-zinc-400 mb-3">
+                      {language === "en" ? "Creator Categories" : "創作者分類"}
+                    </p>
+                    <ul className="flex flex-col gap-6">
+                      {Array.from(
+                        ownerCatResults.reduce((map, cat) => {
+                          if (!map.has(cat.ownerId)) map.set(cat.ownerId, { ownerName: cat.ownerName, ownerAvatarUrl: cat.ownerAvatarUrl, cats: [] });
+                          map.get(cat.ownerId)!.cats.push(cat);
+                          return map;
+                        }, new Map<string, { ownerName: string | null; ownerAvatarUrl: string | null; cats: typeof ownerCatResults }>())
+                      ).map(([ownerId, { ownerName, ownerAvatarUrl, cats }]) => {
+                        // Build RecommendedCategory-compatible list for reuse of folder rendering
+                        const recCats = cats.map(c => ({ id: c.id, name: c.name, href: c.href ?? undefined, parentId: c.parentId, problemsPerTest: c.problemsPerTest, shuffleProblems: c.shuffleProblems }));
+                        const roots = recCats.filter(c => (c.parentId ?? null) === null);
+                        return (
+                          <li key={ownerId}>
+                            <Link
+                              href={`/${encodeURIComponent(ownerName ?? ownerId)}`}
+                              className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
+                            >
+                              <Image
+                                src={ownerAvatarUrl || AVATAR_PLACEHOLDER}
+                                alt={ownerName ?? ownerId}
+                                width={40}
+                                height={40}
+                                unoptimized
+                                className="w-10 h-10 rounded-full object-cover shrink-0"
+                              />
+                              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{ownerName ?? ownerId}</span>
+                            </Link>
+                            <div className="bookshelf-grid">
+                              {roots.map(cat => {
+                                if (isRecommendedFolder(cat)) {
+                                  return renderRecommendedFolder(cat, recCats, 0, ownerId);
+                                }
+                                return (
+                                  <a
+                                    key={cat.id}
+                                    href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
+                                    className="book-link bookshelf-btn"
+                                    style={{ color: LEAF_COLOR }}
+                                  >
+                                    {cat.name}
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 )}
 
                 {userResults.length > 0 && (
@@ -1133,26 +1197,26 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                     <p className="text-xs text-zinc-400 mb-3">
                       {language === "en" ? "Users" : "帳號"}
                     </p>
-                    <ul className="flex flex-col gap-2">
+                    <div className="bookshelf-grid home-bookshelf-grid">
                       {userResults.map(u => (
-                        <li key={u.id}>
-                          <Link
-                            href={`/${encodeURIComponent(u.name)}`}
-                            className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                          >
-                            <Image
-                              src={u.avatarUrl || AVATAR_PLACEHOLDER}
-                              alt={u.name}
-                              width={32}
-                              height={32}
-                              unoptimized
-                              className="w-8 h-8 rounded-full object-cover shrink-0"
-                            />
-                            <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                          </Link>
-                        </li>
+                        <Link
+                          key={u.id}
+                          href={`/${encodeURIComponent(u.name)}`}
+                          className="book-link bookshelf-btn flex flex-col items-center gap-1.5"
+                          style={{ color: "var(--zen-ink)" }}
+                        >
+                          <Image
+                            src={u.avatarUrl || AVATAR_PLACEHOLDER}
+                            alt={u.name}
+                            width={32}
+                            height={32}
+                            unoptimized
+                            className="w-8 h-8 rounded-full object-cover shrink-0"
+                          />
+                          <span className="text-sm font-medium text-center leading-tight">{u.name}</span>
+                        </Link>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
 
@@ -1197,6 +1261,23 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                       );
                                     }
                                   })}
+                                </div>
+                            )}
+                            {u.lists && u.lists.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-zinc-400 mb-2">{language === "en" ? "Lists" : "列表"}</p>
+                                  <div className="bookshelf-grid">
+                                    {u.lists.map(list => (
+                                      <a
+                                        key={list.id}
+                                        href={`/lists/${encodeURIComponent(list.id)}`}
+                                        className="book-link bookshelf-btn"
+                                        style={{ color: "#5fa870" }}
+                                      >
+                                        {list.title}
+                                      </a>
+                                    ))}
+                                  </div>
                                 </div>
                             )}
                           </li>

@@ -69,7 +69,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   }
   console.log("[categories] fetched rows:", data.length, "for language:", language);
 
-  // Only show public categories (owner_id IS NULL) that are approved or null status
+  // Only show built-in public categories (owner_id IS NULL) that are approved or null status.
   const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null && (r.approval_status === "approved" || r.approval_status === null));
   const ids = new Set(rows.map(r => r.id));
 
