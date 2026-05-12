@@ -21,9 +21,18 @@ type UserResult = {
     id: string;
     name: string;
     href?: string;
+    parentId?: string | null;
     problemsPerTest?: number | null;
     shuffleProblems?: boolean | null;
   }>;
+};
+type RecommendedCategory = {
+  id: string;
+  name: string;
+  href?: string;
+  parentId?: string | null;
+  problemsPerTest?: number | null;
+  shuffleProblems?: boolean | null;
 };
 type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned"; };
 type Group = { id: string; name: string };
@@ -65,6 +74,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
   const [recommendedLoaded, setRecommendedLoaded] = useState(false);
+  const [openRecommendedFolders, setOpenRecommendedFolders] = useState<Set<string>>(new Set());
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -163,6 +173,88 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       if (prev.has(key)) return new Set();
       return new Set([key]);
     });
+  };
+
+  const toggleRecommendedFolder = (folderId: string) => {
+    setOpenRecommendedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
+  const isRecommendedFolder = (cat: RecommendedCategory | undefined): boolean => {
+    if (!cat) return false;
+    return !cat.href || cat.href.trim() === "";
+  };
+
+  const getRecommendedFoldersAndCollections = (categories: UserResult["categories"] | undefined) => {
+    if (!categories) return { folders: [], collections: [] };
+    
+    const folders: RecommendedCategory[] = [];
+    const collections: RecommendedCategory[] = [];
+    
+    for (const cat of categories) {
+      if (isRecommendedFolder(cat)) {
+        folders.push(cat);
+      } else {
+        collections.push(cat);
+      }
+    }
+    
+    return { folders, collections };
+  };
+
+  const getRecommendedChildrenOf = (categories: UserResult["categories"] | undefined, parentId: string | null | undefined) => {
+    if (!categories) return [];
+    return categories.filter(cat => (cat.parentId ?? null) === parentId);
+  };
+
+  const renderRecommendedFolder = (
+    cat: RecommendedCategory | undefined,
+    userCategories: UserResult["categories"] | undefined,
+    depth: number
+  ) => {
+    if (!cat) return null;
+    
+    const isOpen = openRecommendedFolders.has(cat.id);
+    const childCollections = getRecommendedChildrenOf(userCategories, cat.id).filter(c => !isRecommendedFolder(c));
+    const childFolders = getRecommendedChildrenOf(userCategories, cat.id).filter(c => isRecommendedFolder(c));
+    const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
+
+    return (
+      <div key={`folder-${cat.id}`} className="contents">
+        <button
+          type="button"
+          className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
+          style={{ ...margin, color: "#b19739" }}
+          onClick={() => toggleRecommendedFolder(cat.id)}
+        >
+          📁 {cat.name}
+        </button>
+        
+        {isOpen && childCollections.map((childCat) => (
+          <a
+            key={`rec-${childCat.id}`}
+            href={appendHrefOptions(childCat.href, childCat.problemsPerTest, childCat.shuffleProblems)}
+            className="book-link bookshelf-btn sub-item"
+            style={{ color: "#20b2aa", marginLeft: `${(depth + 1) * 14}px` }}
+          >
+            {childCat.name}
+          </a>
+        ))}
+        
+        {isOpen && childFolders.map((childFolder) =>
+          renderRecommendedFolder(childFolder, userCategories, depth + 1)
+        )}
+      </div>
+    );
+  };
+
+  const renderRecommendedCategoryRoots = (categories: UserResult["categories"] | undefined) => {
+    if (!categories) return [];
+    return categories.filter(cat => (cat.parentId ?? null) === null);
   };
 
   const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[], ancestorExpanded: boolean = false) => {
@@ -311,6 +403,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   useEffect(() => {
     setRecommendedAccounts([]);
     setRecommendedLoaded(false);
+    setOpenRecommendedFolders(new Set());
     fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
       .then(r => {
         if (!r.ok) {
@@ -1075,15 +1168,22 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             </Link>
                             {u.categories && u.categories.length > 0 && (
                                 <div className="bookshelf-grid">
-                                  {u.categories.map((cat: any) => (
-                                    <Link
-                                      key={cat.id}
-                                      href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
-                                      className="book-link bookshelf-btn"
-                                    >
-                                      {cat.name}
-                                    </Link>
-                                  ))}
+                                  {renderRecommendedCategoryRoots(u.categories).map((cat) => {
+                                    if (isRecommendedFolder(cat)) {
+                                      return renderRecommendedFolder(cat, u.categories, 0);
+                                    } else {
+                                      return (
+                                        <a
+                                          key={cat.id}
+                                          href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
+                                          className="book-link bookshelf-btn"
+                                          style={{ color: "#20b2aa" }}
+                                        >
+                                          {cat.name}
+                                        </a>
+                                      );
+                                    }
+                                  })}
                                 </div>
                             )}
                           </li>

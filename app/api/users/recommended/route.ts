@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     // Fetch public categories for each user
     const { data: userCategories, error: catError } = await db
       .from("categories")
-      .select("id,name,href,owner_id,is_public,problems_per_test,shuffle_problems")
+      .select("id,name,href,owner_id,is_public,parent_id,problems_per_test,shuffle_problems")
       .in("owner_id", topUserIds)
       .eq("language", language)
       .eq("is_public", true)
@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
           id: cat.id,
           name: cat.name,
           href: cat.href,
+          parentId: cat.parent_id,
           problemsPerTest: cat.problems_per_test,
           shuffleProblems: cat.shuffle_problems,
         })),

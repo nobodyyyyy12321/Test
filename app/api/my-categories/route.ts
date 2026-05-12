@@ -8,6 +8,7 @@ import {
   moveUserCollectionToFolder,
   moveUserFolder,
   renameUserFolder,
+  updateFolderPublicStatus,
 } from "@/lib/user-collections-supabase";
 
 async function getUser() {
@@ -32,7 +33,8 @@ type PatchBody =
   | { op: "renameFolder"; folderId: string; name: string }
   | { op: "moveFolder"; folderId: string; parentId: string | null }
   | { op: "deleteFolder"; folderId: string }
-  | { op: "moveCollection"; categoryId: string; folderId: string | null };
+  | { op: "moveCollection"; categoryId: string; folderId: string | null }
+  | { op: "updateFolderPublic"; folderId: string; isPublic: boolean };
 
 export async function PATCH(req: Request) {
   const user = await getUser();
@@ -68,6 +70,10 @@ export async function PATCH(req: Request) {
       }
       case "moveCollection": {
         await moveUserCollectionToFolder(user.id, body.categoryId, body.folderId ?? null);
+        return NextResponse.json({ ok: true });
+      }
+      case "updateFolderPublic": {
+        await updateFolderPublicStatus(user.id, body.folderId, body.isPublic);
         return NextResponse.json({ ok: true });
       }
       default:

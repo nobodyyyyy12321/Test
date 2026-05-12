@@ -17,6 +17,7 @@ type UserFolder = {
   id: string;
   name: string;
   parentId: string | null;
+  isPublic: boolean;
 };
 
 type Props = {
@@ -43,7 +44,18 @@ export function PersonalListsView({
   const [newFolderName, setNewFolderName] = useState("");
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState("");
+  const [editingFolderPublic, setEditingFolderPublic] = useState(false);
   const [openFolderIds, setOpenFolderIds] = useState<Set<string>>(new Set());
+  const [listCtxMenuId, setListCtxMenuId] = useState<string | null>(null);
+  const [listCtxMenuPos, setListCtxMenuPos] = useState({ x: 0, y: 0 });
+  const [colCtxMenuId, setColCtxMenuId] = useState<string | null>(null);
+  const [colCtxMenuPos, setColCtxMenuPos] = useState({ x: 0, y: 0 });
+  const [folderCtxMenuId, setFolderCtxMenuId] = useState<string | null>(null);
+  const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
+  const [movePicker, setMovePicker] = useState<{ kind: "collection" | "folder"; id: string; name: string; x: number; y: number } | null>(null);
+  const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
 
   const visibleCollections = myCollections.filter((c) => c.approvalStatus !== "pending");
 
@@ -105,6 +117,57 @@ export function PersonalListsView({
     }
   };
 
+  const moveCollection = async (categoryId: string, folderId: string | null) => {
+    const res = await fetch("/api/my-categories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "moveCollection", categoryId, folderId }),
+    });
+    if (res.ok) {
+      setCollectionParentOverride((prev) => ({ ...prev, [categoryId]: folderId }));
+    }
+  };
+
+  const saveFolderEdits = async (folderId: string, name: string, isPublic: boolean) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    
+    // Update name if changed
+    if (trimmed !== (folders.find(f => f.id === folderId)?.name ?? "")) {
+      const res = await fetch("/api/my-categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "renameFolder", folderId, name: trimmed }),
+      });
+      if (!res.ok) return;
+    }
+
+    // Update public status if changed
+    const folder = folders.find(f => f.id === folderId);
+    if (folder && isPublic !== folder.isPublic) {
+      const res = await fetch("/api/my-categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "updateFolderPublic", folderId, isPublic }),
+      });
+      if (!res.ok) return;
+    }
+
+    setEditingFolderId(null);
+    await loadFolders();
+  };
+
+  const moveFolder = async (folderId: string, parentId: string | null) => {
+    const res = await fetch("/api/my-categories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "moveFolder", folderId, parentId }),
+    });
+    if (res.ok) {
+      await loadFolders();
+    }
+  };
+
   const toggleFolderOpen = (id: string) => {
     setOpenFolderIds((prev) => {
       const next = new Set(prev);
@@ -115,66 +178,246 @@ export function PersonalListsView({
   };
 
   const collectionsUnder = (folderId: string | null) =>
-    visibleCollections.filter((c) => (c.parentId ?? null) === folderId);
+    visibleCollections.filter((c) => {
+      const currentParent = Object.prototype.hasOwnProperty.call(collectionParentOverride, c.id)
+        ? collectionParentOverride[c.id]
+        : (c.parentId ?? null);
+      return currentParent === folderId;
+    });
 
   const foldersUnder = (folderId: string | null) =>
     folders.filter((f) => (f.parentId ?? null) === folderId);
+
+  const pickableFolders = (excludeFolderId?: string): { id: string | null; label: string }[] => {
+    const exclude = new Set<string>();
+    if (excludeFolderId) {
+      const collect = (fid: string) => {
+        exclude.add(fid);
+        for (const f of folders) {
+          if (f.parentId === fid && !exclude.has(f.id)) collect(f.id);
+        }
+      };
+      collect(excludeFolderId);
+    }
+
+    const labelOf = (id: string): string => {
+      const f = folders.find((x) => x.id === id);
+      if (!f) return "";
+      return f.parentId ? `${labelOf(f.parentId)} / ${f.name}` : f.name;
+    };
+
+    return [
+      { id: null, label: "根目錄" },
+      ...folders
+        .filter((f) => !exclude.has(f.id))
+        .map((f) => ({ id: f.id, label: labelOf(f.id) })),
+    ];
+  };
 
   const renderFolder = (folder: UserFolder, depth: number): React.ReactNode => {
     const isOpen = openFolderIds.has(folder.id);
     const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     const childFolders = foldersUnder(folder.id);
     const childCollections = collectionsUnder(folder.id);
+    const isEditing = editingFolderId === folder.id;
 
     return (
       <div key={folder.id} className="contents">
-        {renamingFolderId === folder.id ? (
-          <input
-            autoFocus
-            value={renameDraft}
-            onChange={(e) => setRenameDraft(e.target.value)}
-            onBlur={() => void renameFolder(folder.id, renameDraft)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void renameFolder(folder.id, renameDraft);
-              }
-              if (e.key === "Escape") setRenamingFolderId(null);
-            }}
-            className="book-link bookshelf-btn px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
-            style={{ ...margin, backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-          />
-        ) : (
-          <button
-            type="button"
-            className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-            style={{ ...margin, color: "#b19739" }}
-            onClick={() => toggleFolderOpen(folder.id)}
-            onContextMenu={(e) => {
-              if (!isOwner) return;
-              e.preventDefault();
-              const action = window.prompt("資料夾操作：r=改名, d=刪除", "r");
-              if (action === "r") {
-                setRenamingFolderId(folder.id);
-                setRenameDraft(folder.name);
-              } else if (action === "d") {
-                void deleteFolder(folder.id);
-              }
-            }}
+        {isEditing ? (
+          <div
+            className="relative px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600"
+            style={{ ...margin, backgroundColor: "var(--zen-bg)" }}
           >
-            📁 {folder.name}
-          </button>
+            <input
+              autoFocus
+              value={editingFolderName}
+              onChange={(e) => setEditingFolderName(e.target.value)}
+              placeholder="資料夾名稱"
+              className="w-full px-2 py-1 mb-2 text-sm outline-none border border-zinc-300 dark:border-zinc-600 rounded"
+              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void saveFolderEdits(folder.id, editingFolderName, editingFolderPublic);
+                }
+                if (e.key === "Escape") {
+                  setEditingFolderId(null);
+                  setEditingFolderName("");
+                  setEditingFolderPublic(false);
+                }
+              }}
+            />
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setEditingFolderPublic(true)}
+                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                  editingFolderPublic
+                    ? "bg-blue-500 text-white"
+                    : "bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                }`}
+                style={editingFolderPublic ? {} : { color: "var(--zen-ink)" }}
+              >
+                設為公開
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingFolderPublic(false)}
+                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                  !editingFolderPublic
+                    ? "bg-blue-500 text-white"
+                    : "bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                }`}
+                style={!editingFolderPublic ? {} : { color: "var(--zen-ink)" }}
+              >
+                設為私人
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void saveFolderEdits(folder.id, editingFolderName, editingFolderPublic)}
+                className="flex-1 px-2 py-1 text-xs rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)", border: "1px solid var(--zen-border)" }}
+              >
+                保存
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingFolderId(null);
+                  setEditingFolderName("");
+                  setEditingFolderPublic(false);
+                }}
+                className="flex-1 px-2 py-1 text-xs rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)", border: "1px solid var(--zen-border)" }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            <button
+              type="button"
+              className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
+              style={{ ...margin, color: "#b19739" }}
+              onClick={() => toggleFolderOpen(folder.id)}
+              onContextMenu={(e) => {
+                if (!isOwner) return;
+                e.preventDefault();
+                setFolderCtxMenuId(folder.id);
+                setFolderCtxMenuPos({ x: e.clientX, y: e.clientY });
+                setColCtxMenuId(null);
+                setListCtxMenuId(null);
+              }}
+            >
+              📁 {folder.name}
+            </button>
+            {isOwner && folderCtxMenuId === folder.id && (
+              <>
+                <div className="fixed inset-0 z-40" onMouseDown={() => setFolderCtxMenuId(null)} />
+                <div
+                  className="fixed z-50 w-44 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                  style={{ left: folderCtxMenuPos.x, top: folderCtxMenuPos.y }}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      setEditingFolderName(folder.name);
+                      setEditingFolderPublic(folder.isPublic);
+                      setEditingFolderId(folder.id);
+                      setFolderCtxMenuId(null);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}
+                  >
+                    編輯
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      setFolderCtxMenuId(null);
+                      setMovePicker({ kind: "folder", id: folder.id, name: folder.name, x: e.clientX, y: e.clientY });
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}
+                  >
+                    移到資料夾
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      void deleteFolder(folder.id);
+                      setFolderCtxMenuId(null);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    刪除（保留內容）
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
 
         {isOpen && childCollections.map((col) => (
-          <a
-            key={`my-${col.id}`}
-            href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-            className="book-link bookshelf-btn sub-item"
-            style={{ color: "#20b2aa", marginLeft: `${(depth + 1) * 14}px` }}
-          >
-            {col.displayName}
-          </a>
+          <div key={`my-${col.id}`} className="relative">
+            <a
+              href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+              className="book-link bookshelf-btn sub-item"
+              style={{ color: "#20b2aa", marginLeft: `${(depth + 1) * 14}px` }}
+              onContextMenu={(e) => {
+                if (!isOwner) return;
+                e.preventDefault();
+                setColCtxMenuId(col.id);
+                setColCtxMenuPos({ x: e.clientX, y: e.clientY });
+                setFolderCtxMenuId(null);
+                setListCtxMenuId(null);
+              }}
+            >
+              {col.displayName}
+            </a>
+            {isOwner && colCtxMenuId === col.id && (
+              <>
+                <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
+                <div
+                  className="fixed z-50 w-40 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                  style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}
+                >
+                  {!col.fromGrid && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => {
+                        setColCtxMenuId(null);
+                        window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`;
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      編輯
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      setColCtxMenuId(null);
+                      setMovePicker({ kind: "collection", id: col.id, name: col.displayName, x: e.clientX, y: e.clientY });
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}
+                  >
+                    移到資料夾
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         ))}
 
         {isOpen && childFolders.map((child) => renderFolder(child, depth + 1))}
@@ -198,25 +441,101 @@ export function PersonalListsView({
   return (
     <div className="bookshelf-grid">
       {lists.map((list) => (
-        <a
-          key={list.id}
-          href={`/test/list?listId=${list.id}&autostart=1`}
-          className="book-link bookshelf-btn"
-          style={{ color: "#6ea8d8" }}
-        >
-          {list.title}
-        </a>
+        <div key={list.id} className="relative">
+          <a
+            href={`/test/list?listId=${list.id}&autostart=1`}
+            className="book-link bookshelf-btn"
+            style={{ color: "#6ea8d8" }}
+            onContextMenu={(e) => {
+              if (!isOwner) return;
+              e.preventDefault();
+              setListCtxMenuId(list.id);
+              setListCtxMenuPos({ x: e.clientX, y: e.clientY });
+              setColCtxMenuId(null);
+              setFolderCtxMenuId(null);
+            }}
+          >
+            {list.title}
+          </a>
+          {isOwner && listCtxMenuId === list.id && (
+            <>
+              <div className="fixed inset-0 z-40" onMouseDown={() => setListCtxMenuId(null)} />
+              <div
+                className="fixed z-50 w-36 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                style={{ left: listCtxMenuPos.x, top: listCtxMenuPos.y }}
+              >
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    setListCtxMenuId(null);
+                    window.location.href = `/lists/${list.id}/edit`;
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  編輯
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       ))}
 
       {topCollections.map((col) => (
-        <a
-          key={`my-${col.id}`}
-          href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
-          className="book-link bookshelf-btn"
-          style={{ color: "#20b2aa" }}
-        >
-          {col.displayName}
-        </a>
+        <div key={`my-${col.id}`} className="relative">
+          <a
+            href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+            className="book-link bookshelf-btn"
+            style={{ color: "#20b2aa" }}
+            onContextMenu={(e) => {
+              if (!isOwner) return;
+              e.preventDefault();
+              setColCtxMenuId(col.id);
+              setColCtxMenuPos({ x: e.clientX, y: e.clientY });
+              setFolderCtxMenuId(null);
+              setListCtxMenuId(null);
+            }}
+          >
+            {col.displayName}
+          </a>
+          {isOwner && colCtxMenuId === col.id && (
+            <>
+              <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
+              <div
+                className="fixed z-50 w-40 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+                style={{ left: colCtxMenuPos.x, top: colCtxMenuPos.y }}
+              >
+                {!col.fromGrid && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      setColCtxMenuId(null);
+                      window.location.href = `/collections/${encodeURIComponent(col.collectionId)}/edit`;
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    style={{ color: "var(--zen-ink)" }}
+                  >
+                    編輯
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    setColCtxMenuId(null);
+                    setMovePicker({ kind: "collection", id: col.id, name: col.displayName, x: e.clientX, y: e.clientY });
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  移到資料夾
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       ))}
 
       {topFolders.map((folder) => renderFolder(folder, 0))}
@@ -252,6 +571,39 @@ export function PersonalListsView({
           className="book-link bookshelf-btn px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
           style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
         />
+      )}
+
+      {movePicker && (
+        <>
+          <div className="fixed inset-0 z-40" onMouseDown={() => setMovePicker(null)} />
+          <div
+            className="fixed z-50 max-w-xs max-h-[60vh] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+            style={{ left: movePicker.x, top: movePicker.y, minWidth: "10rem" }}
+          >
+            <div className="px-3 py-2 text-xs opacity-50 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "var(--zen-ink)" }}>
+              移動「{movePicker.name}」到…
+            </div>
+            {pickableFolders(movePicker.kind === "folder" ? movePicker.id : undefined).map((opt) => (
+              <button
+                key={String(opt.id)}
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={async () => {
+                  if (movePicker.kind === "collection") {
+                    await moveCollection(movePicker.id, opt.id);
+                  } else {
+                    await moveFolder(movePicker.id, opt.id);
+                  }
+                  setMovePicker(null);
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

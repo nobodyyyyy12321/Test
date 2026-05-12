@@ -27,6 +27,7 @@ export type UserFolderRef = {
   name: string;
   parentId: string | null;
   createdAt: string;
+  isPublic: boolean;
 };
 
 type Row = {
@@ -82,6 +83,7 @@ function rowToFolder(row: Row): UserFolderRef {
     name: row.name,
     parentId: row.parent_id ?? null,
     createdAt: row.created_at ?? new Date(0).toISOString(),
+    isPublic: row.is_public ?? false,
   };
 }
 
@@ -157,6 +159,14 @@ export async function moveUserFolder(userId: string, folderId: string, parentId:
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&href=is.null`,
     { method: "PATCH", headers: HEADERS, body: JSON.stringify({ parent_id: parentId, updated_at: new Date().toISOString() }) }
+  );
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export async function updateFolderPublicStatus(userId: string, folderId: string, isPublic: boolean): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&href=is.null`,
+    { method: "PATCH", headers: HEADERS, body: JSON.stringify({ is_public: isPublic, updated_at: new Date().toISOString() }) }
   );
   if (!res.ok) throw new Error(await res.text());
 }
