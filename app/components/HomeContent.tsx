@@ -228,7 +228,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         <button
           type="button"
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-          style={{ ...margin, color: "#b19739" }}
+          style={{ ...margin, color: isOpen ? "#b19739" : "#5fa870" }}
           onClick={() => toggleRecommendedFolder(cat.id)}
         >
           📁 {cat.name}
@@ -239,7 +239,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             key={`rec-${childCat.id}`}
             href={appendHrefOptions(childCat.href, childCat.problemsPerTest, childCat.shuffleProblems)}
             className="book-link bookshelf-btn sub-item"
-            style={{ color: "#20b2aa", marginLeft: `${(depth + 1) * 14}px` }}
+            style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
           >
             {childCat.name}
           </a>
@@ -1177,7 +1177,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                           key={cat.id}
                                           href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
                                           className="book-link bookshelf-btn"
-                                          style={{ color: "#20b2aa" }}
+                                          style={{ color: "#5fa870" }}
                                         >
                                           {cat.name}
                                         </a>

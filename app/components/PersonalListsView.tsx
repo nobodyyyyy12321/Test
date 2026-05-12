@@ -220,6 +220,7 @@ export function PersonalListsView({
     const childFolders = foldersUnder(folder.id);
     const childCollections = collectionsUnder(folder.id);
     const isEditing = editingFolderId === folder.id;
+    const isInsideExpanded = depth > 0;
 
     return (
       <div key={folder.id} className="contents">
@@ -301,7 +302,7 @@ export function PersonalListsView({
             <button
               type="button"
               className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-              style={{ ...margin, color: "#b19739" }}
+              style={{ ...margin, color: isOpen ? "#b19739" : "#5fa870" }}
               onClick={() => toggleFolderOpen(folder.id)}
               onContextMenu={(e) => {
                 if (!isOwner) return;
@@ -369,7 +370,7 @@ export function PersonalListsView({
             <a
               href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
               className="book-link bookshelf-btn sub-item"
-              style={{ color: "#20b2aa", marginLeft: `${(depth + 1) * 14}px` }}
+              style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
               onContextMenu={(e) => {
                 if (!isOwner) return;
                 e.preventDefault();
@@ -487,7 +488,7 @@ export function PersonalListsView({
           <a
             href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
             className="book-link bookshelf-btn"
-            style={{ color: "#20b2aa" }}
+            style={{ color: "#5fa870" }}
             onContextMenu={(e) => {
               if (!isOwner) return;
               e.preventDefault();
