@@ -42,8 +42,6 @@ export function PersonalListsView({
   const [foldersLoaded, setFoldersLoaded] = useState(false);
   const [addingTopFolder, setAddingTopFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
   const [editingFolderPublic, setEditingFolderPublic] = useState(false);
@@ -88,20 +86,6 @@ export function PersonalListsView({
     if (res.ok) {
       setNewFolderName("");
       setAddingTopFolder(false);
-      await loadFolders();
-    }
-  };
-
-  const renameFolder = async (folderId: string, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const res = await fetch("/api/my-categories", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "renameFolder", folderId, name: trimmed }),
-    });
-    if (res.ok) {
-      setRenamingFolderId(null);
       await loadFolders();
     }
   };
@@ -169,11 +153,27 @@ export function PersonalListsView({
   };
 
   const toggleFolderOpen = (id: string) => {
+    const getPathToFolder = (folderId: string): string[] => {
+      const path: string[] = [];
+      const visited = new Set<string>();
+      let currentId: string | null = folderId;
+      while (currentId) {
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        path.unshift(currentId);
+        const current = folders.find((f) => f.id === currentId);
+        currentId = current?.parentId ?? null;
+      }
+      return path;
+    };
+
     setOpenFolderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      const path = getPathToFolder(id);
+      if (path.length === 0) return new Set();
+      if (prev.has(id)) {
+        return new Set(path.slice(0, -1));
+      }
+      return new Set(path);
     });
   };
 
@@ -214,14 +214,13 @@ export function PersonalListsView({
     ];
   };
 
-  const renderFolder = (folder: UserFolder, depth: number): React.ReactNode => {
+  const renderFolder = (folder: UserFolder, depth: number, ancestorExpanded: boolean = false): React.ReactNode => {
     const isOpen = openFolderIds.has(folder.id);
+    const isHighlighted = ancestorExpanded || isOpen;
     const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     const childFolders = foldersUnder(folder.id);
     const childCollections = collectionsUnder(folder.id);
     const isEditing = editingFolderId === folder.id;
-    const isInsideExpanded = depth > 0;
-
     return (
       <div key={folder.id} className="contents">
         {isEditing ? (
@@ -302,7 +301,7 @@ export function PersonalListsView({
             <button
               type="button"
               className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-              style={{ ...margin, color: isOpen ? "#b19739" : "#5fa870" }}
+              style={{ ...margin, color: isHighlighted ? "#b19739" : "#5fa870" }}
               onClick={() => toggleFolderOpen(folder.id)}
               onContextMenu={(e) => {
                 if (!isOwner) return;
@@ -421,7 +420,7 @@ export function PersonalListsView({
           </div>
         ))}
 
-        {isOpen && childFolders.map((child) => renderFolder(child, depth + 1))}
+        {isOpen && childFolders.map((child) => renderFolder(child, depth + 1, isHighlighted))}
       </div>
     );
   };

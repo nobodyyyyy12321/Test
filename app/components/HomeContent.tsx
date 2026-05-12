@@ -74,7 +74,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
   const [recommendedLoaded, setRecommendedLoaded] = useState(false);
-  const [openRecommendedFolders, setOpenRecommendedFolders] = useState<Set<string>>(new Set());
+  const [openRecommendedFolderChains, setOpenRecommendedFolderChains] = useState<Record<string, string[]>>({});
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -175,11 +175,38 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     });
   };
 
-  const toggleRecommendedFolder = (folderId: string) => {
-    setOpenRecommendedFolders(prev => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
+  const toggleRecommendedFolder = (ownerId: string, folderId: string, categories: UserResult["categories"] | undefined) => {
+    if (!categories) return;
+
+    const getPathToFolder = (targetId: string): string[] => {
+      const path: string[] = [];
+      const visited = new Set<string>();
+      let currentId: string | null = targetId;
+
+      while (currentId) {
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        path.unshift(currentId);
+        const current = categories.find((c) => c.id === currentId);
+        currentId = current?.parentId ?? null;
+      }
+
+      return path;
+    };
+
+    setOpenRecommendedFolderChains((prev) => {
+      const next = { ...prev };
+      const currentChain = next[ownerId] ?? [];
+      const path = getPathToFolder(folderId);
+      if (path.length === 0) {
+        next[ownerId] = [];
+        return next;
+      }
+      if (currentChain.includes(folderId)) {
+        next[ownerId] = path.slice(0, -1);
+      } else {
+        next[ownerId] = path;
+      }
       return next;
     });
   };
@@ -187,23 +214,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const isRecommendedFolder = (cat: RecommendedCategory | undefined): boolean => {
     if (!cat) return false;
     return !cat.href || cat.href.trim() === "";
-  };
-
-  const getRecommendedFoldersAndCollections = (categories: UserResult["categories"] | undefined) => {
-    if (!categories) return { folders: [], collections: [] };
-    
-    const folders: RecommendedCategory[] = [];
-    const collections: RecommendedCategory[] = [];
-    
-    for (const cat of categories) {
-      if (isRecommendedFolder(cat)) {
-        folders.push(cat);
-      } else {
-        collections.push(cat);
-      }
-    }
-    
-    return { folders, collections };
   };
 
   const getRecommendedChildrenOf = (categories: UserResult["categories"] | undefined, parentId: string | null | undefined) => {
@@ -214,11 +224,14 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const renderRecommendedFolder = (
     cat: RecommendedCategory | undefined,
     userCategories: UserResult["categories"] | undefined,
-    depth: number
+    depth: number,
+    ownerId: string,
+    ancestorExpanded: boolean = false
   ) => {
     if (!cat) return null;
     
-    const isOpen = openRecommendedFolders.has(cat.id);
+    const isOpen = (openRecommendedFolderChains[ownerId] ?? []).includes(cat.id);
+    const isHighlighted = ancestorExpanded || isOpen;
     const childCollections = getRecommendedChildrenOf(userCategories, cat.id).filter(c => !isRecommendedFolder(c));
     const childFolders = getRecommendedChildrenOf(userCategories, cat.id).filter(c => isRecommendedFolder(c));
     const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
@@ -228,8 +241,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         <button
           type="button"
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-          style={{ ...margin, color: isOpen ? "#b19739" : "#5fa870" }}
-          onClick={() => toggleRecommendedFolder(cat.id)}
+          style={{ ...margin, color: isHighlighted ? "#b19739" : "#5fa870" }}
+          onClick={() => toggleRecommendedFolder(ownerId, cat.id, userCategories)}
         >
           📁 {cat.name}
         </button>
@@ -246,7 +259,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
         ))}
         
         {isOpen && childFolders.map((childFolder) =>
-          renderRecommendedFolder(childFolder, userCategories, depth + 1)
+          renderRecommendedFolder(childFolder, userCategories, depth + 1, ownerId, isHighlighted)
         )}
       </div>
     );
@@ -403,7 +416,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   useEffect(() => {
     setRecommendedAccounts([]);
     setRecommendedLoaded(false);
-    setOpenRecommendedFolders(new Set());
+    setOpenRecommendedFolderChains({});
     fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
       .then(r => {
         if (!r.ok) {
@@ -1170,7 +1183,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                                 <div className="bookshelf-grid">
                                   {renderRecommendedCategoryRoots(u.categories).map((cat) => {
                                     if (isRecommendedFolder(cat)) {
-                                      return renderRecommendedFolder(cat, u.categories, 0);
+                                      return renderRecommendedFolder(cat, u.categories, 0, u.id);
                                     } else {
                                       return (
                                         <a
