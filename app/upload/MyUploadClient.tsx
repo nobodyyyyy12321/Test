@@ -230,7 +230,7 @@ export default function MyUploadClient() {
     <div className="min-h-screen p-6 max-w-2xl mx-auto" style={{ color: "var(--zen-ink)" }}>
       <h1 className="text-xl font-bold mb-1">上傳個人題庫</h1>
       <p className="text-sm text-zinc-400 mb-5">
-        上傳後題庫會立刻出現在首頁「個人分類」，點擊即可作答。
+        上傳後會先進入審核流程；審核通過後才會出現在首頁「個人分類」。
       </p>
 
       {/* ── Tab switcher ─────────────────────────────────────────────────── */}
@@ -398,7 +398,7 @@ export default function MyUploadClient() {
             >
               {singleResult.ok ? (
                 <p className="text-green-600 dark:text-green-400 text-xs">
-                  ✓ 上傳成功！題號已自動加 1，可繼續填寫下一題。
+                  ✓ 上傳成功，審核中。題號已自動加 1，可繼續填寫下一題。
                 </p>
               ) : (
                 <p className="text-red-600 dark:text-red-400 text-xs">錯誤：{singleResult.error}</p>
@@ -555,17 +555,11 @@ export default function MyUploadClient() {
         >
           {result.ok ? (
             <div className="space-y-2">
-              <p className="font-medium text-green-600 dark:text-green-400">上傳成功 ✓</p>
+              <p className="font-medium text-green-600 dark:text-green-400">上傳成功，審核中 ✓</p>
               <ul className="text-xs text-zinc-500 space-y-0.5">
                 {Object.entries(result.results ?? {}).map(([id, r]) => (
                   <li key={id}>
-                    題庫「{id}」已寫入 {r.upserted} 題 —{" "}
-                    <a
-                      href={`/test/${encodeURIComponent(id)}?autostart=1`}
-                      className="underline text-green-600 dark:text-green-400"
-                    >
-                      立即作答
-                    </a>
+                    題庫「{id}」已寫入 {r.upserted} 題，狀態：審核中。
                   </li>
                 ))}
               </ul>
@@ -581,7 +575,7 @@ export default function MyUploadClient() {
                 <a href="/" className="underline">
                   首頁
                 </a>{" "}
-                可在「個人分類」看到新題庫。
+                待審核通過後可在「個人分類」看到新題庫。
               </p>
             </div>
           ) : (

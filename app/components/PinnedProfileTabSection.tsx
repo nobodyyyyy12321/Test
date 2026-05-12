@@ -74,7 +74,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
           fetch("/api/user/personal-tree").then(r => r.json()).catch(() => ({})),
         ]).then(([l, c, p, t]) => {
           setLists(l.lists ?? []);
-          setMyCollections(c.collections ?? []);
+          setMyCollections((c.collections ?? []).filter((col: { approvalStatus?: string }) => col.approvalStatus !== "pending"));
           if (Array.isArray(p.pinnedListIds)) setPinnedListIds(p.pinnedListIds);
           if (Array.isArray(p.pinnedCollectionIds)) setPinnedCollectionIds(p.pinnedCollectionIds);
           if (t?.tree) setPersonalTree(t.tree as PersonalTree);

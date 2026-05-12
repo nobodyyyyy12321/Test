@@ -24,9 +24,12 @@ type CategoryRow = {
   dropdown_align: string | null;
   problems_per_test: number | null;
   shuffle_problems: boolean | null;
+  approval_status?: string | null;
 };
 
-const ROW_COLUMNS = "id,owner_id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems";
+// Try to include approval_status if it exists, fall back to without it
+const ROW_COLUMNS = "id,owner_id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,approval_status";
+const ROW_COLUMNS_FALLBACK = "id,owner_id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -35,12 +38,25 @@ function newId(): string {
 async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   const supabase = getCategoriesAdmin();
 
-  const { data, error } = await supabase
+  const query = supabase
     .from("categories")
     .select(ROW_COLUMNS)
-    .is("owner_id", null)
-    .eq("language", language)
-    .order("position", { ascending: true });
+    .eq("language", language);
+  
+  // Fetch public categories only and filter by approval_status
+  let { data, error } = await query.order("position", { ascending: true });
+  
+  // If approval_status column doesn't exist, retry without it
+  if (error?.code === "42703") {
+    const fallbackQuery = supabase
+      .from("categories")
+      .select(ROW_COLUMNS_FALLBACK)
+      .is("owner_id", null)
+      .eq("language", language);
+    const result = await fallbackQuery.order("position", { ascending: true });
+    data = result.data as any;
+    error = result.error;
+  }
   if (error || !data) {
     console.error("[categories] fetch error:", {
       message: error?.message,
@@ -53,8 +69,8 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   }
   console.log("[categories] fetched rows:", data.length, "for language:", language);
 
-  // Defensive guard: keep homepage/public tree strictly public-only.
-  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null);
+  // Only show public categories (owner_id IS NULL) that are approved or null status
+  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null && (r.approval_status === "approved" || r.approval_status === null));
   const ids = new Set(rows.map(r => r.id));
 
   // Rows whose parent_id is not in our set are top-level (parent is the language root node)
@@ -105,16 +121,29 @@ export type FlatCategory = {
 async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
   const supabase = getCategoriesAdmin();
 
-  const { data, error } = await supabase
+  const query = supabase
     .from("categories")
     .select(ROW_COLUMNS)
-    .is("owner_id", null)
-    .eq("language", language)
-    .order("position", { ascending: true });
+    .eq("language", language);
+  
+  let { data, error } = await query.order("position", { ascending: true });
+  
+  // If approval_status column doesn't exist, retry without it
+  if (error?.code === "42703") {
+    const fallbackQuery = supabase
+      .from("categories")
+      .select(ROW_COLUMNS_FALLBACK)
+      .is("owner_id", null)
+      .eq("language", language);
+    const result = await fallbackQuery.order("position", { ascending: true });
+    data = result.data as any;
+    error = result.error;
+  }
+
   if (error || !data) return [];
 
-  // Defensive guard: keep admin public tree editor scoped to public rows only.
-  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null);
+  // Only show public categories (owner_id IS NULL) that are approved or null status
+  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null && (r.approval_status === "approved" || r.approval_status === null));
   const ids = new Set(rows.map(r => r.id));
 
   return rows.map(r => ({

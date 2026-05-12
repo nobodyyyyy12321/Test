@@ -8,4 +8,5 @@ export type CategoryNode = {
   dropdownAlign?: "left" | "right";
   problemsPerTest?: number | null;   // null/undef = no limit
   shuffleProblems?: boolean | null;  // null/undef = default (shuffle on)
+  approval_status?: string; // Added optional approval_status property
 };

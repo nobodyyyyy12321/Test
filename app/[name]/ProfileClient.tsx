@@ -371,7 +371,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     fetch("/api/my-collections")
       .then(r => r.json())
       .then(d => {
-        setMyCollections(d.collections ?? []);
+        setMyCollections((d.collections ?? []).filter((c: { approvalStatus?: string }) => c.approvalStatus !== "pending"));
         setMyCollectionsLoaded(true);
       })
       .catch(() => {

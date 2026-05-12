@@ -142,6 +142,9 @@ export async function POST(request: Request) {
       }
       const displayName =
         findCategoryName(payload.categories ?? [], collectionId) ?? collectionId;
+      
+      console.log(`[upload] Starting upload for collectionId=${collectionId}, userId=${user.id}, language=${activeLanguage}, displayName=${displayName}, questionCount=${normalized.length}`);
+      
       const result = await upsertPersonalQuizQuestionsNewSchema({
         userId: user.id,
         collectionId,
@@ -149,7 +152,13 @@ export async function POST(request: Request) {
         displayName,
         questions: normalized,
       });
+      
+      console.log(`[upload] upsertPersonalQuizQuestionsNewSchema completed for collectionId=${collectionId}, setId=${result.setId}, upserted=${result.upserted}`);
+      
       await upsertUserCollection(user.id, collectionId, displayName, false, activeLanguage);
+      
+      console.log(`[upload] upsertUserCollection completed for collectionId=${collectionId}`);
+      
       results[collectionId] = { upserted: result.upserted, gridName: displayName };
     } catch (err: any) {
       errors[collectionId] = err?.message ?? "未知錯誤";

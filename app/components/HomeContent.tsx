@@ -35,7 +35,7 @@ type SharePanelState =
 
 export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
   const [language, setLanguage] = useState("zh-TW");
-  const [categories, setCategories] = useState<CategoryNode[]>(initialCategories ?? []);
+  const [categories, setCategories] = useState<CategoryNode[]>(initialCategories.filter(cat => cat.approval_status === "approved") ?? []);
   const [loadingLang, setLoadingLang] = useState(false);
   const [query, setQuery] = useState("");
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
@@ -484,7 +484,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     if (!loggedIn) return;
     fetch("/api/my-collections")
       .then(r => r.json())
-      .then(d => setMyCollections(d.collections ?? []))
+      .then(d => setMyCollections((d.collections ?? []).filter((c: { approvalStatus?: string }) => c.approvalStatus !== "pending")))
       .catch(() => {});
     fetch("/api/user/personal-tree")
       .then(r => r.json())

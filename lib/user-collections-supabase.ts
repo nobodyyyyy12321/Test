@@ -16,6 +16,7 @@ export type UserCollectionRef = {
   createdAt: string;
   fromGrid: boolean;
   isPublic: boolean;
+  approvalStatus?: string;
 };
 
 type Row = {
@@ -28,9 +29,10 @@ type Row = {
   from_grid?: boolean | null;
   is_public?: boolean | null;
   position?: number | null;
+  approval_status?: string | null;
 };
 
-const CATEGORY_COLUMNS = "id,owner_id,language,href,name,created_at,from_grid,is_public,position";
+const CATEGORY_COLUMNS = "id,owner_id,language,href,name,created_at,from_grid,is_public,position,approval_status";
 
 function collectionHref(collectionId: string): string {
   return `/test/${encodeURIComponent(collectionId)}`;
@@ -56,6 +58,7 @@ function rowToRef(row: Row): UserCollectionRef {
     createdAt: row.created_at ?? new Date(0).toISOString(),
     fromGrid: row.from_grid ?? false,
     isPublic: row.is_public ?? false,
+    approvalStatus: row.approval_status ?? "approved",
   };
 }
 
@@ -121,6 +124,7 @@ export async function upsertUserCollection(
     dropdown: [],
     dropdown_align: null,
     from_grid: fromGrid,
+    approval_status: "pending",
     updated_at: updatedAt,
   };
   const insertRes = await fetch(insertUrl, {

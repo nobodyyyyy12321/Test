@@ -6,7 +6,7 @@ import type { PersonalTree, ItemKind } from "../../lib/personal-tree";
 import { getCollectionLabel } from "./collectionLabels";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
-export type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string; fromGrid?: boolean };
+export type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string; fromGrid?: boolean; approvalStatus?: string };
 
 type Group = { id: string; name: string; memberCount?: number };
 type ShareResult = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
@@ -261,7 +261,8 @@ export function PersonalListsView({
   }
 
   const treeRefs = tree?.categoryRefs ?? [];
-  if (lists.length === 0 && myCollections.length === 0 && treeRefs.length === 0) {
+  const visibleCollections = myCollections.filter((c) => c.approvalStatus !== "pending");
+  if (lists.length === 0 && visibleCollections.length === 0 && treeRefs.length === 0) {
     return (
       <p className="text-sm zen-subtle opacity-50">
         {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
@@ -494,7 +495,7 @@ export function PersonalListsView({
   // Caller should already be wrapped in a bookshelf-grid (or contents) container.
   const renderInlineChildren = (folderId: string | null): React.ReactNode => {
     const childLists = lists.filter(l => getListFolder(l.id) === folderId);
-    const childCols = myCollections.filter(c => getCollectionFolder(c.id) === folderId);
+    const childCols = visibleCollections.filter(c => getCollectionFolder(c.id) === folderId);
     const childRefs = treeRefs.filter(r => (r.folderId ?? null) === folderId);
     const childFolders = (tree?.folders ?? [])
       .filter(f => (f.parentId ?? null) === folderId)
@@ -527,7 +528,7 @@ export function PersonalListsView({
 
   const renderTopLevel = (): React.ReactNode => {
     const topLists = lists.filter(l => getListFolder(l.id) === null);
-    const topCols = myCollections.filter(c => getCollectionFolder(c.id) === null);
+    const topCols = visibleCollections.filter(c => getCollectionFolder(c.id) === null);
     const topRefs = treeRefs.filter(r => (r.folderId ?? null) === null);
     const topFolders = (tree?.folders ?? [])
       .filter(f => (f.parentId ?? null) === null)
