@@ -12,8 +12,6 @@ import type { MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import type { QuestionList } from "../../lib/lists-supabase";
-import type { CategoryRef, PersonalTree } from "../../lib/personal-tree";
-import { EMPTY_TREE } from "../../lib/personal-tree";
 
 type UserResult = { 
   id: string; 
@@ -27,7 +25,7 @@ type UserResult = {
     shuffleProblems?: boolean | null;
   }>;
 };
-type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned" | "category-ref-pinned"; };
+type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned"; };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 type SharePanelState =
@@ -59,7 +57,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [pinnedInboxIds, setPinnedInboxIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
-  const [personalTree, setPersonalTree] = useState<PersonalTree>(EMPTY_TREE);
   type PinnedProfileTab = { name: string; tab: string; label: string };
   const [pinnedProfileTabs, setPinnedProfileTabs] = useState<PinnedProfileTab[]>([]);
   const [profileTabCtxMenu, setProfileTabCtxMenu] = useState<{ name: string; tab: string; label: string; x: number; y: number } | null>(null);
@@ -486,10 +483,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       .then(r => r.json())
       .then(d => setMyCollections((d.collections ?? []).filter((c: { approvalStatus?: string }) => c.approvalStatus !== "pending")))
       .catch(() => {});
-    fetch("/api/user/personal-tree")
-      .then(r => r.json())
-      .then(d => { if (d.tree) setPersonalTree(d.tree as PersonalTree); })
-      .catch(() => {});
   }, [loggedIn]);
 
   useEffect(() => {
@@ -554,52 +547,32 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const addCategoryRef = async (item: CtxMenu) => {
     if (!item.href) return;
     const key = hrefToCategoryKey(item.href);
-    if (personalTree.categoryRefs.some(r => r.key === key)) return;
-    const optimistic: CategoryRef = {
-      id: `tmp-${key}`,
-      key,
-      name: item.name,
-      folderId: null,
-      sort: personalTree.categoryRefs.length,
-    };
-    setPersonalTree(prev => ({ ...prev, categoryRefs: [...prev.categoryRefs, optimistic] }));
+    const collectionId = key.split(":")[0];
+    if (myCollections.some((c) => c.collectionId === collectionId)) return;
     try {
-      const res = await fetch("/api/user/personal-tree", {
+      const res = await fetch("/api/my-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "addCategoryRef", key, name: item.name }),
+        body: JSON.stringify({ collectionId, displayName: item.name, language }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.tree) {
+      if (!res.ok) {
         console.error("加入個人分類失敗", res.status, d);
-        if (d.error) console.error(d.error);
-        setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== optimistic.id) }));
-        return;
+      } else {
+        setMyCollections((prev) => [
+          ...prev,
+          {
+            id: `tmp-${collectionId}`,
+            collectionId,
+            displayName: item.name,
+            createdAt: new Date().toISOString(),
+            approvalStatus: "pending",
+          },
+        ]);
       }
-      setPersonalTree(d.tree as PersonalTree);
     } catch (err) {
       console.error("加入個人分類網路錯誤", err);
-      setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== optimistic.id) }));
     }
-  };
-
-  const removeCategoryRefById = async (refId: string) => {
-    const ref = personalTree.categoryRefs.find(r => r.id === refId);
-    setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== refId) }));
-    // Clean up matching categories row. Server-side guard ensures this never drops a built-in collection's table.
-    if (ref) {
-      const collectionId = ref.key.split(":")[0];
-      fetch(`/api/my-collections?collectionId=${encodeURIComponent(collectionId)}`, { method: "DELETE" })
-        .then(() => setMyCollections(prev => prev.filter(c => c.collectionId !== collectionId)))
-        .catch(() => {});
-    }
-    try {
-      await fetch("/api/user/personal-tree", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "removeCategoryRef", id: refId }),
-      });
-    } catch {}
   };
 
   const handleShareTo = async (target: { type: "user" | "group"; id: string; name: string }) => {
@@ -740,16 +713,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               >
                 取消釘選
               </button>
-            ) : ctxMenu.from === "category-ref-pinned" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { removeCategoryRefById(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                移除
-              </button>
             ) : (
               <button
                 type="button"
@@ -763,7 +726,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             )}
             {loggedIn && (ctxMenu.from === "grid" || ctxMenu.from === "pinned") && ctxMenu.href && (() => {
               const key = hrefToCategoryKey(ctxMenu.href);
-              const already = personalTree.categoryRefs.some(r => r.key === key);
+              const collectionId = key.split(":")[0];
+              const already = myCollections.some((c) => c.collectionId === collectionId);
               return (
                 <button
                   type="button"

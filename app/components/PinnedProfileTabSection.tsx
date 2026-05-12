@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
-import type { PersonalTree } from "../../lib/personal-tree";
 import { PersonalListsView, type MyCollection } from "./PersonalListsView";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
@@ -50,8 +49,6 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
-  const EMPTY_TREE_LOCAL: PersonalTree = { folders: [], categoryRefs: [], leafPlacement: { list: {}, collection: {} } };
-  const [personalTree, setPersonalTree] = useState<PersonalTree>(EMPTY_TREE_LOCAL);
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [ownedGroups, setOwnedGroups] = useState<GroupItem[]>([]);
@@ -71,13 +68,11 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
           fetch("/api/lists").then(r => r.json()).catch(() => ({})),
           fetch("/api/my-collections").then(r => r.json()).catch(() => ({})),
           fetch("/api/user/pins").then(r => r.json()).catch(() => ({})),
-          fetch("/api/user/personal-tree").then(r => r.json()).catch(() => ({})),
-        ]).then(([l, c, p, t]) => {
+        ]).then(([l, c, p]) => {
           setLists(l.lists ?? []);
           setMyCollections((c.collections ?? []).filter((col: { approvalStatus?: string }) => col.approvalStatus !== "pending"));
           if (Array.isArray(p.pinnedListIds)) setPinnedListIds(p.pinnedListIds);
           if (Array.isArray(p.pinnedCollectionIds)) setPinnedCollectionIds(p.pinnedCollectionIds);
-          if (t?.tree) setPersonalTree(t.tree as PersonalTree);
         }).finally(finish);
       } else {
         fetch(`/api/users/${encodeURIComponent(name)}/lists`)
@@ -172,8 +167,6 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
             setPinnedListIds={setPinnedListIds}
             pinnedCollectionIds={pinnedCollectionIds}
             setPinnedCollectionIds={setPinnedCollectionIds}
-            tree={personalTree}
-            setTree={setPersonalTree}
           />
         ) : tab === "followers" || tab === "following" ? (
           users.length === 0 ? (
