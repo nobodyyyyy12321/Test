@@ -12,8 +12,6 @@ import type { MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import type { QuestionList } from "../../lib/lists-supabase";
-import type { CategoryRef, PersonalTree } from "../../lib/personal-tree";
-import { EMPTY_TREE } from "../../lib/personal-tree";
 
 type UserResult = { 
   id: string; 
@@ -23,11 +21,20 @@ type UserResult = {
     id: string;
     name: string;
     href?: string;
+    parentId?: string | null;
     problemsPerTest?: number | null;
     shuffleProblems?: boolean | null;
   }>;
 };
-type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned" | "category-ref-pinned"; };
+type RecommendedCategory = {
+  id: string;
+  name: string;
+  href?: string;
+  parentId?: string | null;
+  problemsPerTest?: number | null;
+  shuffleProblems?: boolean | null;
+};
+type CtxMenu = { id: string; name: string; href?: string; x: number; y: number; from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned"; };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
 type SharePanelState =
@@ -59,7 +66,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [pinnedInboxIds, setPinnedInboxIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
-  const [personalTree, setPersonalTree] = useState<PersonalTree>(EMPTY_TREE);
   type PinnedProfileTab = { name: string; tab: string; label: string };
   const [pinnedProfileTabs, setPinnedProfileTabs] = useState<PinnedProfileTab[]>([]);
   const [profileTabCtxMenu, setProfileTabCtxMenu] = useState<{ name: string; tab: string; label: string; x: number; y: number } | null>(null);
@@ -68,6 +74,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
   const [recommendedLoaded, setRecommendedLoaded] = useState(false);
+  const [openRecommendedFolders, setOpenRecommendedFolders] = useState<Set<string>>(new Set());
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -166,6 +173,88 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       if (prev.has(key)) return new Set();
       return new Set([key]);
     });
+  };
+
+  const toggleRecommendedFolder = (folderId: string) => {
+    setOpenRecommendedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
+  const isRecommendedFolder = (cat: RecommendedCategory | undefined): boolean => {
+    if (!cat) return false;
+    return !cat.href || cat.href.trim() === "";
+  };
+
+  const getRecommendedFoldersAndCollections = (categories: UserResult["categories"] | undefined) => {
+    if (!categories) return { folders: [], collections: [] };
+    
+    const folders: RecommendedCategory[] = [];
+    const collections: RecommendedCategory[] = [];
+    
+    for (const cat of categories) {
+      if (isRecommendedFolder(cat)) {
+        folders.push(cat);
+      } else {
+        collections.push(cat);
+      }
+    }
+    
+    return { folders, collections };
+  };
+
+  const getRecommendedChildrenOf = (categories: UserResult["categories"] | undefined, parentId: string | null | undefined) => {
+    if (!categories) return [];
+    return categories.filter(cat => (cat.parentId ?? null) === parentId);
+  };
+
+  const renderRecommendedFolder = (
+    cat: RecommendedCategory | undefined,
+    userCategories: UserResult["categories"] | undefined,
+    depth: number
+  ) => {
+    if (!cat) return null;
+    
+    const isOpen = openRecommendedFolders.has(cat.id);
+    const childCollections = getRecommendedChildrenOf(userCategories, cat.id).filter(c => !isRecommendedFolder(c));
+    const childFolders = getRecommendedChildrenOf(userCategories, cat.id).filter(c => isRecommendedFolder(c));
+    const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
+
+    return (
+      <div key={`folder-${cat.id}`} className="contents">
+        <button
+          type="button"
+          className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
+          style={{ ...margin, color: isOpen ? "#b19739" : "#5fa870" }}
+          onClick={() => toggleRecommendedFolder(cat.id)}
+        >
+          📁 {cat.name}
+        </button>
+        
+        {isOpen && childCollections.map((childCat) => (
+          <a
+            key={`rec-${childCat.id}`}
+            href={appendHrefOptions(childCat.href, childCat.problemsPerTest, childCat.shuffleProblems)}
+            className="book-link bookshelf-btn sub-item"
+            style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
+          >
+            {childCat.name}
+          </a>
+        ))}
+        
+        {isOpen && childFolders.map((childFolder) =>
+          renderRecommendedFolder(childFolder, userCategories, depth + 1)
+        )}
+      </div>
+    );
+  };
+
+  const renderRecommendedCategoryRoots = (categories: UserResult["categories"] | undefined) => {
+    if (!categories) return [];
+    return categories.filter(cat => (cat.parentId ?? null) === null);
   };
 
   const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[], ancestorExpanded: boolean = false) => {
@@ -314,6 +403,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   useEffect(() => {
     setRecommendedAccounts([]);
     setRecommendedLoaded(false);
+    setOpenRecommendedFolders(new Set());
     fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
       .then(r => {
         if (!r.ok) {
@@ -486,10 +576,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
       .then(r => r.json())
       .then(d => setMyCollections((d.collections ?? []).filter((c: { approvalStatus?: string }) => c.approvalStatus !== "pending")))
       .catch(() => {});
-    fetch("/api/user/personal-tree")
-      .then(r => r.json())
-      .then(d => { if (d.tree) setPersonalTree(d.tree as PersonalTree); })
-      .catch(() => {});
   }, [loggedIn]);
 
   useEffect(() => {
@@ -554,52 +640,32 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const addCategoryRef = async (item: CtxMenu) => {
     if (!item.href) return;
     const key = hrefToCategoryKey(item.href);
-    if (personalTree.categoryRefs.some(r => r.key === key)) return;
-    const optimistic: CategoryRef = {
-      id: `tmp-${key}`,
-      key,
-      name: item.name,
-      folderId: null,
-      sort: personalTree.categoryRefs.length,
-    };
-    setPersonalTree(prev => ({ ...prev, categoryRefs: [...prev.categoryRefs, optimistic] }));
+    const collectionId = key.split(":")[0];
+    if (myCollections.some((c) => c.collectionId === collectionId)) return;
     try {
-      const res = await fetch("/api/user/personal-tree", {
+      const res = await fetch("/api/my-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "addCategoryRef", key, name: item.name }),
+        body: JSON.stringify({ collectionId, displayName: item.name, language }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.tree) {
+      if (!res.ok) {
         console.error("加入個人分類失敗", res.status, d);
-        if (d.error) console.error(d.error);
-        setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== optimistic.id) }));
-        return;
+      } else {
+        setMyCollections((prev) => [
+          ...prev,
+          {
+            id: `tmp-${collectionId}`,
+            collectionId,
+            displayName: item.name,
+            createdAt: new Date().toISOString(),
+            approvalStatus: "pending",
+          },
+        ]);
       }
-      setPersonalTree(d.tree as PersonalTree);
     } catch (err) {
       console.error("加入個人分類網路錯誤", err);
-      setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== optimistic.id) }));
     }
-  };
-
-  const removeCategoryRefById = async (refId: string) => {
-    const ref = personalTree.categoryRefs.find(r => r.id === refId);
-    setPersonalTree(prev => ({ ...prev, categoryRefs: prev.categoryRefs.filter(r => r.id !== refId) }));
-    // Clean up matching categories row. Server-side guard ensures this never drops a built-in collection's table.
-    if (ref) {
-      const collectionId = ref.key.split(":")[0];
-      fetch(`/api/my-collections?collectionId=${encodeURIComponent(collectionId)}`, { method: "DELETE" })
-        .then(() => setMyCollections(prev => prev.filter(c => c.collectionId !== collectionId)))
-        .catch(() => {});
-    }
-    try {
-      await fetch("/api/user/personal-tree", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "removeCategoryRef", id: refId }),
-      });
-    } catch {}
   };
 
   const handleShareTo = async (target: { type: "user" | "group"; id: string; name: string }) => {
@@ -740,16 +806,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
               >
                 取消釘選
               </button>
-            ) : ctxMenu.from === "category-ref-pinned" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { removeCategoryRefById(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                移除
-              </button>
             ) : (
               <button
                 type="button"
@@ -763,7 +819,8 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
             )}
             {loggedIn && (ctxMenu.from === "grid" || ctxMenu.from === "pinned") && ctxMenu.href && (() => {
               const key = hrefToCategoryKey(ctxMenu.href);
-              const already = personalTree.categoryRefs.some(r => r.key === key);
+              const collectionId = key.split(":")[0];
+              const already = myCollections.some((c) => c.collectionId === collectionId);
               return (
                 <button
                   type="button"
@@ -1111,15 +1168,22 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                             </Link>
                             {u.categories && u.categories.length > 0 && (
                                 <div className="bookshelf-grid">
-                                  {u.categories.map((cat: any) => (
-                                    <Link
-                                      key={cat.id}
-                                      href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
-                                      className="book-link bookshelf-btn"
-                                    >
-                                      {cat.name}
-                                    </Link>
-                                  ))}
+                                  {renderRecommendedCategoryRoots(u.categories).map((cat) => {
+                                    if (isRecommendedFolder(cat)) {
+                                      return renderRecommendedFolder(cat, u.categories, 0);
+                                    } else {
+                                      return (
+                                        <a
+                                          key={cat.id}
+                                          href={appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems)}
+                                          className="book-link bookshelf-btn"
+                                          style={{ color: "#5fa870" }}
+                                        >
+                                          {cat.name}
+                                        </a>
+                                      );
+                                    }
+                                  })}
                                 </div>
                             )}
                           </li>
