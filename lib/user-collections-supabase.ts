@@ -12,11 +12,14 @@ export type UserCollectionRef = {
   userId: string;
   language: string;
   collectionId: string;
+  href: string | null;
   displayName: string;
   parentId: string | null;
   createdAt: string;
   fromGrid: boolean;
   isPublic: boolean;
+  problemsPerTest?: number | null;
+  shuffleProblems?: boolean | null;
   approvalStatus?: string;
 };
 
@@ -40,11 +43,13 @@ type Row = {
   created_at?: string | null;
   from_grid?: boolean | null;
   is_public?: boolean | null;
+  problems_per_test?: number | null;
+  shuffle_problems?: boolean | null;
   position?: number | null;
   approval_status?: string | null;
 };
 
-const CATEGORY_COLUMNS = "id,owner_id,language,parent_id,href,name,created_at,from_grid,is_public,position,approval_status";
+const CATEGORY_COLUMNS = "id,owner_id,language,parent_id,href,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status";
 
 function collectionHref(collectionId: string): string {
   return `/test/${encodeURIComponent(collectionId)}`;
@@ -66,11 +71,14 @@ function rowToRef(row: Row): UserCollectionRef {
     userId: row.owner_id,
     language: row.language ?? "zh-TW",
     collectionId: hrefToCollectionId(row.href),
+    href: row.href,
     displayName: row.name,
     parentId: row.parent_id ?? null,
     createdAt: row.created_at ?? new Date(0).toISOString(),
     fromGrid: row.from_grid ?? false,
     isPublic: row.is_public ?? false,
+    problemsPerTest: row.problems_per_test ?? null,
+    shuffleProblems: row.shuffle_problems ?? null,
     approvalStatus: row.approval_status ?? "approved",
   };
 }

@@ -6,10 +6,13 @@ import type { QuestionList } from "../../lib/lists-supabase";
 export type MyCollection = {
   id: string;
   collectionId: string;
+  href?: string | null;
   displayName: string;
   createdAt: string;
   fromGrid?: boolean;
   parentId?: string | null;
+  problemsPerTest?: number | null;
+  shuffleProblems?: boolean | null;
   approvalStatus?: string;
 };
 
@@ -187,6 +190,16 @@ export function PersonalListsView({
 
   const foldersUnder = (folderId: string | null) =>
     folders.filter((f) => (f.parentId ?? null) === folderId);
+
+  const appendHrefOptions = (href?: string | null, problemsPerTest?: number | null, shuffleProblems?: boolean | null): string => {
+    const base = href || "#";
+    if (base === "#") return base;
+    const extra: string[] = [];
+    if (problemsPerTest != null) extra.push(`count=${encodeURIComponent(problemsPerTest)}`);
+    if (shuffleProblems === false) extra.push("ordered=true");
+    if (extra.length === 0) return base;
+    return base + (base.includes("?") ? "&" : "?") + extra.join("&");
+  };
 
   const pickableFolders = (excludeFolderId?: string): { id: string | null; label: string }[] => {
     const exclude = new Set<string>();
@@ -367,7 +380,7 @@ export function PersonalListsView({
         {isOpen && childCollections.map((col) => (
           <div key={`my-${col.id}`} className="relative">
             <a
-              href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+              href={appendHrefOptions(col.href ?? `/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
               className="book-link bookshelf-btn sub-item"
               style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
               onContextMenu={(e) => {
@@ -485,7 +498,7 @@ export function PersonalListsView({
       {topCollections.map((col) => (
         <div key={`my-${col.id}`} className="relative">
           <a
-            href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
+            href={appendHrefOptions(col.href ?? `/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
             className="book-link bookshelf-btn"
             style={{ color: "#5fa870" }}
             onContextMenu={(e) => {
