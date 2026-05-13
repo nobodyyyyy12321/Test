@@ -70,6 +70,7 @@ export function HomeContent() {
   const [userResults, setUserResults] = useState<UserResult[]>([]);
   const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; parentId: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [externalPinnedRefs, setExternalPinnedRefs] = useState<Record<string, ExternalPinnedRef>>({});
   const [openPinnedKeys, setOpenPinnedKeys] = useState<Set<string>>(new Set());
@@ -1267,8 +1268,26 @@ export function HomeContent() {
                   })}
                 </div>
               )}
+              {/* collapse toggle */}
+              <button
+                type="button"
+                className="absolute bottom-2 right-2 opacity-40 hover:opacity-80 transition-opacity"
+                onClick={() => setCatOpen(o => !o)}
+                aria-label={catOpen ? "收合" : "展開"}
+                title={catOpen ? "收合" : "展開"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: catOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                >
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
             </div>
 
+            {catOpen && (
+              <>
             {/* Grid container — scrollable, always present */}
             <div className="max-sm:flex-1 max-sm:min-h-0 max-sm:overflow-y-auto">
               <div className="mt-2 overflow-visible max-sm:pb-24">
@@ -1472,6 +1491,8 @@ export function HomeContent() {
                   </div>
                 ))}
               </div>
+            )}
+              </>
             )}
           </div>
 
