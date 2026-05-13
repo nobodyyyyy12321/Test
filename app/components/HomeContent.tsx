@@ -59,9 +59,9 @@ type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl
 type SharePanelState =
   | { kind: "category"; categoryKey: string; categoryName: string };
 
-export function HomeContent({ initialCategories }: { initialCategories: CategoryNode[] }) {
+export function HomeContent() {
   const [language, setLanguage] = useState("zh-TW");
-  const [categories, setCategories] = useState<CategoryNode[]>(initialCategories.filter(cat => cat.approval_status === "approved") ?? []);
+  const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [loadingLang, setLoadingLang] = useState(false);
   const [query, setQuery] = useState("");
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
@@ -70,7 +70,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
   const [userResults, setUserResults] = useState<UserResult[]>([]);
   const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; parentId: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [externalPinnedRefs, setExternalPinnedRefs] = useState<Record<string, ExternalPinnedRef>>({});
   const [openPinnedKeys, setOpenPinnedKeys] = useState<Set<string>>(new Set());
@@ -708,18 +707,9 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
     setUserResults([]);
     setOwnerCatResults([]);
 
-    if (language === "zh-TW") {
-      setCategories(initialCategories);
-      return;
-    }
-
-    setLoadingLang(true);
-    fetch(`/api/nav-categories?lang=${encodeURIComponent(language)}`)
-      .then(r => r.json())
-      .then(d => setCategories(d.data ?? []))
-      .catch(() => setCategories([]))
-      .finally(() => setLoadingLang(false));
-  }, [language, initialCategories]);
+    setCategories([]);
+    setLoadingLang(false);
+  }, [language]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -1277,33 +1267,19 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   })}
                 </div>
               )}
-              {/* collapse toggle */}
-              <button
-                type="button"
-                className="absolute bottom-2 right-2 opacity-40 hover:opacity-80 transition-opacity"
-                onClick={() => setCatOpen(o => !o)}
-                aria-label={catOpen ? "收合" : "展開"}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: catOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-                >
-                  <path d="m6 9 6 6 6-6"/>
-                </svg>
-              </button>
             </div>
 
             {/* Grid container — scrollable, always present */}
             <div className="max-sm:flex-1 max-sm:min-h-0 max-sm:overflow-y-auto">
-            {catOpen && (
               <div className="mt-2 overflow-visible max-sm:pb-24">
                 {loadingLang ? (
                   <p className="text-sm zen-subtle opacity-50 py-4">載入中...</p>
                 ) : (
-                  <div className="bookshelf-grid home-bookshelf-grid">
-                    {subjects.map((subject, i) => renderCategoryNode(subject, `${language}-${i}-${subject.href || subject.name}`, 0, [subject.name]))}
-                  </div>
+                  subjects.length > 0 && (
+                    <div className="bookshelf-grid home-bookshelf-grid">
+                      {subjects.map((subject, i) => renderCategoryNode(subject, `${language}-${i}-${subject.href || subject.name}`, 0, [subject.name]))}
+                    </div>
+                  )
                 )}
 
                 {query && searchLoading && (
@@ -1471,7 +1447,7 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                   </div>
                 )}
               </div>
-            )}
+            </div>
             {/* pinned profile tabs — mobile only */}
             {loggedIn && visiblePinnedProfileTabs.length > 0 && (
               <div className="sm:hidden">
@@ -1497,7 +1473,6 @@ export function HomeContent({ initialCategories }: { initialCategories: Category
                 ))}
               </div>
             )}
-            </div>
           </div>
 
           {/* Right panel — pinned profile tabs (desktop) */}
