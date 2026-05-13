@@ -63,7 +63,7 @@ export function PersonalListsView({
   const loadFolders = async () => {
     if (!isOwner) return;
     try {
-      const res = await fetch("/api/my-categories", { cache: "no-store" });
+      const res = await fetch("/api/my-categories?allLanguages=1", { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
       setFolders(Array.isArray(data.folders) ? data.folders : []);
     } catch {

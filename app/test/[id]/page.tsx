@@ -15,6 +15,14 @@ type Props = {
   searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string; count?: string; lang?: string; language?: string; name?: string }>;
 };
 
+function inferLanguageFromCollectionId(collectionId: string): string | null {
+  if (/_en$/i.test(collectionId)) return "en";
+  if (/_zhcn$/i.test(collectionId) || /_(zh-cn|zh_cn)$/i.test(collectionId)) return "zh-CN";
+  if (/_ja$/i.test(collectionId)) return "ja";
+  if (/_ko$/i.test(collectionId)) return "ko";
+  return null;
+}
+
 function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | null): string | null {
   for (const node of nodes) {
     if (node.href) {
@@ -53,7 +61,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const decodedId = decodeURIComponent(id);
   const cookieStore = await cookies();
   const cookieLang = cookieStore.get("siteLanguage")?.value;
-  const activeLang = lang ?? language ?? cookieLang ?? "zh-TW";
+  const inferredLang = inferLanguageFromCollectionId(decodedId);
+  const activeLang = lang ?? language ?? inferredLang ?? cookieLang ?? "zh-TW";
 
   let title = await resolveTitle(decodedId, levels, activeLang);
   if (name) title = decodeURIComponent(name);
@@ -74,7 +83,8 @@ export default async function TestPage({ params, searchParams }: Props) {
   const decodedId = decodeURIComponent(id);
   const cookieStore = await cookies();
   const cookieLang = cookieStore.get("siteLanguage")?.value;
-  const activeLang = lang ?? language ?? cookieLang ?? "zh-TW";
+  const inferredLang = inferLanguageFromCollectionId(decodedId);
+  const activeLang = lang ?? language ?? inferredLang ?? cookieLang ?? "zh-TW";
 
   const [list, pageTitle] = await Promise.all([
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),

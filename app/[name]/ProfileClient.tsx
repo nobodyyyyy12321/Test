@@ -367,7 +367,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   useEffect(() => {
     if (activeTab !== "lists" || !isOwner || myCollectionsLoaded) return;
-    fetch("/api/my-collections")
+    fetch("/api/my-collections?allLanguages=1")
       .then(r => r.json())
       .then(d => {
         setMyCollections((d.collections ?? []).filter((c: { approvalStatus?: string }) => c.approvalStatus !== "pending"));

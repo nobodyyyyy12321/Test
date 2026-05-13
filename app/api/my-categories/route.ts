@@ -23,7 +23,8 @@ export async function GET(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { searchParams } = new URL(req.url);
-  const language = searchParams.get("language") ?? "zh-TW";
+  const allLanguages = ["1", "true", "yes"].includes((searchParams.get("allLanguages") ?? "").toLowerCase());
+  const language = allLanguages ? undefined : (searchParams.get("language") ?? "zh-TW");
   const folders = await getUserFolders(user.id, language);
   return NextResponse.json({ folders });
 }

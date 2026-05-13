@@ -66,7 +66,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
       if (isOwner) {
         Promise.all([
           fetch("/api/lists").then(r => r.json()).catch(() => ({})),
-          fetch("/api/my-collections").then(r => r.json()).catch(() => ({})),
+          fetch("/api/my-collections?allLanguages=1").then(r => r.json()).catch(() => ({})),
           fetch("/api/user/pins").then(r => r.json()).catch(() => ({})),
         ]).then(([l, c, p]) => {
           setLists(l.lists ?? []);
