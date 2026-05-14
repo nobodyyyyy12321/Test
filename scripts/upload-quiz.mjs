@@ -161,6 +161,7 @@ async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId, 
       number: q.number,
       level: q.level ?? null,
       group_id: null,
+      answer: typeof q.answer === "string" ? q.answer : JSON.stringify(q.answer ?? ""),
     }));
 
     const qRes = await fetch(
