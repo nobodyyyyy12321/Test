@@ -174,14 +174,14 @@ async function fetchSetQuestions(setId: string): Promise<Map<string, string>> {
   return new Map(rows.map((row) => [String(row.number), row.id]));
 }
 
-type SetQuestionRow = { id: string; number: number; level: number | null };
+type SetQuestionRow = { id: string; number: number; level: number | null; answer: string | null };
 
 async function fetchSetQuestionRows(setId: string): Promise<SetQuestionRow[]> {
   const rows: SetQuestionRow[] = [];
   let offset = 0;
   let totalFetched = 0;
   while (true) {
-    const url = `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`;
+    const url = `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level,answer&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`;
     const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
     if (!res.ok) {
       console.error(`[fetchSetQuestionRows] Query failed at offset=${offset}:`, await res.text());
@@ -245,10 +245,9 @@ async function fetchQuestionI18n(questionId: string, language: string): Promise<
   content: string;
   group_content: string | null;
   options: unknown;
-  answer: string;
 } | null> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=content,group_content,options,answer&question_id=eq.${encodeURIComponent(questionId)}&lang=eq.${encodeURIComponent(language)}&limit=1`,
+    `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=content,group_content,options&question_id=eq.${encodeURIComponent(questionId)}&lang=eq.${encodeURIComponent(language)}&limit=1`,
     { headers: READ_HEADERS, cache: "no-store" }
   );
   if (!res.ok) throw new Error(await res.text());
@@ -265,7 +264,7 @@ async function fetchSetQuestionRowsForRead(
   let offset = 0;
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`,
+      `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level,answer&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`,
       {
         headers: READ_HEADERS,
         ...(revalidate === false
@@ -287,9 +286,9 @@ async function fetchQuestionI18nMap(
   language: string,
   revalidate: number | false = 3600,
   cacheTag?: string
-): Promise<Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>> {
-  const preferred = new Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>();
-  const fallback = new Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>();
+): Promise<Map<string, { content: string; group_content: string | null; options: unknown }>> {
+  const preferred = new Map<string, { content: string; group_content: string | null; options: unknown }>();
+  const fallback = new Map<string, { content: string; group_content: string | null; options: unknown }>();
   const fetchInit = revalidate === false
     ? { headers: READ_HEADERS, cache: "no-store" as const }
     : { headers: READ_HEADERS, next: { revalidate, tags: cacheTag ? [cacheTag] : undefined } };
@@ -299,17 +298,16 @@ async function fetchQuestionI18nMap(
     const batchQuery = batch.map((id) => encodeURIComponent(id)).join(",");
 
     const preferredRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options,answer&lang=eq.${encodeURIComponent(language)}&question_id=in.(${batchQuery})`,
+      `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options&lang=eq.${encodeURIComponent(language)}&question_id=in.(${batchQuery})`,
       fetchInit
     );
     if (!preferredRes.ok) throw new Error(await preferredRes.text());
-    const preferredRows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown; answer: string }> = await preferredRes.json();
+    const preferredRows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown }> = await preferredRes.json();
     for (const row of preferredRows) {
       preferred.set(row.question_id, {
         content: row.content,
         group_content: row.group_content,
         options: row.options,
-        answer: row.answer,
       });
     }
 
@@ -317,24 +315,23 @@ async function fetchQuestionI18nMap(
       const missingIds = batch.filter((id) => !preferred.has(id));
       if (missingIds.length > 0) {
         const fallbackRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options,answer&lang=eq.zh-TW&question_id=in.(${missingIds.map((id) => encodeURIComponent(id)).join(",")})`,
+          `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options&lang=eq.zh-TW&question_id=in.(${missingIds.map((id) => encodeURIComponent(id)).join(",")})`,
           fetchInit
         );
         if (!fallbackRes.ok) throw new Error(await fallbackRes.text());
-        const fallbackRows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown; answer: string }> = await fallbackRes.json();
+        const fallbackRows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown }> = await fallbackRes.json();
         for (const row of fallbackRows) {
           fallback.set(row.question_id, {
             content: row.content,
             group_content: row.group_content,
             options: row.options,
-            answer: row.answer,
           });
         }
       }
     }
   }
 
-  const merged = new Map<string, { content: string; group_content: string | null; options: unknown; answer: string }>();
+  const merged = new Map<string, { content: string; group_content: string | null; options: unknown }>();
   for (const id of questionIds) {
     const row = preferred.get(id) ?? fallback.get(id);
     if (row) merged.set(id, row);
@@ -344,10 +341,10 @@ async function fetchQuestionI18nMap(
 
 function rowToNewSchemaQuestionRow(
   question: SetQuestionRow,
-  i18n: { content: string; group_content: string | null; options: unknown; answer: string }
+  i18n: { content: string; group_content: string | null; options: unknown }
 ): QuizQuestionRow {
   const options = denormalizeNewSchemaOptions(i18n.options);
-  const answer = denormalizeNewSchemaAnswer(i18n.answer);
+  const answer = denormalizeNewSchemaAnswer(question.answer);
   const type = inferNewSchemaType(question.number, options, answer);
   return {
     number: question.number,
@@ -447,7 +444,6 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
         group_content: question.type === "group" ? question.title : null,
         content: question.title,
         options: normalizeNewSchemaOptions(question.options ?? null),
-        answer: normalizeNewSchemaAnswer(question.answer ?? null),
         is_machine_translated: language !== "zh-TW",
         is_reviewed: false,
       };
@@ -493,23 +489,22 @@ export async function fetchPersonalQuizQuestionsFresh(
     content: string;
     group_content: string | null;
     options: unknown;
-    answer: string;
   }>();
 
   for (let i = 0; i < questionIds.length; i += 200) {
     const batch = questionIds.slice(i, i + 200);
     const encodedIds = batch.map((id) => encodeURIComponent(id)).join(",");
-    const url = `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options,answer&lang=eq.${encodeURIComponent(language)}&question_id=in.(${encodedIds})`;
-    
+    const url = `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options&lang=eq.${encodeURIComponent(language)}&question_id=in.(${encodedIds})`;
+
     console.log(`[fetchPersonalQuizQuestionsFresh] Fetching i18n batch ${Math.floor(i / 200) + 1}/${Math.ceil(questionIds.length / 200)}, language=${language}, batchSize=${batch.length}`);
-    
+
     const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
     if (!res.ok) {
       const errText = await res.text();
       console.error(`[fetchPersonalQuizQuestionsFresh] Failed to fetch i18n for language=${language}:`, errText);
       throw new Error(errText);
     }
-    const rows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown; answer: string }> = await res.json();
+    const rows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown }> = await res.json();
     console.log(`[fetchPersonalQuizQuestionsFresh] Batch ${Math.floor(i / 200) + 1} returned ${rows.length} rows`);
     for (const row of rows) i18nByQuestionId.set(row.question_id, row);
   }
@@ -528,7 +523,7 @@ export async function fetchPersonalQuizQuestionsFresh(
         return null;
       }
       const options = denormalizeNewSchemaOptions(i18n.options);
-      const answer = denormalizeNewSchemaAnswer(i18n.answer);
+      const answer = denormalizeNewSchemaAnswer(question.answer);
       return {
         number: question.number,
         title: i18n.content,
@@ -589,10 +584,6 @@ export async function updatePersonalQuizQuestion(
       updates.options !== undefined
         ? normalizeNewSchemaOptions(updates.options)
         : (existingI18n?.options ?? []),
-    answer:
-      updates.answer !== undefined
-        ? normalizeNewSchemaAnswer(updates.answer)
-        : (existingI18n?.answer ?? ""),
     is_machine_translated: language !== "zh-TW",
     is_reviewed: false,
   };
@@ -759,7 +750,6 @@ export async function updateQuizQuestion(
     content: updates.title ?? existingI18n?.content ?? "",
     group_content: updates.group_range !== undefined ? updates.group_range : (existingI18n?.group_content ?? null),
     options: updates.options !== undefined ? normalizeNewSchemaOptions(updates.options) : (existingI18n?.options ?? []),
-    answer: updates.answer !== undefined ? normalizeNewSchemaAnswer(updates.answer) : (existingI18n?.answer ?? ""),
     is_machine_translated: language !== "zh-TW",
     is_reviewed: false,
   }], "question_id,lang");
@@ -943,7 +933,6 @@ export async function upsertQuizQuestions(
       group_content: row.type === "group" ? row.title : null,
       content: row.title,
       options: normalizeNewSchemaOptions(row.options as Record<string, string> | null),
-      answer: normalizeNewSchemaAnswer(row.answer as string | string[] | null),
       is_machine_translated: language !== "zh-TW",
       is_reviewed: false,
     };

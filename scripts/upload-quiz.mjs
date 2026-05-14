@@ -180,7 +180,6 @@ async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId, 
         group_content: q.group_content ?? null,
         content: q.title ?? "",
         options: normalizeOptions(q.options),
-        answer: typeof q.answer === "string" ? q.answer : JSON.stringify(q.answer ?? ""),
         is_machine_translated: lang !== "zh-TW",
         is_reviewed: false,
       };
