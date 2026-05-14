@@ -11,7 +11,6 @@ import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
 import ShareButton from "./components/ShareButton";
-import TimerButton from "./components/TimerButton";
 import { TimerProvider } from "./providers/TimerContext";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
@@ -72,9 +71,6 @@ export default function RootLayout({
             </Link>
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <ShareButton />
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <TimerButton placement="bottom-right" />
             </div>
             <DesktopSettingsButton />
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
