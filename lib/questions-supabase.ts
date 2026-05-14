@@ -424,6 +424,7 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
       number: question.number,
       level: question.level ?? null,
       group_id: null,
+      answer: normalizeNewSchemaAnswer(question.answer ?? null),
     }));
     console.log(`[upsertPersonalQuizQuestionsNewSchema] Inserting batch ${Math.floor(i / 200) + 1}: ${batch.length} questions`);
     const insertedQuestions = await postRows(QUESTIONS_TABLE, batch, "set_id,number");
@@ -564,10 +565,13 @@ export async function updatePersonalQuizQuestion(
   const questionId = await findQuestionIdByNumber(setId, number);
   if (!questionId) throw new Error(`No question ${number} found for ${collectionId}`);
 
-  if (updates.level !== undefined) {
+  const questionPatch: Record<string, unknown> = {};
+  if (updates.level !== undefined) questionPatch.level = updates.level;
+  if (updates.answer !== undefined) questionPatch.answer = normalizeNewSchemaAnswer(updates.answer);
+  if (Object.keys(questionPatch).length > 0) {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?id=eq.${encodeURIComponent(questionId)}`,
-      { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify({ level: updates.level }) }
+      { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify(questionPatch) }
     );
     if (!res.ok) throw new Error(await res.text());
   }
@@ -736,12 +740,15 @@ export async function updateQuizQuestion(
   const questionId = await findQuestionIdByNumber(setId, number);
   if (!questionId) throw new Error(`No question ${number} found for ${collectionId}`);
 
-  if (updates.level !== undefined) {
-    const levelRes = await fetch(
+  const questionPatch: Record<string, unknown> = {};
+  if (updates.level !== undefined) questionPatch.level = updates.level;
+  if (updates.answer !== undefined) questionPatch.answer = normalizeNewSchemaAnswer(updates.answer);
+  if (Object.keys(questionPatch).length > 0) {
+    const patchRes = await fetch(
       `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?id=eq.${encodeURIComponent(questionId)}`,
-      { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify({ level: updates.level }) }
+      { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify(questionPatch) }
     );
-    if (!levelRes.ok) throw new Error(await levelRes.text());
+    if (!patchRes.ok) throw new Error(await patchRes.text());
   }
 
   const language = inferQuizLanguage(collectionId);
@@ -919,6 +926,7 @@ export async function upsertQuizQuestions(
       number: row.number,
       level: row.level ?? null,
       group_id: null,
+      answer: normalizeNewSchemaAnswer(row.answer as string | string[] | null),
     }));
     const upsertedQuestions = await postRows(QUESTIONS_TABLE, batch, "set_id,number");
     for (const row of upsertedQuestions) {
