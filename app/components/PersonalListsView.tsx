@@ -380,7 +380,7 @@ export function PersonalListsView({
         {isOpen && childCollections.map((col) => (
           <div key={`my-${col.id}`} className="relative">
             <a
-              href={appendHrefOptions(col.href ?? `/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
+              href={appendHrefOptions(`/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
               className="book-link bookshelf-btn sub-item"
               style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
               onContextMenu={(e) => {
@@ -498,7 +498,7 @@ export function PersonalListsView({
       {topCollections.map((col) => (
         <div key={`my-${col.id}`} className="relative">
           <a
-            href={appendHrefOptions(col.href ?? `/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
+            href={appendHrefOptions(`/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
             className="book-link bookshelf-btn"
             style={{ color: "#5fa870" }}
             onContextMenu={(e) => {

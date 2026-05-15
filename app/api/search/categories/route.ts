@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
 
   // Search public owner categories matching name
   const { data: cats, error } = await db
-    .from("categories")
-    .select("id, name, href, owner_id, parent_id, problems_per_test, shuffle_problems")
+    .from("qsets")
+    .select("id, name, is_folder, owner_id, parent_id, problems_per_test, shuffle_problems")
     .eq("language", language)
     .eq("is_public", true)
     .not("owner_id", "is", null)
@@ -25,22 +25,22 @@ export async function GET(request: NextRequest) {
   }
 
   // For matched folders (no href), recursively fetch all descendants
-  type RawCat = { id: string; name: string; href?: string | null; owner_id: string; parent_id?: string | null; problems_per_test?: number | null; shuffle_problems?: boolean | null };
+  type RawCat = { id: string; name: string; href?: string | null; is_folder?: boolean | null; owner_id: string; parent_id?: string | null; problems_per_test?: number | null; shuffle_problems?: boolean | null };
   const allCats: RawCat[] = [...(cats as RawCat[])];
   const seenIds = new Set(allCats.map(c => c.id));
 
-  let pendingFolderIds = allCats.filter(c => !c.href).map(c => c.id);
+  let pendingFolderIds = allCats.filter(c => c.is_folder).map(c => c.id);
   while (pendingFolderIds.length > 0) {
     const { data: childData } = await db
-      .from("categories")
-      .select("id, name, href, owner_id, parent_id, problems_per_test, shuffle_problems")
+      .from("qsets")
+      .select("id, name, is_folder, owner_id, parent_id, problems_per_test, shuffle_problems")
       .eq("language", language)
       .eq("is_public", true)
       .in("parent_id", pendingFolderIds);
     const newChildren = ((childData ?? []) as RawCat[]).filter(c => !seenIds.has(c.id));
     if (newChildren.length === 0) break;
     for (const c of newChildren) { allCats.push(c); seenIds.add(c.id); }
-    pendingFolderIds = newChildren.filter(c => !c.href).map(c => c.id);
+    pendingFolderIds = newChildren.filter(c => c.is_folder).map(c => c.id);
   }
 
   // Collect unique owner IDs
@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
   const results = allCats.map(c => ({
     id: c.id,
     name: c.name,
-    href: c.href ?? null,
+    href: null,
+    isFolder: c.is_folder ?? false,
     parentId: c.parent_id ?? null,
     ownerId: c.owner_id,
     ownerName: userMap.get(c.owner_id)?.name ?? null,

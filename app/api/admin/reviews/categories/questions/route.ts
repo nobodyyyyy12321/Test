@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "categoryId required" }, { status: 400 });
   }
 
-  const lookupUrl = `${SUPABASE_URL}/rest/v1/categories?select=id,owner_id,href,language,approval_status&id=eq.${encodeURIComponent(categoryId)}&owner_id=not.is.null&limit=1`;
+  const lookupUrl = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,href,language,approval_status&id=eq.${encodeURIComponent(categoryId)}&owner_id=not.is.null&limit=1`;
   const lookupRes = await fetch(lookupUrl, { headers: HEADERS, cache: "no-store" });
   if (!lookupRes.ok) {
     console.error("[admin questions] Failed to load category:", await lookupRes.text());

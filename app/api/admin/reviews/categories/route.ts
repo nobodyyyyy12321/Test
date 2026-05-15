@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   const status = searchParams.get("status") ?? "pending";
   const language = searchParams.get("language") ?? "zh-TW";
 
-  const url = `${SUPABASE_URL}/rest/v1/categories?select=id,owner_id,name,href,language,approval_status,created_at,updated_at&owner_id=not.is.null&approval_status=eq.${encodeURIComponent(status)}&language=eq.${encodeURIComponent(language)}&order=created_at.desc`;
+  const url = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,name,href,language,approval_status,created_at,updated_at&owner_id=not.is.null&approval_status=eq.${encodeURIComponent(status)}&language=eq.${encodeURIComponent(language)}&order=created_at.desc`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) {
     return NextResponse.json({ error: "Failed to fetch pending categories" }, { status: 500 });
@@ -96,7 +96,7 @@ export async function PATCH(request: Request) {
   }
 
   const newStatus = action === "approve" ? "approved" : "rejected";
-  const lookupUrl = `${SUPABASE_URL}/rest/v1/categories?select=id,owner_id,name,href,language&id=eq.${encodeURIComponent(categoryId)}&limit=1`;
+  const lookupUrl = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,name,href,language&id=eq.${encodeURIComponent(categoryId)}&limit=1`;
   const lookupRes = await fetch(lookupUrl, { headers: HEADERS, cache: "no-store" });
   if (!lookupRes.ok) {
     return NextResponse.json({ error: "Failed to load category for review" }, { status: 500 });
@@ -123,7 +123,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, categoryId, newStatus, deleted: true });
   }
 
-  const url = `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(categoryId)}`;
+  const url = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(categoryId)}`;
   const updateBody: Record<string, unknown> = {
     approval_status: newStatus,
     reviewed_at: new Date().toISOString(),

@@ -29,9 +29,9 @@ const WRITE_HEADERS = {
 
 const QUIZ_SETS_TABLE = "quiz_sets";
 const QUIZ_SET_I18N_TABLE = "quiz_set_i18n";
-const QUESTIONS_TABLE = "questions";
+const QUESTIONS_TABLE = "questions_old";
 const QUESTION_I18N_TABLE = "question_i18n";
-const CATEGORIES_TABLE = "categories";
+const CATEGORIES_TABLE = "qsets";
 
 export type QuizQuestionRow = {
   number: number;
@@ -463,13 +463,52 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
   return { setId, upserted: questions.length };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function fetchQuestionsFlatByCategoryId(categoryId: string): Promise<QuizQuestionRow[]> {
+  const url = `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&order=number.asc&select=number,content,q_type,options,answer,level`;
+  const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
+  if (!res.ok) throw new Error(await res.text());
+  type Row = {
+    number: number;
+    content: string;
+    q_type: string;
+    options: Record<string, string> | null;
+    answer: unknown;
+    level: number | null;
+  };
+  const rows: Row[] = await res.json();
+  return rows.map((r) => ({
+    number: Number(r.number),
+    title: r.content,
+    type: r.q_type,
+    options: r.options ?? null,
+    answer: typeof r.answer === "string"
+      ? r.answer
+      : Array.isArray(r.answer)
+        ? r.answer.map(String)
+        : r.answer == null ? null : String(r.answer),
+    level: r.level ?? null,
+    group_range: null,
+    group_content: null,
+    content: r.content,
+  }));
+}
+
 export async function fetchPersonalQuizQuestionsFresh(
   userId: string,
   collectionId: string,
   language: string
 ): Promise<QuizQuestionRow[]> {
   console.log(`[fetchPersonalQuizQuestionsFresh] Starting: userId=${userId}, collectionId=${collectionId}, language=${language}`);
-  
+
+  // UUID collectionId → new flat schema (questions.qsets_id = categories.id)
+  if (UUID_RE.test(collectionId)) {
+    const rows = await fetchQuestionsFlatByCategoryId(collectionId);
+    console.log(`[fetchPersonalQuizQuestionsFresh] flat schema returned ${rows.length} questions`);
+    return rows;
+  }
+
   const setId = await findPersonalQuizSetId(collectionId, userId);
   if (!setId) {
     console.warn(`[fetchPersonalQuizQuestionsFresh] No quiz set found for collectionId=${collectionId}, userId=${userId}`);
@@ -541,6 +580,62 @@ export async function fetchPersonalQuizQuestionsFresh(
   return result;
 }
 
+async function updateFlatQuestion(
+  categoryId: string,
+  number: number,
+  updates: {
+    title?: string;
+    type?: string;
+    options?: Record<string, string> | null;
+    answer?: string | string[] | null;
+    level?: number | null;
+  }
+): Promise<void> {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.title !== undefined) patch.content = updates.title;
+  if (updates.type !== undefined) patch.q_type = updates.type;
+  if (updates.options !== undefined) patch.options = updates.options ?? {};
+  if (updates.answer !== undefined) patch.answer = updates.answer;
+  if (updates.level !== undefined) patch.level = updates.level;
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&number=eq.${number}`,
+    { method: "PATCH", headers: WRITE_HEADERS, body: JSON.stringify(patch) }
+  );
+  if (!res.ok) throw new Error(await res.text());
+}
+
+async function deleteFlatQuestion(categoryId: string, number: number): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&number=eq.${number}`,
+    { method: "DELETE", headers: WRITE_HEADERS }
+  );
+  if (!res.ok) throw new Error(await res.text());
+}
+
+async function reorderFlatQuestions(categoryId: string, orderedNumbers: number[]): Promise<void> {
+  const tableUrl = `${SUPABASE_URL}/rest/v1/questions`;
+  // Two-pass renumbering: first push existing numbers to negative space to dodge
+  // the (qsets_id, number) unique constraint, then assign final positive numbers.
+  await Promise.all(
+    orderedNumbers.map((current, i) =>
+      fetch(`${tableUrl}?qsets_id=eq.${encodeURIComponent(categoryId)}&number=eq.${current}`, {
+        method: "PATCH",
+        headers: WRITE_HEADERS,
+        body: JSON.stringify({ number: -(i + 1) }),
+      }).then(async (r) => { if (!r.ok) throw new Error(await r.text()); })
+    )
+  );
+  await Promise.all(
+    orderedNumbers.map((_, i) =>
+      fetch(`${tableUrl}?qsets_id=eq.${encodeURIComponent(categoryId)}&number=eq.${-(i + 1)}`, {
+        method: "PATCH",
+        headers: WRITE_HEADERS,
+        body: JSON.stringify({ number: i + 1 }),
+      }).then(async (r) => { if (!r.ok) throw new Error(await r.text()); })
+    )
+  );
+}
+
 export async function updatePersonalQuizQuestion(
   userId: string,
   collectionId: string,
@@ -555,6 +650,10 @@ export async function updatePersonalQuizQuestion(
     group_content?: string | null;
   }
 ): Promise<void> {
+  if (UUID_RE.test(collectionId)) {
+    return updateFlatQuestion(collectionId, number, updates);
+  }
+
   const setId = await findPersonalQuizSetId(collectionId, userId);
   if (!setId) throw new Error(`No personal quiz set found for ${collectionId}`);
   const questionId = await findQuestionIdByNumber(setId, number);
@@ -597,6 +696,10 @@ export async function deletePersonalQuizQuestion(
   language: string,
   number: number
 ): Promise<void> {
+  if (UUID_RE.test(collectionId)) {
+    return deleteFlatQuestion(collectionId, number);
+  }
+
   const setId = await findPersonalQuizSetId(collectionId, userId);
   if (!setId) throw new Error(`No personal quiz set found for ${collectionId}`);
   const questionId = await findQuestionIdByNumber(setId, number);
@@ -628,6 +731,10 @@ export async function reorderPersonalCollectionQuestions(
   collectionId: string,
   orderedNumbers: number[]
 ): Promise<void> {
+  if (UUID_RE.test(collectionId)) {
+    return reorderFlatQuestions(collectionId, orderedNumbers);
+  }
+
   const setId = await findPersonalQuizSetId(collectionId, userId);
   if (!setId) throw new Error(`No personal quiz set found for ${collectionId}`);
 

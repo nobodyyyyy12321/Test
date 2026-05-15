@@ -28,6 +28,42 @@ create table if not exists users (
 -- alter table users add column if not exists pinned_list_ids text[] default '{}';
 -- alter table users add column if not exists pinned_profile_tabs jsonb default '[]';
 
+-- ── qsets ────────────────────────────────────────────────────────────
+create table if not exists qsets (
+  id             text primary key,
+  owner_id       text references users(id) on delete cascade,
+  position       int  not null default 0,
+  name           text not null,
+  shuffle_problems  boolean;
+  problems_per_test int,               
+  language       text,                                  -- denormalized language for easier filtering
+  --language_code  text,                                  -- only set on language-root rows
+  created_at     timestamptz default now(),
+  updated_at     timestamptz default now()
+);
+
+-- ── questions ────────────────────────────────────────────────────────────
+-- 1. 建立擴充功能（確保支援 UUID 產生）
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 2. 定義題目類型列舉 (更安全，避免輸入錯誤字串)
+CREATE TYPE qtype AS ENUM ('single', 'multiple', 'true_false', 'fill');
+
+-- 3. 建立題目表 (Questions)
+CREATE TABLE if not exists questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qsets_id text,
+    number numeric not null,
+    content TEXT NOT NULL,                -- 題目本文 (支援 Markdown/LaTeX)
+    q_type qtype NOT NULL,                -- 題目類型
+    options jsonb,                        -- 選項，例如: [{"id": "A", "text": "Mars"}, {"id": "B", "text": "Venus"}]
+    answer jsonb,                -- 正確答案，例如: {"id": "A"}
+    explanation text,                     -- 解析
+    level int,
+    created_at     timestamptz default now(),
+    updated_at     timestamptz default now()
+);
+
 -- ── quiz_records ────────────────────────────────────────────────────────────
 create table if not exists quiz_records (
   id         uuid primary key default gen_random_uuid(),
@@ -98,21 +134,6 @@ create table if not exists follows (
 
 create index if not exists follows_follower_id_idx on follows(follower_id);
 create index if not exists follows_following_id_idx on follows(following_id);
-
--- ── pcategories ─────────────────────────────────────────────────────────────
--- Tracks quiz collection tables uploaded by individual users.
-create table if not exists pcategories (
-  id            uuid primary key default gen_random_uuid(),
-  user_id       text not null references users(id) on delete cascade,
-  language      text not null default 'zh-TW',
-  quiz_id       text not null,
-  name          text not null,
-  created_at    timestamptz default now(),
-  unique(user_id, language, quiz_id)
-);
-
-create index if not exists pcategories_user_id_idx on pcategories(user_id);
-create index if not exists pcategories_user_lang_idx on pcategories(user_id, language);
 
 -- ── articles ──────────────────────────────────────────────────────────────────
 create table if not exists articles (

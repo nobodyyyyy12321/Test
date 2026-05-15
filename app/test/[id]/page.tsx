@@ -45,7 +45,27 @@ function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | nul
   return null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function fetchCategoryNameById(id: string): Promise<string | null> {
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
+  const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
+  const url = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(id)}&select=name&limit=1`;
+  const res = await fetch(url, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) return null;
+  const rows: Array<{ name: string }> = await res.json();
+  return rows[0]?.name ?? null;
+}
+
 async function resolveTitle(id: string, levels?: string | null, language?: string | null): Promise<string> {
+  if (UUID_RE.test(id)) {
+    const name = await fetchCategoryNameById(id);
+    if (name) return name;
+  }
+
   const lang = language && language.trim() ? language : "zh-TW";
   const categories = await getCategoriesCached(lang);
   const categoryName = findNameInTree(categories, id, levels);
