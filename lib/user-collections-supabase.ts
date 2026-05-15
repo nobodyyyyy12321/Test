@@ -49,17 +49,7 @@ type Row = {
   approval_status?: string | null;
 };
 
-const CATEGORY_COLUMNS = "id,owner_id,language,parent_id,href,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status";
-
-function collectionHref(collectionId: string): string {
-  return `/test/${encodeURIComponent(collectionId)}`;
-}
-
-function hrefToCollectionId(href: string | null | undefined): string {
-  if (!href) return "";
-  const match = href.match(/^\/test\/([^?]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
-}
+const CATEGORY_COLUMNS = "id,owner_id,language,parent_id,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -70,7 +60,7 @@ function rowToRef(row: Row): UserCollectionRef {
     id: row.id,
     userId: row.owner_id,
     language: row.language ?? "zh-TW",
-    collectionId: hrefToCollectionId(row.href),
+    collectionId: row.id,
     href: row.href,
     displayName: row.name,
     parentId: row.parent_id ?? null,
@@ -96,7 +86,7 @@ function rowToFolder(row: Row): UserFolderRef {
 }
 
 export async function getUserCollections(userId: string, language?: string): Promise<UserCollectionRef[]> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&href=not.is.null&order=created_at.asc`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.false&order=created_at.asc`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return [];
@@ -105,7 +95,7 @@ export async function getUserCollections(userId: string, language?: string): Pro
 }
 
 export async function getUserFolders(userId: string, language?: string): Promise<UserFolderRef[]> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&href=is.null&order=position.asc`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true&order=position.asc`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return [];
@@ -114,7 +104,7 @@ export async function getUserFolders(userId: string, language?: string): Promise
 }
 
 async function getNextSiblingPosition(userId: string, language: string, parentId: string | null): Promise<number> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&order=position.desc&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&order=position.desc&limit=1`;
   url += parentId === null
     ? `&parent_id=is.null`
     : `&parent_id=eq.${encodeURIComponent(parentId)}`;
@@ -138,13 +128,13 @@ export async function createUserFolder(
     language,
     parent_id: parentId,
     position,
-    href: null,
+    is_folder: true,
     name,
     dropdown: [],
     dropdown_align: null,
     updated_at: new Date().toISOString(),
   };
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/categories`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/qsets`, {
     method: "POST",
     headers: { ...HEADERS, Prefer: "return=representation" },
     body: JSON.stringify(body),
@@ -157,7 +147,7 @@ export async function createUserFolder(
 
 export async function renameUserFolder(userId: string, folderId: string, name: string): Promise<void> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&href=is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true`,
     { method: "PATCH", headers: HEADERS, body: JSON.stringify({ name, updated_at: new Date().toISOString() }) }
   );
   if (!res.ok) throw new Error(await res.text());
@@ -165,7 +155,7 @@ export async function renameUserFolder(userId: string, folderId: string, name: s
 
 export async function moveUserFolder(userId: string, folderId: string, parentId: string | null): Promise<void> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&href=is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true`,
     { method: "PATCH", headers: HEADERS, body: JSON.stringify({ parent_id: parentId, updated_at: new Date().toISOString() }) }
   );
   if (!res.ok) throw new Error(await res.text());
@@ -173,7 +163,7 @@ export async function moveUserFolder(userId: string, folderId: string, parentId:
 
 export async function updateFolderPublicStatus(userId: string, folderId: string, isPublic: boolean): Promise<void> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&href=is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true`,
     { method: "PATCH", headers: HEADERS, body: JSON.stringify({ is_public: isPublic, updated_at: new Date().toISOString() }) }
   );
   if (!res.ok) throw new Error(await res.text());
@@ -181,7 +171,7 @@ export async function updateFolderPublicStatus(userId: string, folderId: string,
 
 export async function moveUserCollectionToFolder(userId: string, categoryId: string, folderId: string | null): Promise<void> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(categoryId)}&owner_id=eq.${encodeURIComponent(userId)}&href=not.is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(categoryId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.false`,
     { method: "PATCH", headers: HEADERS, body: JSON.stringify({ parent_id: folderId, updated_at: new Date().toISOString() }) }
   );
   if (!res.ok) throw new Error(await res.text());
@@ -189,7 +179,7 @@ export async function moveUserCollectionToFolder(userId: string, categoryId: str
 
 export async function deleteUserFolder(userId: string, folderId: string): Promise<void> {
   const lookupRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?select=parent_id&owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(folderId)}&href=is.null&limit=1`,
+    `${SUPABASE_URL}/rest/v1/qsets?select=parent_id&owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(folderId)}&is_folder=eq.true&limit=1`,
     { headers: HEADERS, cache: "no-store" }
   );
   if (!lookupRes.ok) throw new Error(await lookupRes.text());
@@ -199,18 +189,18 @@ export async function deleteUserFolder(userId: string, folderId: string): Promis
   // Promote child folders and collections to deleted folder's parent.
   const promoteBody = JSON.stringify({ parent_id: promoteTo, updated_at: new Date().toISOString() });
   const moveFoldersRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&parent_id=eq.${encodeURIComponent(folderId)}&href=is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&parent_id=eq.${encodeURIComponent(folderId)}&is_folder=eq.true`,
     { method: "PATCH", headers: HEADERS, body: promoteBody }
   );
   if (!moveFoldersRes.ok) throw new Error(await moveFoldersRes.text());
   const moveCollectionsRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&parent_id=eq.${encodeURIComponent(folderId)}&href=not.is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&parent_id=eq.${encodeURIComponent(folderId)}&is_folder=eq.false`,
     { method: "PATCH", headers: HEADERS, body: promoteBody }
   );
   if (!moveCollectionsRes.ok) throw new Error(await moveCollectionsRes.text());
 
   const delRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(folderId)}&href=is.null`,
+    `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(folderId)}&is_folder=eq.true`,
     { method: "DELETE", headers: HEADERS }
   );
   if (!delRes.ok) throw new Error(await delRes.text());
@@ -223,8 +213,7 @@ export async function upsertUserCollection(
   fromGrid: boolean = false,
   language: string = "zh-TW"
 ): Promise<void> {
-  const href = collectionHref(collectionId);
-  const existingUrl = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&href=eq.${encodeURIComponent(href)}&limit=1`;
+  const existingUrl = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&id=eq.${encodeURIComponent(collectionId)}&limit=1`;
   const existingRes = await fetch(existingUrl, { headers: HEADERS, cache: "no-store" });
   if (!existingRes.ok) throw new Error(await existingRes.text());
   const existingRows: Row[] = await existingRes.json();
@@ -232,7 +221,7 @@ export async function upsertUserCollection(
   let position = existingRows[0]?.position ?? null;
   if (position === null) {
     const siblingRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/categories?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&href=not.is.null&order=position.desc&limit=1`,
+      `${SUPABASE_URL}/rest/v1/qsets?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&is_folder=eq.false&order=position.desc&limit=1`,
       { headers: HEADERS, cache: "no-store" }
     );
     if (!siblingRes.ok) throw new Error(await siblingRes.text());
@@ -242,7 +231,7 @@ export async function upsertUserCollection(
 
   const updatedAt = new Date().toISOString();
   if (existingRows[0]) {
-    const patchUrl = `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(existingRows[0].id)}`;
+    const patchUrl = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(existingRows[0].id)}`;
     const patchBody = {
       name: displayName,
       from_grid: fromGrid,
@@ -257,13 +246,13 @@ export async function upsertUserCollection(
     return;
   }
 
-  const insertUrl = `${SUPABASE_URL}/rest/v1/categories`;
+  const insertUrl = `${SUPABASE_URL}/rest/v1/qsets`;
   const insertBody = {
     id: newId(),
     owner_id: userId,
     parent_id: null,
     position,
-    href,
+    is_folder: false,
     name: displayName,
     language,
     dropdown: [],
@@ -290,14 +279,22 @@ export async function updateUserCollection(
   if (updates.displayName !== undefined) body.name = updates.displayName;
   if (updates.isPublic !== undefined) body.is_public = updates.isPublic;
   if (Object.keys(body).length === 1) return;
-  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { method: "PATCH", headers: HEADERS, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(await res.text());
 }
 
 export async function deleteUserCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}`;
+  // Delete any questions linked to this category first (no-op for legacy slug ids
+  // that don't have matching qsets_id rows in the flat questions table).
+  const qRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(collectionId)}`,
+    { method: "DELETE", headers: HEADERS }
+  );
+  if (!qRes.ok) throw new Error(await qRes.text());
+
+  let url = `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { method: "DELETE", headers: { ...HEADERS, Prefer: "return=representation" } });
   if (!res.ok) throw new Error(await res.text());
@@ -306,7 +303,7 @@ export async function deleteUserCollection(userId: string, collectionId: string,
 }
 
 export async function userOwnsCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}&select=id&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}&select=id&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return false;
@@ -315,7 +312,7 @@ export async function userOwnsCollection(userId: string, collectionId: string, l
 }
 
 export async function getUserCollectionDisplayName(userId: string, collectionId: string, language?: string): Promise<string | null> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}&select=name&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}&select=name&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
@@ -324,7 +321,7 @@ export async function getUserCollectionDisplayName(userId: string, collectionId:
 }
 
 export async function getUserCollectionRef(userId: string, collectionId: string, language?: string): Promise<UserCollectionRef | null> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&href=eq.${encodeURIComponent(collectionHref(collectionId))}&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
@@ -333,25 +330,16 @@ export async function getUserCollectionRef(userId: string, collectionId: string,
 }
 
 export async function getAnyCollectionDisplayName(collectionId: string, language?: string): Promise<string | null> {
-  const href = collectionHref(collectionId);
-  let url = `${SUPABASE_URL}/rest/v1/categories?href=eq.${encodeURIComponent(href)}&owner_id=not.is.null&select=name&order=created_at.asc&limit=1`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(collectionId)}&select=name&limit=1`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return null;
   const rows: Array<{ name: string }> = await res.json();
-  if (rows[0]?.name) return rows[0].name;
-
-  const fallbackRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/categories?href=eq.${encodeURIComponent(href)}&owner_id=not.is.null&select=name&order=created_at.asc&limit=1`,
-    { headers: HEADERS, cache: "no-store" }
-  );
-  if (!fallbackRes.ok) return null;
-  const fallbackRows: Array<{ name: string }> = await fallbackRes.json();
-  return fallbackRows[0]?.name ?? null;
+  return rows[0]?.name ?? null;
 }
 
 export async function countCollectionRefs(collectionId: string, language?: string): Promise<number> {
-  let url = `${SUPABASE_URL}/rest/v1/categories?href=eq.${encodeURIComponent(collectionHref(collectionId))}&owner_id=not.is.null&select=id`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(collectionId)}&owner_id=not.is.null&select=id`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: { ...HEADERS, Prefer: "count=exact" }, cache: "no-store" });
   if (!res.ok) return 0;

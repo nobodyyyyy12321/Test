@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     // Get users who own public categories in the given language
     const { data: collections, error } = await db
-      .from("categories")
+      .from("qsets")
       .select("owner_id")
       .eq("language", language)
       .eq("is_public", true)
@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch public categories for each user
     const { data: userCategories, error: catError } = await db
-      .from("categories")
-      .select("id,name,href,owner_id,is_public,parent_id,problems_per_test,shuffle_problems")
+      .from("qsets")
+      .select("id,name,owner_id,is_public,is_folder,parent_id,problems_per_test,shuffle_problems")
       .in("owner_id", topUserIds)
       .eq("language", language)
       .eq("is_public", true)
@@ -133,7 +133,8 @@ export async function GET(request: NextRequest) {
         categories: (categoriesByOwner.get(u!.id) || []).map(cat => ({
           id: cat.id,
           name: cat.name,
-          href: cat.href,
+          href: null,
+          isFolder: cat.is_folder ?? false,
           parentId: cat.parent_id,
           problemsPerTest: cat.problems_per_test,
           shuffleProblems: cat.shuffle_problems,

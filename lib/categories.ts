@@ -25,11 +25,12 @@ type CategoryRow = {
   problems_per_test: number | null;
   shuffle_problems: boolean | null;
   approval_status?: string | null;
+  is_public?: boolean | null;
 };
 
 // Try to include approval_status if it exists, fall back to without it
-const ROW_COLUMNS = "id,owner_id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,approval_status";
-const ROW_COLUMNS_FALLBACK = "id,owner_id,parent_id,position,href,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems";
+const ROW_COLUMNS = "id,owner_id,parent_id,position,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,approval_status,is_public";
+const ROW_COLUMNS_FALLBACK = "id,owner_id,parent_id,position,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,is_public";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -39,7 +40,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   const supabase = getCategoriesAdmin();
 
   const query = supabase
-    .from("categories")
+    .from("qsets")
     .select(ROW_COLUMNS)
     .eq("language", language);
   
@@ -49,7 +50,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   // If approval_status column doesn't exist, retry without it
   if (error?.code === "42703") {
     const fallbackQuery = supabase
-      .from("categories")
+      .from("qsets")
       .select(ROW_COLUMNS_FALLBACK)
       .is("owner_id", null)
       .eq("language", language);
@@ -70,7 +71,7 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   console.log("[categories] fetched rows:", data.length, "for language:", language);
 
   // Only show built-in public categories (owner_id IS NULL) that are approved or null status.
-  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null && (r.approval_status === "approved" || r.approval_status === null));
+  const rows = (data as CategoryRow[]).filter((r) => (r.owner_id === null || r.is_public === true) && (r.approval_status === "approved" || r.approval_status === null));
   const ids = new Set(rows.map(r => r.id));
 
   // Rows whose parent_id is not in our set are top-level (parent is the language root node)
@@ -122,7 +123,7 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
   const supabase = getCategoriesAdmin();
 
   const query = supabase
-    .from("categories")
+    .from("qsets")
     .select(ROW_COLUMNS)
     .eq("language", language);
   
@@ -131,7 +132,7 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
   // If approval_status column doesn't exist, retry without it
   if (error?.code === "42703") {
     const fallbackQuery = supabase
-      .from("categories")
+      .from("qsets")
       .select(ROW_COLUMNS_FALLBACK)
       .is("owner_id", null)
       .eq("language", language);
@@ -143,7 +144,7 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
   if (error || !data) return [];
 
   // Only show public categories (owner_id IS NULL) that are approved or null status
-  const rows = (data as CategoryRow[]).filter((r) => r.owner_id === null && (r.approval_status === "approved" || r.approval_status === null));
+  const rows = (data as CategoryRow[]).filter((r) => (r.owner_id === null || r.is_public === true) && (r.approval_status === "approved" || r.approval_status === null));
   const ids = new Set(rows.map(r => r.id));
 
   return rows.map(r => ({
@@ -211,7 +212,7 @@ export async function replaceCategories(language: string, incoming: CategoryNode
   const supabase = getCategoriesAdmin();
 
   // Wipe all existing rows for this language
-  const { error: delErr } = await supabase.from("categories").delete().is("owner_id", null).eq("language", language);
+  const { error: delErr } = await supabase.from("qsets").delete().is("owner_id", null).eq("language", language);
   if (delErr) throw new Error(`delete existing categories failed: ${delErr.message}`);
 
   const flat = flattenTree(incoming);
@@ -240,7 +241,7 @@ export async function replaceCategories(language: string, incoming: CategoryNode
       shuffle_problems: r.shuffle_problems,
       updated_at: new Date().toISOString(),
     }));
-    const { error: upErr } = await supabase.from("categories").insert(payload);
+    const { error: upErr } = await supabase.from("qsets").insert(payload);
     if (upErr) throw new Error(`insert subtree failed: ${upErr.message}`);
     for (const r of ready) insertedIds.add(r.id);
     remaining = remaining.filter(r => !insertedIds.has(r.id));
@@ -262,7 +263,7 @@ export async function ensureTopLevelItem(opts: {
 
   // Look for an existing top-level row with this href and language
   const { data: existing, error: findErr } = await supabase
-    .from("categories")
+    .from("qsets")
     .select("id")
     .is("owner_id", null)
     .eq("language", language)
@@ -274,7 +275,7 @@ export async function ensureTopLevelItem(opts: {
   if (existing && existing.length > 0) {
     const rowId = existing[0].id as string;
     const { error: updErr } = await supabase
-      .from("categories")
+      .from("qsets")
       .update({ name, updated_at: new Date().toISOString() })
       .eq("id", rowId);
     if (updErr) throw new Error(`update nav row failed: ${updErr.message}`);
@@ -284,7 +285,7 @@ export async function ensureTopLevelItem(opts: {
 
   // Append at the end: position = (max sibling position among top-level rows for this language) + 1
   const { data: siblings, error: sibErr } = await supabase
-    .from("categories")
+    .from("qsets")
     .select("position")
     .is("owner_id", null)
     .eq("language", language)
@@ -295,7 +296,7 @@ export async function ensureTopLevelItem(opts: {
   const nextPos = siblings && siblings.length > 0 ? (siblings[0].position as number) + 1 : 0;
 
   const rowId = newId();
-  const { error: insErr } = await supabase.from("categories").insert({
+  const { error: insErr } = await supabase.from("qsets").insert({
     id: rowId,
     owner_id: null,
     parent_id: null,
@@ -331,7 +332,7 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
   const supabase = getCategoriesAdmin();
 
   // Wipe all existing rows for this language
-  const { error: delErr } = await supabase.from("categories").delete().is("owner_id", null).eq("language", language);
+  const { error: delErr } = await supabase.from("qsets").delete().is("owner_id", null).eq("language", language);
   if (delErr) throw new Error(`delete existing categories failed: ${delErr.message}`);
 
   // Assign ids to new items, compute per-parent position from array order
@@ -393,7 +394,7 @@ export async function replaceCategoriesFlat(language: string, items: FlatCategor
       shuffle_problems: r.shuffle_problems,
       updated_at: new Date().toISOString(),
     }));
-    const { error: upErr } = await supabase.from("categories").insert(payload);
+    const { error: upErr } = await supabase.from("qsets").insert(payload);
     if (upErr) throw new Error(`insert categories failed: ${upErr.message}`);
     for (const r of ready) insertedIds.add(r.id);
     remaining = remaining.filter(r => !insertedIds.has(r.id));

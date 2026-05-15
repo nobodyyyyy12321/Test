@@ -32,7 +32,7 @@ const SUPABASE_URL = "https://wjfslomoaqsglojzybmb.supabase.co";
 const SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZnNsb21vYXFzZ2xvanp5Ym1iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTk0ODgzMCwiZXhwIjoyMDkxNTI0ODMwfQ.HwWC6j7TO343TuT8xz-YH1pQNW1YbSQ7Sv8Q3BZ5AE4";
 
-const CATEGORIES_TABLE = "categories";
+const CATEGORIES_TABLE = "qsets";
 
 const headers = {
   apikey: SERVICE_ROLE_KEY,
@@ -165,7 +165,7 @@ async function uploadNewSchema(quizId, rawQuestions, setName, lang, categoryId, 
     }));
 
     const qRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/questions?on_conflict=set_id,number`,
+      `${SUPABASE_URL}/rest/v1/questions_old?on_conflict=set_id,number`,
       { method: "POST", headers: reprHeaders, body: JSON.stringify(qRows) }
     );
     if (!qRes.ok) { console.error("✗ questions upsert failed:", await qRes.text()); continue; }

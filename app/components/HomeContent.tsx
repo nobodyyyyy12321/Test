@@ -34,6 +34,7 @@ type RecommendedCategory = {
   id: string;
   name: string;
   href?: string;
+  isFolder?: boolean;
   parentId?: string | null;
   problemsPerTest?: number | null;
   shuffleProblems?: boolean | null;
@@ -68,7 +69,7 @@ export function HomeContent() {
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
-  const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; parentId: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
+  const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; isFolder: boolean; parentId: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
@@ -114,15 +115,15 @@ export function HomeContent() {
     return "book-link bookshelf-btn sub-sub-item";
   };
 
-  // Append per-collection test options (problemsPerTest / shuffleProblems) to the href.
+  // Build /test/<id> link plus per-collection test options. Folders (no href) stay inert.
   const hrefWithOptions = (n: CategoryNode): string => {
-    const base = n.href || "#";
-    if (base === "#") return base;
+    if (!n.href || !n.id) return "#";
+    const base = `/test/${encodeURIComponent(n.id)}`;
     const extra: string[] = [];
     if (n.problemsPerTest != null) extra.push(`count=${encodeURIComponent(n.problemsPerTest)}`);
     if (n.shuffleProblems === false) extra.push(`ordered=true`);
     if (extra.length === 0) return base;
-    return base + (base.includes("?") ? "&" : "?") + extra.join("&");
+    return base + "?" + extra.join("&");
   };
 
   const appendHrefOptions = (href?: string, problemsPerTest?: number | null, shuffleProblems?: boolean | null): string => {
@@ -260,7 +261,7 @@ export function HomeContent() {
 
   const isRecommendedFolder = (cat: RecommendedCategory | undefined): boolean => {
     if (!cat) return false;
-    return !cat.href || cat.href.trim() === "";
+    return cat.isFolder === true;
   };
 
   const getRecommendedChildrenOf = (categories: UserResult["categories"] | undefined, parentId: string | null | undefined) => {
@@ -305,7 +306,7 @@ export function HomeContent() {
         </button>
         
         {isOpen && childCollections.map((childCat) => {
-          const childHref = appendHrefOptions(childCat.href, childCat.problemsPerTest, childCat.shuffleProblems);
+          const childHref = appendHrefOptions(`/test/${encodeURIComponent(childCat.id)}`, childCat.problemsPerTest, childCat.shuffleProblems);
           const pinId = childCat.href ? `href:${hrefToCategoryKey(childCat.href)}` : `rec:${ownerId}:${childCat.id}`;
           const isPinned = loggedIn && pinnedNames.includes(pinId);
           return (
@@ -1325,7 +1326,7 @@ export function HomeContent() {
                         }, new Map<string, { ownerName: string | null; ownerAvatarUrl: string | null; cats: typeof ownerCatResults }>())
                       ).map(([ownerId, { ownerName, ownerAvatarUrl, cats }]) => {
                         // Build RecommendedCategory-compatible list for reuse of folder rendering
-                        const recCats = cats.map(c => ({ id: c.id, name: c.name, href: c.href ?? undefined, parentId: c.parentId, problemsPerTest: c.problemsPerTest, shuffleProblems: c.shuffleProblems }));
+                        const recCats = cats.map(c => ({ id: c.id, name: c.name, href: c.href ?? undefined, isFolder: c.isFolder ?? false, parentId: c.parentId, problemsPerTest: c.problemsPerTest, shuffleProblems: c.shuffleProblems }));
                         const roots = recCats.filter(c => (c.parentId ?? null) === null);
                         return (
                           <li key={ownerId}>
@@ -1348,7 +1349,7 @@ export function HomeContent() {
                                 if (isRecommendedFolder(cat)) {
                                   return renderRecommendedFolder(cat, recCats, 0, ownerId);
                                 }
-                                const recommendedHref = appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems);
+                                const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
                                 const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${ownerId}:${cat.id}`;
                                 const isPinned = loggedIn && pinnedNames.includes(pinId);
                                 return (
@@ -1428,7 +1429,7 @@ export function HomeContent() {
                                     if (isRecommendedFolder(cat)) {
                                       return renderRecommendedFolder(cat, u.categories, 0, u.id);
                                     }
-                                    const recommendedHref = appendHrefOptions(cat.href, cat.problemsPerTest, cat.shuffleProblems);
+                                    const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
                                     const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${u.id}:${cat.id}`;
                                     const isPinned = loggedIn && pinnedNames.includes(pinId);
                                     return (

@@ -108,6 +108,53 @@ async function fetchCollectionQuestions(collectionId: string, levelsParam: strin
   return rows.map(rowToQuestion);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function fetchQuestionsByCategoryId(categoryId: string, levelsParam: string | null): Promise<Question[]> {
+  const url = `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&order=number.asc&select=id,number,content,q_type,options,answer,level`;
+  const res = await fetch(url, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) throw new Error(`questions fetch failed: ${await res.text()}`);
+  type Row = {
+    id: string;
+    number: number;
+    content: string;
+    q_type: "single" | "multiple" | "true_false" | "fill";
+    options: Record<string, string> | null;
+    answer: unknown;
+    level: number | null;
+  };
+  const rows: Row[] = await res.json();
+  const levelSet = levelsParam ? new Set(levelsParam.split(",").map(Number)) : null;
+  return rows
+    .filter((r) => (levelSet ? r.level != null && levelSet.has(r.level) : true))
+    .map((r) => {
+      const options = r.options
+        ? Object.entries(r.options)
+            .map(([label, text]) => ({ label, text }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+        : [];
+      const answer = typeof r.answer === "string" ? r.answer : Array.isArray(r.answer) ? r.answer.map(String) : String(r.answer ?? "");
+      const type: Question["type"] =
+        r.q_type === "multiple" ? "multiple" :
+        r.q_type === "fill" ? "fill" :
+        "single";
+      return {
+        id: String(r.id),
+        number: Number(r.number),
+        title: r.content,
+        type,
+        options,
+        answer,
+        level: r.level ?? null,
+        groupContent: null,
+        groupRange: null,
+      };
+    });
+}
+
 export async function fetchQuestions(opts: {
   id: string;
   levels?: string | null;
@@ -116,6 +163,11 @@ export async function fetchQuestions(opts: {
   viewerId?: string | null;
 }): Promise<Question[]> {
   const { id, levels: levelsParam, listId, language, viewerId } = opts;
+
+  // ── new flat schema: id is a categories UUID → query by qsets_id ───────────
+  if (UUID_RE.test(id)) {
+    return fetchQuestionsByCategoryId(id, levelsParam ?? null);
+  }
 
   // ── list mode ──────────────────────────────────────────────────────────────
   if (listId) {
