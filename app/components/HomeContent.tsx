@@ -75,7 +75,7 @@ export function HomeContent() {
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [externalPinnedRefs, setExternalPinnedRefs] = useState<Record<string, ExternalPinnedRef>>({});
-  const [openPinnedKeys, setOpenPinnedKeys] = useState<Set<string>>(new Set());
+  const [openPinnedKeyChain, setOpenPinnedKeyChain] = useState<string[]>([]);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [sharePanel, setSharePanel] = useState<SharePanelState | null>(null);
   const [shareInput, setShareInput] = useState("");
@@ -215,12 +215,13 @@ export function HomeContent() {
     });
   };
 
-  const toggleOpenPinnedKey = (key: string) => {
-    setOpenPinnedKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+  const isPinnedKeyOpen = (key: string): boolean => openPinnedKeyChain.includes(key);
+
+  const toggleOpenPinnedKey = (key: string, chain: string[] = [key]) => {
+    setOpenPinnedKeyChain(prev => {
+      const currentIndex = prev.indexOf(key);
+      if (currentIndex >= 0) return prev.slice(0, currentIndex);
+      return chain;
     });
   };
 
@@ -790,13 +791,20 @@ export function HomeContent() {
     setSharingSending(null);
   };
 
-  const renderPinnedDescendants = (node: CategoryNode, path: string[], depth: number, ancestorExpanded: boolean = false) => {
+  const renderPinnedDescendants = (
+    node: CategoryNode,
+    path: string[],
+    depth: number,
+    ancestorExpanded: boolean = false,
+    parentChain: string[] = []
+  ) => {
     const pinId = pinIdForNode(node, path);
+    const chain = [...parentChain, pinId];
     const childPinned = pinnedNames.some(p => isPinMatch(p, node, path));
     const itemClass = itemClassForDepth(depth);
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
-    const isExpanded = openPinnedKeys.has(pinId);
+    const isExpanded = isPinnedKeyOpen(pinId);
     const childColor = ancestorExpanded || isExpanded ? FOLDER_COLOR : LEAF_COLOR;
     const indentStyle = depth > 1 ? { marginLeft: `${(depth - 1) * 14}px` } : undefined;
 
@@ -808,7 +816,7 @@ export function HomeContent() {
               type="button"
               className={`${itemClass} ${isExpanded ? "active-category" : ""}`.trim()}
               style={{ color: childColor, ...indentStyle }}
-              onClick={() => toggleOpenPinnedKey(pinId)}
+              onClick={() => toggleOpenPinnedKey(pinId, chain)}
             >
               <span className="mr-1">📁</span>{node.name}
             </button>
@@ -827,12 +835,13 @@ export function HomeContent() {
               href={opt.href}
               className={itemClassForDepth(depth + 1)}
               style={{ color: FOLDER_COLOR, marginLeft: `${depth * 14}px` }}
+              onClick={() => toggleOpenPinnedKey(pinId, chain)}
             >
               {opt.name}
             </Link>
           ))}
         </div>
-          {hasSub && isExpanded && node.children?.map(child => renderPinnedDescendants(child, [...path, child.name], depth + 1, true))}
+          {hasSub && isExpanded && node.children?.map(child => renderPinnedDescendants(child, [...path, child.name], depth + 1, true, chain))}
       </div>
     );
   };
@@ -842,7 +851,8 @@ export function HomeContent() {
     categories: UserResult["categories"] | undefined,
     parentId: string,
     depth: number,
-    ancestorExpanded: boolean = false
+    ancestorExpanded: boolean = false,
+    parentChain: string[] = []
   ): (React.ReactElement | null)[] => {
     if (!categories) return [];
     const children = getRecommendedChildrenOf(categories, parentId);
@@ -857,8 +867,9 @@ export function HomeContent() {
 
       if (isFolder) {
         const folderPinId = `rec-folder:${ownerId}:${child.id}`;
+        const chain = [...parentChain, folderPinId];
         const folderPinned = loggedIn && pinnedNames.includes(folderPinId);
-        const isExpanded = openPinnedKeys.has(folderPinId);
+        const isExpanded = isPinnedKeyOpen(folderPinId);
         const color = ancestorExpanded || isExpanded ? FOLDER_COLOR : LEAF_COLOR;
 
         results.push(
@@ -867,7 +878,7 @@ export function HomeContent() {
             type="button"
             className={`${itemClass} ${isExpanded ? "active-category" : ""}`.trim()}
             style={{ color, ...indentStyle }}
-            onClick={() => toggleOpenPinnedKey(folderPinId)}
+            onClick={() => toggleOpenPinnedKey(folderPinId, chain)}
             onContextMenu={loggedIn ? e => openCtx(
               e,
               folderPinId,
@@ -882,7 +893,7 @@ export function HomeContent() {
         );
 
         if (isExpanded) {
-          const nestedResults = renderPinnedRecommendedDescendants(ownerId, categories, child.id, depth + 1, true);
+          const nestedResults = renderPinnedRecommendedDescendants(ownerId, categories, child.id, depth + 1, true, chain);
           results.push(...nestedResults);
         }
       } else {
@@ -1179,14 +1190,15 @@ export function HomeContent() {
                         const ownerCategories = external.ownerId
                           ? recommendedAccounts.find((u) => u.id === external.ownerId)?.categories
                           : undefined;
-                        const isExpanded = openPinnedKeys.has(pinValue);
+                        const chain = [pinValue];
+                        const isExpanded = isPinnedKeyOpen(pinValue);
                         return (
                           <React.Fragment key={`ext-folder-${pinValue}`}>
                             <button
                               type="button"
                               className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`.trim()}
                               style={{ color: isExpanded ? FOLDER_COLOR : LEAF_COLOR }}
-                              onClick={() => toggleOpenPinnedKey(pinValue)}
+                              onClick={() => toggleOpenPinnedKey(pinValue, chain)}
                               onContextMenu={e => openCtx(e, pinValue, external.name, "pinned")}
                             >
                               <span className="mr-1">📁</span>{external.name}
@@ -1196,7 +1208,8 @@ export function HomeContent() {
                               ownerCategories,
                               external.folderId,
                               1,
-                              true
+                              true,
+                              chain
                             )}
                           </React.Fragment>
                         );
@@ -1216,7 +1229,8 @@ export function HomeContent() {
                       );
                     }
                     const { node: subject, path, pinId } = found;
-                    const isExpanded = openPinnedKeys.has(pinId);
+                    const chain = [pinId];
+                    const isExpanded = isPinnedKeyOpen(pinId);
                     const color = isExpanded ? FOLDER_COLOR : LEAF_COLOR;
                     return (
                       <div key={pinId} className="contents">
@@ -1229,7 +1243,7 @@ export function HomeContent() {
                               type="button"
                               className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
                               style={{ color }}
-                              onClick={() => toggleOpenPinnedKey(pinId)}
+                              onClick={() => toggleOpenPinnedKey(pinId, chain)}
                             >
                               <span className="mr-1">📁</span>{subject.name}
                             </button>
@@ -1238,7 +1252,7 @@ export function HomeContent() {
                               type="button"
                               className={`book-link bookshelf-btn flex items-center gap-1 ${isExpanded ? "active-category" : ""}`}
                               style={{ color }}
-                              onClick={() => toggleOpenPinnedKey(pinId)}
+                              onClick={() => toggleOpenPinnedKey(pinId, chain)}
                             >
                               <span className="mr-1">📁</span>{subject.name}
                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
@@ -1256,7 +1270,7 @@ export function HomeContent() {
                                   href={opt.href}
                                   className="block px-4 py-3 text-left"
                                   style={{ color: FOLDER_COLOR, fontSize: "inherit" }}
-                                  onClick={() => toggleOpenPinnedKey(pinId)}
+                                  onClick={() => toggleOpenPinnedKey(pinId, chain)}
                                 >
                                   {opt.name}
                                 </Link>
@@ -1264,7 +1278,7 @@ export function HomeContent() {
                             </div>
                           )}
                         </div>
-                        {isExpanded && subject.children?.map(child => renderPinnedDescendants(child, [...path, child.name], 1, true))}
+                        {isExpanded && subject.children?.map(child => renderPinnedDescendants(child, [...path, child.name], 1, true, chain))}
                       </div>
                     );
                   })}
