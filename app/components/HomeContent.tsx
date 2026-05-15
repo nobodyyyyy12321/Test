@@ -506,6 +506,7 @@ export function HomeContent() {
             name: u.name, 
             avatarUrl: u.avatarUrl,
             categories: u.categories || [],
+            lists: u.lists || [],
           })));
         } else {
           console.log("No users in response", d);
