@@ -261,7 +261,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     } else {
       setUiLang(localLang ?? siteLang ?? "zh-TW");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner]);
 
   const setProfileLanguage = (lang: SupportedUILanguage) => {

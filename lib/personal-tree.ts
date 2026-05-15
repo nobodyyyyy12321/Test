@@ -143,7 +143,7 @@ export async function hasPersonalTreeColumn(): Promise<boolean> {
 
 export async function savePersonalTree(userId: string, tree: PersonalTree): Promise<void> {
   const db = getSupabaseAdmin();
-  let { error } = await db.from("users").update({ personal_tree: tree }).eq("id", userId);
+  const { error } = await db.from("users").update({ personal_tree: tree }).eq("id", userId);
 
   if (!error) return;
 

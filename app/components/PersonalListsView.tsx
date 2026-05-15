@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
 
@@ -67,7 +67,7 @@ export function PersonalListsView({
     setFolders(Array.isArray(data.folders) ? (data.folders as UserFolder[]) : []);
   };
 
-  const loadFolders = async () => {
+  const loadFolders = useCallback(async () => {
     if (!isOwner) return;
     try {
       const res = await fetch("/api/my-collections?foldersOnly=1", { cache: "no-store" });
@@ -94,7 +94,7 @@ export function PersonalListsView({
     } finally {
       setFoldersLoaded(true);
     }
-  };
+  }, [isOwner]);
 
   useEffect(() => {
     if (!isOwner || foldersLoaded || sessionStatus === "loading") return;
@@ -103,7 +103,7 @@ export function PersonalListsView({
       return;
     }
     void loadFolders();
-  }, [isOwner, foldersLoaded, sessionStatus]);
+  }, [isOwner, foldersLoaded, sessionStatus, loadFolders]);
 
   const addFolder = async (name: string, parentId: string | null = null) => {
     const trimmed = name.trim();

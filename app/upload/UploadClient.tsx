@@ -171,7 +171,7 @@ export default function UploadClient() {
       return null;
     }
 
-    let options: Record<string, string> = {};
+    const options: Record<string, string> = {};
     if (form.q_type !== "fill") {
       if (form.optionA.trim()) options.A = form.optionA.trim();
       if (form.optionB.trim()) options.B = form.optionB.trim();
