@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
 import { getUserCollections, deleteUserCollection, upsertUserCollection, updateUserCollection, userOwnsCollection, countCollectionRefs } from "@/lib/user-collections-supabase";
 import { deletePersonalQuizSet } from "@/lib/questions-supabase";
+import { getPersonalTree, qsetParentId } from "@/lib/personal-tree";
 
 async function getUser() {
   const session = await auth();
@@ -19,8 +20,17 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const allLanguages = ["1", "true", "yes"].includes((searchParams.get("allLanguages") ?? "").toLowerCase());
   const language = allLanguages ? undefined : (searchParams.get("language") ?? "zh-TW");
-  const collections = await getUserCollections(user.id, language);
-  return NextResponse.json({ collections });
+  const [collections, tree] = await Promise.all([
+    getUserCollections(user.id, language),
+    getPersonalTree(user.id).catch(() => null),
+  ]);
+  const withParents = tree
+    ? collections.map((c) => ({
+        ...c,
+        parentId: qsetParentId(tree, c.collectionId),
+      }))
+    : collections;
+  return NextResponse.json({ collections: withParents });
 }
 
 export async function PATCH(req: Request) {

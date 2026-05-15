@@ -72,8 +72,22 @@ const EXAMPLE = JSON.stringify(
 );
 
 type UploadResult =
-  | { ok: true; categoryId: string; inserted: number }
+  | { ok: true; categoryId: string; inserted: number; approvalStatus: string }
   | { ok: false; error: string };
+
+function UploadSuccessMessage({ categoryId, inserted }: { categoryId: string; inserted: number }) {
+  return (
+    <div className="space-y-2">
+      <p className="font-medium text-green-600 dark:text-green-400">上傳成功</p>
+      <p className="inline-flex items-center rounded-full border border-amber-400/60 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+        待審核
+      </p>
+      <p className="text-xs text-zinc-500">
+        已送出 {inserted} 題（ID：{categoryId}）。管理員核准後才會出現在首頁與個人題庫。
+      </p>
+    </div>
+  );
+}
 
 export default function UploadClient() {
   const [tab, setTab] = useState<"json" | "single">("json");
@@ -209,7 +223,12 @@ export default function UploadClient() {
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data?.error ?? `HTTP ${res.status}` };
-      return { ok: true, categoryId: data.categoryId, inserted: data.inserted };
+      return {
+        ok: true,
+        categoryId: data.categoryId,
+        inserted: data.inserted,
+        approvalStatus: data.approvalStatus ?? "pending",
+      };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
@@ -378,7 +397,7 @@ export default function UploadClient() {
                     checked={meta.isPublic}
                     onChange={(e) => setMetaField("isPublic", e.target.checked)}
                   />
-                  公開
+                  公開閱覽
                 </label>
               </div>
 
@@ -518,9 +537,10 @@ export default function UploadClient() {
                   }`}
                 >
                   {singleResult.ok ? (
-                    <p className="text-green-600 dark:text-green-400 text-xs">
-                      ✓ 已建立 category {singleResult.categoryId}，寫入 {singleResult.inserted} 題。
-                    </p>
+                    <UploadSuccessMessage
+                      categoryId={singleResult.categoryId}
+                      inserted={singleResult.inserted}
+                    />
                   ) : (
                     <p className="text-red-600 dark:text-red-400 text-xs">錯誤：{singleResult.error}</p>
                   )}
@@ -643,17 +663,10 @@ export default function UploadClient() {
               }`}
             >
               {result.ok ? (
-                <div className="space-y-2">
-                  <p className="font-medium text-green-600 dark:text-green-400">上傳成功 ✓</p>
-                  <p className="text-xs text-zinc-500">
-                    Category {result.categoryId} 已寫入 {result.inserted} 題。
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    返回{" "}
-                    <a href="/" className="underline">首頁</a>{" "}
-                    查看新題庫。
-                  </p>
-                </div>
+                <UploadSuccessMessage
+                  categoryId={result.categoryId}
+                  inserted={result.inserted}
+                />
               ) : (
                 <p className="text-red-600 dark:text-red-400">錯誤：{result.error}</p>
               )}

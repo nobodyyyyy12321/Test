@@ -96,12 +96,11 @@ export async function POST(request: Request) {
     id: categoryId,
     owner_id: user.id,
     language: payload.language,
-    parent_id: null,
     position: 0,
-    is_folder: false,
     name: payload.name,
     dropdown: [],
     dropdown_align: null,
+    approval_status: "pending",
   };
   if (typeof payload.problems_per_test === "number") categoryBody.problems_per_test = payload.problems_per_test;
   if (typeof payload.shuffle_problems === "boolean") categoryBody.shuffle_problems = payload.shuffle_problems;
@@ -134,5 +133,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     categoryId,
     inserted: questionRows.length,
+    approvalStatus: "pending",
   });
 }

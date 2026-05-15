@@ -16,17 +16,6 @@ function isAdmin(email?: string | null): boolean {
   return allowed.includes(email);
 }
 
-function parseCollectionId(href: string | null): string | null {
-  if (!href) return null;
-  try {
-    const pathname = new URL(href, "http://x").pathname;
-    const match = pathname.match(/^\/test\/([^/]+)\/?$/);
-    return match ? decodeURIComponent(match[1]) : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(request: Request) {
   const session = await auth();
   if (!isAdmin((session?.user as any)?.email)) {
@@ -39,7 +28,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "categoryId required" }, { status: 400 });
   }
 
-  const lookupUrl = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,href,language,approval_status&id=eq.${encodeURIComponent(categoryId)}&owner_id=not.is.null&limit=1`;
+  const lookupUrl = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,language,approval_status&id=eq.${encodeURIComponent(categoryId)}&owner_id=not.is.null&limit=1`;
   const lookupRes = await fetch(lookupUrl, { headers: HEADERS, cache: "no-store" });
   if (!lookupRes.ok) {
     console.error("[admin questions] Failed to load category:", await lookupRes.text());
@@ -49,7 +38,6 @@ export async function GET(request: Request) {
   const rows: Array<{
     id: string;
     owner_id: string;
-    href: string | null;
     language: string | null;
     approval_status: string | null;
   }> = await lookupRes.json();
@@ -60,12 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
 
-  const collectionId = parseCollectionId(row.href);
-  if (!collectionId) {
-    console.error(`[admin questions] Failed to parse collection id from href: href=${row.href}`);
-    return NextResponse.json({ error: "Invalid category href" }, { status: 400 });
-  }
-
+  const collectionId = row.id;
   const language = row.language ?? "zh-TW";
 
   try {

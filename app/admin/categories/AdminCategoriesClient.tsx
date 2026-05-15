@@ -18,7 +18,6 @@ type ReviewItem = {
   id: string;
   owner_id: string;
   name: string;
-  href: string | null;
   language: string;
   approval_status: string;
   created_at: string;
@@ -82,17 +81,6 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
       return JSON.parse(text);
     } catch {
       return { error: text };
-    }
-  };
-
-  const parseCollectionId = (href?: string | null): string | null => {
-    if (!href) return null;
-    try {
-      const pathname = new URL(href, "http://x").pathname;
-      const match = pathname.match(/^\/test\/([^/]+)\/?$/);
-      return match ? decodeURIComponent(match[1]) : null;
-    } catch {
-      return null;
     }
   };
 
@@ -283,7 +271,7 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
                 <div>
                   <div className="font-medium">{item.name}</div>
                   <div className="text-xs text-zinc-400 break-all">
-                    {item.href ? item.href : "(no href)"} · {item.owner_id}
+                    /test/{item.id} · {item.owner_id}
                   </div>
                 </div>
 
@@ -324,7 +312,7 @@ export default function AdminCategoriesClient({ initialEntries }: { initialEntri
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold">{viewingItem.name}</h3>
-                <p className="text-xs text-zinc-400 break-all">{viewingItem.href ?? "(no href)"}</p>
+                <p className="text-xs text-zinc-400 break-all">/test/{viewingItem.id}</p>
               </div>
               <button onClick={closeViewer} className="rounded-full border border-zinc-300 px-3 py-1 text-sm">
                 Close

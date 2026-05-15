@@ -57,16 +57,28 @@ export function PersonalListsView({
   const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
   const [movePicker, setMovePicker] = useState<{ kind: "collection" | "folder"; id: string; name: string; x: number; y: number } | null>(null);
   const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
+  const [folderError, setFolderError] = useState<string | null>(null);
 
   const visibleCollections = myCollections.filter((c) => c.approvalStatus !== "pending");
+
+  const applyFoldersResponse = (data: { folders?: unknown }) => {
+    setFolders(Array.isArray(data.folders) ? (data.folders as UserFolder[]) : []);
+  };
 
   const loadFolders = async () => {
     if (!isOwner) return;
     try {
       const res = await fetch("/api/my-categories?allLanguages=1", { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
-      setFolders(Array.isArray(data.folders) ? data.folders : []);
+      if (!res.ok) {
+        setFolderError(typeof data.error === "string" ? data.error : "無法載入資料夾");
+        setFolders([]);
+        return;
+      }
+      setFolderError(null);
+      applyFoldersResponse(data);
     } catch {
+      setFolderError("無法載入資料夾");
       setFolders([]);
     } finally {
       setFoldersLoaded(true);
@@ -86,10 +98,18 @@ export function PersonalListsView({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "addFolder", name: trimmed, parentId }),
     });
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
+      setFolderError(null);
       setNewFolderName("");
       setAddingTopFolder(false);
-      await loadFolders();
+      if (Array.isArray(data.folders)) {
+        applyFoldersResponse(data);
+      } else {
+        await loadFolders();
+      }
+    } else {
+      setFolderError(typeof data.error === "string" ? data.error : "無法建立資料夾");
     }
   };
 
@@ -443,16 +463,22 @@ export function PersonalListsView({
   const topFolders = foldersUnder(null);
   const topCollections = collectionsUnder(null);
 
-  if (lists.length === 0 && topCollections.length === 0 && topFolders.length === 0) {
-    return (
-      <p className="text-sm zen-subtle opacity-50">
-        {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
-      </p>
-    );
+  const isEmpty = lists.length === 0 && topCollections.length === 0 && topFolders.length === 0;
+
+  if (!isOwner && isEmpty) {
+    return <p className="text-sm zen-subtle opacity-50">尚無公開試卷</p>;
   }
 
   return (
     <div className="bookshelf-grid">
+      {isEmpty && isOwner && (
+        <p className="text-sm zen-subtle opacity-50 col-span-full">
+          尚無試卷，在題目頁按 + 新增，或先建立資料夾
+        </p>
+      )}
+      {folderError && (
+        <p className="text-sm text-red-600 dark:text-red-400 col-span-full">{folderError}</p>
+      )}
       {lists.map((list) => (
         <div key={list.id} className="relative">
           <a

@@ -19,16 +19,6 @@ function isAdmin(email?: string | null): boolean {
   return allowed.includes(email);
 }
 
-function parseCollectionId(href: string | null): string | null {
-  if (!href) return null;
-  try {
-    const match = new URL(href, "http://x").pathname.match(/^\/test\/([^/]+)\/?$/);
-    return match ? decodeURIComponent(match[1]) : null;
-  } catch {
-    return null;
-  }
-}
-
 async function getReviewerId(session: any): Promise<string | null> {
   const sessionUserId = (session?.user as any)?.id;
   if (typeof sessionUserId === "string" && sessionUserId.trim().length > 0) {
@@ -54,17 +44,18 @@ export async function GET(request: Request) {
   const status = searchParams.get("status") ?? "pending";
   const language = searchParams.get("language") ?? "zh-TW";
 
-  const url = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,name,href,language,approval_status,created_at,updated_at&owner_id=not.is.null&approval_status=eq.${encodeURIComponent(status)}&language=eq.${encodeURIComponent(language)}&order=created_at.desc`;
+  const url = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,name,language,approval_status,created_at,updated_at&owner_id=not.is.null&approval_status=eq.${encodeURIComponent(status)}&language=eq.${encodeURIComponent(language)}&order=created_at.desc`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) {
-    return NextResponse.json({ error: "Failed to fetch pending categories" }, { status: 500 });
+    const details = await res.text();
+    console.error("[admin reviews] Failed to fetch pending categories:", details);
+    return NextResponse.json({ error: "Failed to fetch pending categories", details }, { status: 500 });
   }
 
   const categories: Array<{
     id: string;
     owner_id: string;
     name: string;
-    href: string | null;
     language: string;
     approval_status: string;
     created_at: string;
@@ -96,12 +87,12 @@ export async function PATCH(request: Request) {
   }
 
   const newStatus = action === "approve" ? "approved" : "rejected";
-  const lookupUrl = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,name,href,language&id=eq.${encodeURIComponent(categoryId)}&limit=1`;
+  const lookupUrl = `${SUPABASE_URL}/rest/v1/qsets?select=id,owner_id,name,language&id=eq.${encodeURIComponent(categoryId)}&limit=1`;
   const lookupRes = await fetch(lookupUrl, { headers: HEADERS, cache: "no-store" });
   if (!lookupRes.ok) {
     return NextResponse.json({ error: "Failed to load category for review" }, { status: 500 });
   }
-  const rows: Array<{ id: string; owner_id: string; name: string; href: string | null; language: string }> = await lookupRes.json();
+  const rows: Array<{ id: string; owner_id: string; name: string; language: string }> = await lookupRes.json();
   const row = rows[0];
   if (!row) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
@@ -109,12 +100,8 @@ export async function PATCH(request: Request) {
 
   if (action === "reject") {
     try {
-      const collectionId = parseCollectionId(row.href);
-      if (!collectionId) {
-        return NextResponse.json({ error: "Failed to parse collection id from category href" }, { status: 400 });
-      }
-      await deleteUserCollection(row.owner_id, collectionId, row.language);
-      await deletePersonalQuizSet(row.owner_id, collectionId);
+      await deleteUserCollection(row.owner_id, row.id, row.language);
+      await deletePersonalQuizSet(row.owner_id, row.id);
     } catch (err) {
       console.error("Failed to delete rejected upload:", err);
       return NextResponse.json({ error: "Failed to delete rejected upload" }, { status: 500 });

@@ -20,8 +20,14 @@ create table if not exists users (
   pinned_collection_ids text[] default '{}',
   pinned_list_ids     text[] default '{}',
   pinned_profile_tabs jsonb default '[]',
+  personal_tree       jsonb not null default '{"folders":[],"qsets":{},"lists":{}}'::jsonb,
   created_at          timestamptz default now()
 );
+
+-- personal_tree shape:
+--   folders: [{ id, name, parentId, position, isPublic }]
+--   qsets:   { "<qset-id>": "<folder-id>" | null }  -- placement only; qset rows live in qsets table
+--   lists:   { "<list-id>": "<folder-id>" | null }  -- placement only; list rows live in lists table
 
 -- Migration for existing databases:
 -- alter table users add column if not exists pinned_collection_ids text[] default '{}';

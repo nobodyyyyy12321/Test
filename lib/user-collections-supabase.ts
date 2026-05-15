@@ -14,7 +14,6 @@ export type UserCollectionRef = {
   collectionId: string;
   href: string | null;
   displayName: string;
-  parentId: string | null;
   createdAt: string;
   fromGrid: boolean;
   isPublic: boolean;
@@ -23,21 +22,10 @@ export type UserCollectionRef = {
   approvalStatus?: string;
 };
 
-export type UserFolderRef = {
-  id: string;
-  userId: string;
-  language: string;
-  name: string;
-  parentId: string | null;
-  createdAt: string;
-  isPublic: boolean;
-};
-
 type Row = {
   id: string;
   owner_id: string;
   language?: string | null;
-  parent_id?: string | null;
   href: string | null;
   name: string;
   created_at?: string | null;
@@ -49,7 +37,7 @@ type Row = {
   approval_status?: string | null;
 };
 
-const CATEGORY_COLUMNS = "id,owner_id,language,parent_id,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status";
+const CATEGORY_COLUMNS = "id,owner_id,language,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -63,7 +51,6 @@ function rowToRef(row: Row): UserCollectionRef {
     collectionId: row.id,
     href: row.href,
     displayName: row.name,
-    parentId: row.parent_id ?? null,
     createdAt: row.created_at ?? new Date(0).toISOString(),
     fromGrid: row.from_grid ?? false,
     isPublic: row.is_public ?? false,
@@ -73,137 +60,13 @@ function rowToRef(row: Row): UserCollectionRef {
   };
 }
 
-function rowToFolder(row: Row): UserFolderRef {
-  return {
-    id: row.id,
-    userId: row.owner_id,
-    language: row.language ?? "zh-TW",
-    name: row.name,
-    parentId: row.parent_id ?? null,
-    createdAt: row.created_at ?? new Date(0).toISOString(),
-    isPublic: row.is_public ?? false,
-  };
-}
-
 export async function getUserCollections(userId: string, language?: string): Promise<UserCollectionRef[]> {
-  let url = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.false&order=created_at.asc`;
+  let url = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`;
   if (language) url += `&language=eq.${encodeURIComponent(language)}`;
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) return [];
   const rows: Row[] = await res.json();
   return rows.map(rowToRef).filter((row) => row.collectionId);
-}
-
-export async function getUserFolders(userId: string, language?: string): Promise<UserFolderRef[]> {
-  let url = `${SUPABASE_URL}/rest/v1/qsets?select=${encodeURIComponent(CATEGORY_COLUMNS)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true&order=position.asc`;
-  if (language) url += `&language=eq.${encodeURIComponent(language)}`;
-  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
-  if (!res.ok) return [];
-  const rows: Row[] = await res.json();
-  return rows.map(rowToFolder);
-}
-
-async function getNextSiblingPosition(userId: string, language: string, parentId: string | null): Promise<number> {
-  let url = `${SUPABASE_URL}/rest/v1/qsets?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&order=position.desc&limit=1`;
-  url += parentId === null
-    ? `&parent_id=is.null`
-    : `&parent_id=eq.${encodeURIComponent(parentId)}`;
-  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
-  if (!res.ok) throw new Error(await res.text());
-  const rows: Array<{ position: number | null }> = await res.json();
-  return rows[0]?.position != null ? rows[0].position + 1 : 0;
-}
-
-export async function createUserFolder(
-  userId: string,
-  language: string,
-  name: string,
-  parentId: string | null = null
-): Promise<UserFolderRef> {
-  const id = newId();
-  const position = await getNextSiblingPosition(userId, language, parentId);
-  const body = {
-    id,
-    owner_id: userId,
-    language,
-    parent_id: parentId,
-    position,
-    is_folder: true,
-    name,
-    dropdown: [],
-    dropdown_align: null,
-    updated_at: new Date().toISOString(),
-  };
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/qsets`, {
-    method: "POST",
-    headers: { ...HEADERS, Prefer: "return=representation" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  const rows: Row[] = await res.json();
-  if (!rows[0]) throw new Error("create folder failed");
-  return rowToFolder(rows[0]);
-}
-
-export async function renameUserFolder(userId: string, folderId: string, name: string): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true`,
-    { method: "PATCH", headers: HEADERS, body: JSON.stringify({ name, updated_at: new Date().toISOString() }) }
-  );
-  if (!res.ok) throw new Error(await res.text());
-}
-
-export async function moveUserFolder(userId: string, folderId: string, parentId: string | null): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true`,
-    { method: "PATCH", headers: HEADERS, body: JSON.stringify({ parent_id: parentId, updated_at: new Date().toISOString() }) }
-  );
-  if (!res.ok) throw new Error(await res.text());
-}
-
-export async function updateFolderPublicStatus(userId: string, folderId: string, isPublic: boolean): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(folderId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.true`,
-    { method: "PATCH", headers: HEADERS, body: JSON.stringify({ is_public: isPublic, updated_at: new Date().toISOString() }) }
-  );
-  if (!res.ok) throw new Error(await res.text());
-}
-
-export async function moveUserCollectionToFolder(userId: string, categoryId: string, folderId: string | null): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(categoryId)}&owner_id=eq.${encodeURIComponent(userId)}&is_folder=eq.false`,
-    { method: "PATCH", headers: HEADERS, body: JSON.stringify({ parent_id: folderId, updated_at: new Date().toISOString() }) }
-  );
-  if (!res.ok) throw new Error(await res.text());
-}
-
-export async function deleteUserFolder(userId: string, folderId: string): Promise<void> {
-  const lookupRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?select=parent_id&owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(folderId)}&is_folder=eq.true&limit=1`,
-    { headers: HEADERS, cache: "no-store" }
-  );
-  if (!lookupRes.ok) throw new Error(await lookupRes.text());
-  const rows: Array<{ parent_id: string | null }> = await lookupRes.json();
-  const promoteTo = rows[0]?.parent_id ?? null;
-
-  // Promote child folders and collections to deleted folder's parent.
-  const promoteBody = JSON.stringify({ parent_id: promoteTo, updated_at: new Date().toISOString() });
-  const moveFoldersRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&parent_id=eq.${encodeURIComponent(folderId)}&is_folder=eq.true`,
-    { method: "PATCH", headers: HEADERS, body: promoteBody }
-  );
-  if (!moveFoldersRes.ok) throw new Error(await moveFoldersRes.text());
-  const moveCollectionsRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&parent_id=eq.${encodeURIComponent(folderId)}&is_folder=eq.false`,
-    { method: "PATCH", headers: HEADERS, body: promoteBody }
-  );
-  if (!moveCollectionsRes.ok) throw new Error(await moveCollectionsRes.text());
-
-  const delRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/qsets?owner_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(folderId)}&is_folder=eq.true`,
-    { method: "DELETE", headers: HEADERS }
-  );
-  if (!delRes.ok) throw new Error(await delRes.text());
 }
 
 export async function upsertUserCollection(
@@ -221,7 +84,7 @@ export async function upsertUserCollection(
   let position = existingRows[0]?.position ?? null;
   if (position === null) {
     const siblingRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/qsets?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&is_folder=eq.false&order=position.desc&limit=1`,
+      `${SUPABASE_URL}/rest/v1/qsets?select=position&owner_id=eq.${encodeURIComponent(userId)}&language=eq.${encodeURIComponent(language)}&order=position.desc&limit=1`,
       { headers: HEADERS, cache: "no-store" }
     );
     if (!siblingRes.ok) throw new Error(await siblingRes.text());
@@ -250,9 +113,7 @@ export async function upsertUserCollection(
   const insertBody = {
     id: newId(),
     owner_id: userId,
-    parent_id: null,
     position,
-    is_folder: false,
     name: displayName,
     language,
     dropdown: [],
@@ -286,7 +147,7 @@ export async function updateUserCollection(
 }
 
 export async function deleteUserCollection(userId: string, collectionId: string, language?: string): Promise<boolean> {
-  // Delete any questions linked to this category first (no-op for legacy slug ids
+  // Delete any questions linked to this collection first (no-op for legacy slug ids
   // that don't have matching qsets_id rows in the flat questions table).
   const qRes = await fetch(
     `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(collectionId)}`,
