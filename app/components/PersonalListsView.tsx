@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
 
 export type MyCollection = {
@@ -41,6 +42,7 @@ export function PersonalListsView({
   lists,
   myCollections,
 }: Props) {
+  const { status: sessionStatus } = useSession();
   const [folders, setFolders] = useState<UserFolder[]>([]);
   const [foldersLoaded, setFoldersLoaded] = useState(false);
   const [addingTopFolder, setAddingTopFolder] = useState(false);
@@ -57,44 +59,77 @@ export function PersonalListsView({
   const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
   const [movePicker, setMovePicker] = useState<{ kind: "collection" | "folder"; id: string; name: string; x: number; y: number } | null>(null);
   const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
+  const [folderError, setFolderError] = useState<string | null>(null);
 
   const visibleCollections = myCollections.filter((c) => c.approvalStatus !== "pending");
 
-  const loadFolders = async () => {
+  const applyFoldersResponse = (data: { folders?: unknown }) => {
+    setFolders(Array.isArray(data.folders) ? (data.folders as UserFolder[]) : []);
+  };
+
+  const loadFolders = useCallback(async () => {
     if (!isOwner) return;
     try {
-      const res = await fetch("/api/my-categories?allLanguages=1", { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      setFolders(Array.isArray(data.folders) ? data.folders : []);
-    } catch {
+      const res = await fetch("/api/my-collections?foldersOnly=1", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as {
+        folders?: unknown;
+        error?: string;
+        warning?: string;
+        storageReady?: boolean;
+      };
+      if (!res.ok) {
+        setFolderError(data.error ?? `無法載入資料夾 (${res.status})`);
+        setFolders([]);
+        return;
+      }
+      if (data.storageReady === false && data.warning) {
+        setFolderError(data.warning);
+      } else {
+        setFolderError(null);
+      }
+      applyFoldersResponse(data);
+    } catch (e) {
+      setFolderError(e instanceof Error ? e.message : "無法載入資料夾");
       setFolders([]);
     } finally {
       setFoldersLoaded(true);
     }
-  };
+  }, [isOwner]);
 
   useEffect(() => {
-    if (!isOwner || foldersLoaded) return;
+    if (!isOwner || foldersLoaded || sessionStatus === "loading") return;
+    if (sessionStatus === "unauthenticated") {
+      setFoldersLoaded(true);
+      return;
+    }
     void loadFolders();
-  }, [isOwner, foldersLoaded]);
+  }, [isOwner, foldersLoaded, sessionStatus, loadFolders]);
 
   const addFolder = async (name: string, parentId: string | null = null) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "addFolder", name: trimmed, parentId }),
     });
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
+      setFolderError(null);
       setNewFolderName("");
       setAddingTopFolder(false);
-      await loadFolders();
+      if (Array.isArray(data.folders)) {
+        applyFoldersResponse(data);
+      } else {
+        await loadFolders();
+      }
+    } else {
+      setFolderError(typeof data.error === "string" ? data.error : "無法建立資料夾");
     }
   };
 
   const deleteFolder = async (folderId: string) => {
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "deleteFolder", folderId }),
@@ -105,7 +140,7 @@ export function PersonalListsView({
   };
 
   const moveCollection = async (categoryId: string, folderId: string | null) => {
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "moveCollection", categoryId, folderId }),
@@ -121,7 +156,7 @@ export function PersonalListsView({
     
     // Update name if changed
     if (trimmed !== (folders.find(f => f.id === folderId)?.name ?? "")) {
-      const res = await fetch("/api/my-categories", {
+      const res = await fetch("/api/my-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "renameFolder", folderId, name: trimmed }),
@@ -132,7 +167,7 @@ export function PersonalListsView({
     // Update public status if changed
     const folder = folders.find(f => f.id === folderId);
     if (folder && isPublic !== folder.isPublic) {
-      const res = await fetch("/api/my-categories", {
+      const res = await fetch("/api/my-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "updateFolderPublic", folderId, isPublic }),
@@ -145,7 +180,7 @@ export function PersonalListsView({
   };
 
   const moveFolder = async (folderId: string, parentId: string | null) => {
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "moveFolder", folderId, parentId }),
@@ -443,16 +478,22 @@ export function PersonalListsView({
   const topFolders = foldersUnder(null);
   const topCollections = collectionsUnder(null);
 
-  if (lists.length === 0 && topCollections.length === 0 && topFolders.length === 0) {
-    return (
-      <p className="text-sm zen-subtle opacity-50">
-        {isOwner ? "尚無試卷，在題目頁按 + 新增" : "尚無公開試卷"}
-      </p>
-    );
+  const isEmpty = lists.length === 0 && topCollections.length === 0 && topFolders.length === 0;
+
+  if (!isOwner && isEmpty) {
+    return <p className="text-sm zen-subtle opacity-50">尚無公開試卷</p>;
   }
 
   return (
     <div className="bookshelf-grid">
+      {isEmpty && isOwner && (
+        <p className="text-sm zen-subtle opacity-50 col-span-full">
+          尚無試卷，在題目頁按 + 新增，或先建立資料夾
+        </p>
+      )}
+      {folderError && (
+        <p className="text-sm text-red-600 dark:text-red-400 col-span-full">{folderError}</p>
+      )}
       {lists.map((list) => (
         <div key={list.id} className="relative">
           <a

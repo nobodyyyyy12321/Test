@@ -25,6 +25,9 @@ type IncomingQuestion = {
 type Payload = {
   language: string;
   name: string;
+  problems_per_test?: number | null;
+  shuffle_problems?: boolean | null;
+  is_public?: boolean | null;
   questions: IncomingQuestion[];
 };
 
@@ -89,17 +92,19 @@ export async function POST(request: Request) {
   }
 
   const categoryId = newId();
-  const categoryBody = {
+  const categoryBody: Record<string, unknown> = {
     id: categoryId,
     owner_id: user.id,
     language: payload.language,
-    parent_id: null,
     position: 0,
-    is_folder: false,
     name: payload.name,
     dropdown: [],
     dropdown_align: null,
+    approval_status: "pending",
   };
+  if (typeof payload.problems_per_test === "number") categoryBody.problems_per_test = payload.problems_per_test;
+  if (typeof payload.shuffle_problems === "boolean") categoryBody.shuffle_problems = payload.shuffle_problems;
+  if (typeof payload.is_public === "boolean") categoryBody.is_public = payload.is_public;
 
   const catRes = await fetch(`${SUPABASE_URL}/rest/v1/qsets`, {
     method: "POST",
@@ -128,5 +133,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     categoryId,
     inserted: questionRows.length,
+    approvalStatus: "pending",
   });
 }

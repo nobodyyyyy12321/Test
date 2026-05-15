@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import MyUploadClient from "./MyUploadClient";
+import UploadClient from "./UploadClient";
 
-export default async function MyUploadPage() {
+export default async function UploadPage() {
   const session = await auth();
   if (!session?.user) redirect("/auth/login");
-  return <MyUploadClient />;
+  return <UploadClient />;
 }

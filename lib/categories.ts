@@ -15,7 +15,6 @@ type DropdownItemRow = { id?: string; name: string; href: string };
 type CategoryRow = {
   id: string;
   owner_id: string | null;
-  parent_id: string | null;
   position: number;
   href: string | null;
   name: string;
@@ -29,8 +28,8 @@ type CategoryRow = {
 };
 
 // Try to include approval_status if it exists, fall back to without it
-const ROW_COLUMNS = "id,owner_id,parent_id,position,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,approval_status,is_public";
-const ROW_COLUMNS_FALLBACK = "id,owner_id,parent_id,position,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,is_public";
+const ROW_COLUMNS = "id,owner_id,position,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,approval_status,is_public";
+const ROW_COLUMNS_FALLBACK = "id,owner_id,position,name,language,dropdown,dropdown_align,problems_per_test,shuffle_problems,is_public";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -70,18 +69,8 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
   }
   console.log("[categories] fetched rows:", data.length, "for language:", language);
 
-  // Only show built-in public categories (owner_id IS NULL) that are approved or null status.
+  // Public categories (built-in or shared) that are approved or null status.
   const rows = (data as CategoryRow[]).filter((r) => (r.owner_id === null || r.is_public === true) && (r.approval_status === "approved" || r.approval_status === null));
-  const ids = new Set(rows.map(r => r.id));
-
-  // Rows whose parent_id is not in our set are top-level (parent is the language root node)
-  const childrenOf = new Map<string | null, CategoryRow[]>();
-  for (const row of rows) {
-    const parentKey = row.parent_id !== null && ids.has(row.parent_id) ? row.parent_id : null;
-    const bucket = childrenOf.get(parentKey) ?? [];
-    bucket.push(row);
-    childrenOf.set(parentKey, bucket);
-  }
 
   const buildNode = (row: CategoryRow): CategoryNode => {
     const node: CategoryNode = { id: row.id, name: row.name };
@@ -92,12 +81,10 @@ async function _fetchCategories(language: string): Promise<CategoryNode[]> {
     }
     if (row.problems_per_test !== null && row.problems_per_test !== undefined) node.problemsPerTest = row.problems_per_test;
     if (row.shuffle_problems !== null && row.shuffle_problems !== undefined) node.shuffleProblems = row.shuffle_problems;
-    const kids = childrenOf.get(row.id);
-    if (kids?.length) node.children = kids.map(buildNode);
     return node;
   };
 
-  return (childrenOf.get(null) ?? []).map(buildNode);
+  return rows.map(buildNode);
 }
 
 export const getCategoriesCached = unstable_cache(
@@ -143,14 +130,12 @@ async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {
 
   if (error || !data) return [];
 
-  // Only show public categories (owner_id IS NULL) that are approved or null status
+  // Public categories (built-in or shared) that are approved or null status.
   const rows = (data as CategoryRow[]).filter((r) => (r.owner_id === null || r.is_public === true) && (r.approval_status === "approved" || r.approval_status === null));
-  const ids = new Set(rows.map(r => r.id));
 
   return rows.map(r => ({
     id: r.id,
-    // parent_id outside our set means the parent is the language root → treat as top-level
-    parentId: r.parent_id !== null && ids.has(r.parent_id) ? r.parent_id : null,
+    parentId: null,
     name: r.name,
     href: r.href,
     dropdown: Array.isArray(r.dropdown) && r.dropdown.length > 0
@@ -170,7 +155,6 @@ export const getCategoriesFlatCached = unstable_cache(
 
 type FlatNode = {
   id: string;
-  parent_id: string | null;
   position: number;
   href: string | null;
   name: string;
@@ -180,15 +164,15 @@ type FlatNode = {
   shuffle_problems: boolean | null;
 };
 
+// Tree input gets hoisted to a flat list (subtree members are appended after parents).
 function flattenTree(tree: CategoryNode[]): FlatNode[] {
   const out: FlatNode[] = [];
-  const walk = (nodes: CategoryNode[], parentId: string | null) => {
-    nodes.forEach((node, idx) => {
-      const id = node.id ?? newId();
+  let position = 0;
+  const walk = (nodes: CategoryNode[]) => {
+    for (const node of nodes) {
       out.push({
-        id,
-        parent_id: parentId,
-        position: idx,
+        id: node.id ?? newId(),
+        position: position++,
         href: node.href ?? null,
         name: node.name,
         dropdown: (node.dropdown ?? []).map(d => ({
@@ -200,10 +184,10 @@ function flattenTree(tree: CategoryNode[]): FlatNode[] {
         problems_per_test: node.problemsPerTest ?? null,
         shuffle_problems: node.shuffleProblems ?? null,
       });
-      if (node.children?.length) walk(node.children, id);
-    });
+      if (node.children?.length) walk(node.children);
+    }
   };
-  walk(tree, null);
+  walk(tree);
   return out;
 }
 
@@ -221,31 +205,21 @@ export async function replaceCategories(language: string, incoming: CategoryNode
     return;
   }
 
-  // Insert parents-before-children (null parent = top-level, always ready first)
-  const insertedIds = new Set<string>();
-  let remaining = flat.slice();
-  while (remaining.length > 0) {
-    const ready = remaining.filter(r => r.parent_id === null || insertedIds.has(r.parent_id));
-    if (ready.length === 0) throw new Error("circular or orphaned categories detected during upsert");
-    const payload = ready.map(r => ({
-      id: r.id,
-      owner_id: null,
-      parent_id: r.parent_id,
-      position: r.position,
-      href: r.href,
-      name: r.name,
-      language,
-      dropdown: r.dropdown,
-      dropdown_align: r.dropdown_align,
-      problems_per_test: r.problems_per_test,
-      shuffle_problems: r.shuffle_problems,
-      updated_at: new Date().toISOString(),
-    }));
-    const { error: upErr } = await supabase.from("qsets").insert(payload);
-    if (upErr) throw new Error(`insert subtree failed: ${upErr.message}`);
-    for (const r of ready) insertedIds.add(r.id);
-    remaining = remaining.filter(r => !insertedIds.has(r.id));
-  }
+  const payload = flat.map(r => ({
+    id: r.id,
+    owner_id: null,
+    position: r.position,
+    href: r.href,
+    name: r.name,
+    language,
+    dropdown: r.dropdown,
+    dropdown_align: r.dropdown_align,
+    problems_per_test: r.problems_per_test,
+    shuffle_problems: r.shuffle_problems,
+    updated_at: new Date().toISOString(),
+  }));
+  const { error: upErr } = await supabase.from("qsets").insert(payload);
+  if (upErr) throw new Error(`insert categories failed: ${upErr.message}`);
 
   revalidateTag("categories");
 }
@@ -261,14 +235,13 @@ export async function ensureTopLevelItem(opts: {
   const { language, name, href } = opts;
   const supabase = getCategoriesAdmin();
 
-  // Look for an existing top-level row with this href and language
+  // Look for an existing row with this href and language
   const { data: existing, error: findErr } = await supabase
     .from("qsets")
     .select("id")
     .is("owner_id", null)
     .eq("language", language)
     .eq("href", href)
-    .is("parent_id", null)
     .limit(1);
   if (findErr) throw new Error(`lookup existing nav row failed: ${findErr.message}`);
 
@@ -283,13 +256,12 @@ export async function ensureTopLevelItem(opts: {
     return { rowId, created: false };
   }
 
-  // Append at the end: position = (max sibling position among top-level rows for this language) + 1
+  // Append at the end: position = (max position for this language) + 1
   const { data: siblings, error: sibErr } = await supabase
     .from("qsets")
     .select("position")
     .is("owner_id", null)
     .eq("language", language)
-    .is("parent_id", null)
     .order("position", { ascending: false })
     .limit(1);
   if (sibErr) throw new Error(`lookup sibling positions failed: ${sibErr.message}`);
@@ -299,7 +271,6 @@ export async function ensureTopLevelItem(opts: {
   const { error: insErr } = await supabase.from("qsets").insert({
     id: rowId,
     owner_id: null,
-    parent_id: null,
     position: nextPos,
     href,
     name,
