@@ -116,32 +116,47 @@ export function listParentId(tree: PersonalTree, listId: string): string | null 
 
 export async function getPersonalTree(userId: string): Promise<PersonalTree> {
   const db = getSupabaseAdmin();
-  let { data, error } = await db.from("users").select("personal_tree,folders").eq("id", userId).maybeSingle();
 
-  if (error && isMissingPersonalTreeColumn(error)) {
-    ({ data, error } = await db.from("users").select("folders").eq("id", userId).maybeSingle());
+  const { data, error } = await db.from("users").select("personal_tree").eq("id", userId).maybeSingle();
+  if (!error) return parsePersonalTree(data?.personal_tree);
+
+  if (isMissingColumn(error, "personal_tree")) {
+    const legacy = await db.from("users").select("folders").eq("id", userId).maybeSingle();
+    if (!legacy.error) {
+      return parsePersonalTree({ folders: legacy.data?.folders, qsets: {}, lists: {} });
+    }
+    if (isMissingColumn(legacy.error, "folders")) {
+      return { ...EMPTY_PERSONAL_TREE };
+    }
+    if (legacy.error) throw new Error(legacy.error.message);
   }
-  if (error) throw new Error(error.message);
 
-  if (data?.personal_tree != null) return parsePersonalTree(data.personal_tree);
-  if (data?.folders != null) return parsePersonalTree({ folders: data.folders, qsets: {}, lists: {} });
-  return { ...EMPTY_PERSONAL_TREE };
+  throw new Error(error.message);
+}
+
+/** Whether users.personal_tree exists (folders-only legacy counts as not ready for qset placement). */
+export async function hasPersonalTreeColumn(): Promise<boolean> {
+  const db = getSupabaseAdmin();
+  const { error } = await db.from("users").select("personal_tree").limit(1);
+  return !error;
 }
 
 export async function savePersonalTree(userId: string, tree: PersonalTree): Promise<void> {
   const db = getSupabaseAdmin();
   let { error } = await db.from("users").update({ personal_tree: tree }).eq("id", userId);
 
-  if (error && isMissingPersonalTreeColumn(error)) {
-    ({ error } = await db.from("users").update({ folders: tree.folders }).eq("id", userId));
+  if (!error) return;
+
+  if (isMissingColumn(error, "personal_tree")) {
+    const legacy = await db.from("users").update({ folders: tree.folders }).eq("id", userId);
+    if (!legacy.error) return;
+    if (isMissingColumn(legacy.error, "folders")) {
+      throw new Error("請在 Supabase SQL 編輯器執行 scripts/add-personal-tree-to-users.sql");
+    }
+    if (legacy.error) throw new Error(legacy.error.message);
   }
-  if (error) {
-    throw new Error(
-      isMissingPersonalTreeColumn(error)
-        ? "personal_tree column missing — run scripts/add-personal-tree-to-users.sql in Supabase"
-        : error.message
-    );
-  }
+
+  throw new Error(error.message);
 }
 
 function folderIdsUnder(tree: PersonalTree, folderId: string): Set<string> {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
 
 export type MyCollection = {
@@ -41,6 +42,7 @@ export function PersonalListsView({
   lists,
   myCollections,
 }: Props) {
+  const { status: sessionStatus } = useSession();
   const [folders, setFolders] = useState<UserFolder[]>([]);
   const [foldersLoaded, setFoldersLoaded] = useState(false);
   const [addingTopFolder, setAddingTopFolder] = useState(false);
@@ -68,17 +70,26 @@ export function PersonalListsView({
   const loadFolders = async () => {
     if (!isOwner) return;
     try {
-      const res = await fetch("/api/my-categories?allLanguages=1", { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
+      const res = await fetch("/api/my-collections?foldersOnly=1", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as {
+        folders?: unknown;
+        error?: string;
+        warning?: string;
+        storageReady?: boolean;
+      };
       if (!res.ok) {
-        setFolderError(typeof data.error === "string" ? data.error : "無法載入資料夾");
+        setFolderError(data.error ?? `無法載入資料夾 (${res.status})`);
         setFolders([]);
         return;
       }
-      setFolderError(null);
+      if (data.storageReady === false && data.warning) {
+        setFolderError(data.warning);
+      } else {
+        setFolderError(null);
+      }
       applyFoldersResponse(data);
-    } catch {
-      setFolderError("無法載入資料夾");
+    } catch (e) {
+      setFolderError(e instanceof Error ? e.message : "無法載入資料夾");
       setFolders([]);
     } finally {
       setFoldersLoaded(true);
@@ -86,14 +97,18 @@ export function PersonalListsView({
   };
 
   useEffect(() => {
-    if (!isOwner || foldersLoaded) return;
+    if (!isOwner || foldersLoaded || sessionStatus === "loading") return;
+    if (sessionStatus === "unauthenticated") {
+      setFoldersLoaded(true);
+      return;
+    }
     void loadFolders();
-  }, [isOwner, foldersLoaded]);
+  }, [isOwner, foldersLoaded, sessionStatus]);
 
   const addFolder = async (name: string, parentId: string | null = null) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "addFolder", name: trimmed, parentId }),
@@ -114,7 +129,7 @@ export function PersonalListsView({
   };
 
   const deleteFolder = async (folderId: string) => {
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "deleteFolder", folderId }),
@@ -125,7 +140,7 @@ export function PersonalListsView({
   };
 
   const moveCollection = async (categoryId: string, folderId: string | null) => {
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "moveCollection", categoryId, folderId }),
@@ -141,7 +156,7 @@ export function PersonalListsView({
     
     // Update name if changed
     if (trimmed !== (folders.find(f => f.id === folderId)?.name ?? "")) {
-      const res = await fetch("/api/my-categories", {
+      const res = await fetch("/api/my-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "renameFolder", folderId, name: trimmed }),
@@ -152,7 +167,7 @@ export function PersonalListsView({
     // Update public status if changed
     const folder = folders.find(f => f.id === folderId);
     if (folder && isPublic !== folder.isPublic) {
-      const res = await fetch("/api/my-categories", {
+      const res = await fetch("/api/my-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "updateFolderPublic", folderId, isPublic }),
@@ -165,7 +180,7 @@ export function PersonalListsView({
   };
 
   const moveFolder = async (folderId: string, parentId: string | null) => {
-    const res = await fetch("/api/my-categories", {
+    const res = await fetch("/api/my-collections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "moveFolder", folderId, parentId }),
