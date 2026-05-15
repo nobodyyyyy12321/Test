@@ -21,6 +21,7 @@ type UserResult = {
     id: string;
     name: string;
     href?: string;
+    isFolder?: boolean;
     parentId?: string | null;
     problemsPerTest?: number | null;
     shuffleProblems?: boolean | null;

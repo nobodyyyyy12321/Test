@@ -114,6 +114,77 @@ export function listParentId(tree: PersonalTree, listId: string): string | null 
   return tree.lists[listId] ?? null;
 }
 
+export type PublicRecommendedCategory = {
+  id: string;
+  name: string;
+  href: string | null;
+  isFolder: boolean;
+  parentId: string | null;
+  problemsPerTest: number | null;
+  shuffleProblems: boolean | null;
+};
+
+/** Folder is public and every ancestor folder is also public. */
+export function isPublicFolderVisible(tree: PersonalTree, folderId: string): boolean {
+  const f = tree.folders.find((x) => x.id === folderId);
+  if (!f?.isPublic) return false;
+  if (f.parentId) return isPublicFolderVisible(tree, f.parentId);
+  return true;
+}
+
+/** Map a folder id to the nearest visible public folder id (skips private folders). */
+export function publicFolderDisplayParentId(tree: PersonalTree, folderId: string | null): string | null {
+  if (!folderId) return null;
+  const f = tree.folders.find((x) => x.id === folderId);
+  if (!f) return null;
+  if (isPublicFolderVisible(tree, f.id)) return f.id;
+  return publicFolderDisplayParentId(tree, f.parentId);
+}
+
+export function countPublicFolders(tree: PersonalTree): number {
+  return tree.folders.filter((f) => isPublicFolderVisible(tree, f.id)).length;
+}
+
+/** Flat list for recommended/search UIs: public folders + public qsets with tree placement. */
+export function buildPublicRecommendedCategories(
+  tree: PersonalTree,
+  publicQsets: Array<{
+    id: string;
+    name: string;
+    problems_per_test?: number | null;
+    shuffle_problems?: boolean | null;
+  }>
+): PublicRecommendedCategory[] {
+  const out: PublicRecommendedCategory[] = [];
+
+  for (const f of tree.folders) {
+    if (!isPublicFolderVisible(tree, f.id)) continue;
+    out.push({
+      id: f.id,
+      name: f.name,
+      href: null,
+      isFolder: true,
+      parentId: publicFolderDisplayParentId(tree, f.parentId),
+      problemsPerTest: null,
+      shuffleProblems: null,
+    });
+  }
+
+  for (const q of publicQsets) {
+    out.push({
+      id: q.id,
+      name: q.name,
+      href: null,
+      isFolder: false,
+      parentId: publicFolderDisplayParentId(tree, qsetParentId(tree, q.id)),
+      problemsPerTest: q.problems_per_test ?? null,
+      shuffleProblems: q.shuffle_problems ?? null,
+    });
+  }
+
+  return out;
+}
+
 export async function getPersonalTree(userId: string): Promise<PersonalTree> {
   const db = getSupabaseAdmin();
 

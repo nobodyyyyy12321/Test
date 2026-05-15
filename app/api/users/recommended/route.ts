@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import {
+  buildPublicRecommendedCategories,
+  countPublicFolders,
+  parsePersonalTree,
+} from "../../../../lib/personal-tree";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -9,7 +14,6 @@ export async function GET(request: NextRequest) {
   try {
     const db = getSupabaseAdmin();
 
-    // Get users who own public categories in the given language
     const { data: collections, error } = await db
       .from("qsets")
       .select("owner_id")
@@ -37,11 +41,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ users: [] });
     }
 
-    if ((!collections || collections.length === 0) && (!publicLists || publicLists.length === 0)) {
-      return NextResponse.json({ users: [] });
-    }
-
-    // Group by owner_id and count public content occurrences
     const userMap = new Map<string, number>();
     for (const row of collections ?? []) {
       if (row.owner_id) {
@@ -54,28 +53,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Include creators who only have public folders in personal_tree.
+    const { data: treeRows, error: treeError } = await db.from("users").select("id,personal_tree");
+    if (treeError?.code !== "42703" && !treeError?.message?.toLowerCase().includes("personal_tree")) {
+      for (const row of treeRows ?? []) {
+        const n = countPublicFolders(parsePersonalTree(row.personal_tree));
+        if (n > 0) {
+          userMap.set(row.id, (userMap.get(row.id) ?? 0) + n);
+        }
+      }
+    }
+
     if (userMap.size === 0) {
       return NextResponse.json({ users: [] });
     }
 
-    // Get top users (most public content first)
     const topUserIds = Array.from(userMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
-      .map(e => e[0]);
+      .map((e) => e[0]);
 
-    // Fetch user details
-    const { data: users, error: userError } = await db
-      .from("users")
-      .select("id,name,avatar_url")
-      .in("id", topUserIds);
+    type UserRow = { id: string; name: string; avatar_url: string | null; personal_tree?: unknown };
+    let users: UserRow[] | null = null;
+    let userError: { message?: string; code?: string } | null = null;
+
+    const withTree = await db.from("users").select("id,name,avatar_url,personal_tree").in("id", topUserIds);
+    users = withTree.data as UserRow[] | null;
+    userError = withTree.error;
+
+    if (userError) {
+      const msg = (userError.message ?? "").toLowerCase();
+      if (userError.code === "42703" || msg.includes("personal_tree")) {
+        const fallback = await db.from("users").select("id,name,avatar_url").in("id", topUserIds);
+        users = fallback.data as UserRow[] | null;
+        userError = fallback.error;
+      }
+    }
 
     if (userError || !users) {
       console.error("Fetch users error:", userError);
       return NextResponse.json({ users: [] });
     }
 
-    // Fetch public categories for each user
     const { data: userCategories, error: catError } = await db
       .from("qsets")
       .select("id,name,owner_id,is_public,problems_per_test,shuffle_problems")
@@ -88,18 +107,16 @@ export async function GET(request: NextRequest) {
       console.error("Fetch categories error:", catError);
     }
 
-    // Group categories by owner_id
-    const categoriesByOwner = new Map<string, typeof userCategories>();
+    const qsetsByOwner = new Map<string, NonNullable<typeof userCategories>>();
     if (userCategories) {
       for (const cat of userCategories) {
-        if (!categoriesByOwner.has(cat.owner_id)) {
-          categoriesByOwner.set(cat.owner_id, []);
+        if (!qsetsByOwner.has(cat.owner_id)) {
+          qsetsByOwner.set(cat.owner_id, []);
         }
-        categoriesByOwner.get(cat.owner_id)!.push(cat);
+        qsetsByOwner.get(cat.owner_id)!.push(cat);
       }
     }
 
-    // Fetch public lists for each user
     const { data: userLists, error: listError } = await db
       .from("lists")
       .select("id,title,owner_id,is_public")
@@ -111,8 +128,7 @@ export async function GET(request: NextRequest) {
       console.error("Fetch lists error:", listError);
     }
 
-    // Group lists by owner_id
-    const listsByOwner = new Map<string, typeof userLists>();
+    const listsByOwner = new Map<string, NonNullable<typeof userLists>>();
     if (userLists) {
       for (const list of userLists) {
         if (!listsByOwner.has(list.owner_id)) {
@@ -122,27 +138,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Map to response format, maintaining order from topUserIds
     const result = topUserIds
-      .map(uid => users.find(u => u.id === uid))
+      .map((uid) => users.find((u) => u.id === uid))
       .filter(Boolean)
-      .map(u => ({
-        id: u!.id,
-        name: u!.name,
-        avatarUrl: u!.avatar_url,
-        categories: (categoriesByOwner.get(u!.id) || []).map(cat => ({
-          id: cat.id,
-          name: cat.name,
-          href: null,
-          problemsPerTest: cat.problems_per_test,
-          shuffleProblems: cat.shuffle_problems,
-        })),
-        lists: (listsByOwner.get(u!.id) || []).map(list => ({
-          id: list.id,
-          title: list.title,
-        })),
-      }))
-      .filter(u => u.categories.length > 0 || u.lists.length > 0);
+      .map((u) => {
+        const tree = parsePersonalTree(u!.personal_tree);
+        const categories = buildPublicRecommendedCategories(tree, qsetsByOwner.get(u!.id) ?? []);
+        return {
+          id: u!.id,
+          name: u!.name,
+          avatarUrl: u!.avatar_url,
+          categories: categories.map((cat) => ({
+            id: cat.id,
+            name: cat.name,
+            href: cat.href,
+            isFolder: cat.isFolder,
+            parentId: cat.parentId,
+            problemsPerTest: cat.problemsPerTest,
+            shuffleProblems: cat.shuffleProblems,
+          })),
+          lists: (listsByOwner.get(u!.id) || []).map((list) => ({
+            id: list.id,
+            title: list.title,
+          })),
+        };
+      })
+      .filter((u) => u.categories.length > 0 || u.lists.length > 0);
 
     return NextResponse.json({ users: result });
   } catch (err) {
