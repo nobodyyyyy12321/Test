@@ -1463,7 +1463,7 @@ export function HomeContent() {
                                   {(u.lists ?? []).map((list) => (
                                     <a
                                       key={`list-${list.id}`}
-                                      href={`/lists/${encodeURIComponent(list.id)}`}
+                                      href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
                                       className="book-link bookshelf-btn"
                                       style={{ color: "#6ea8d8" }}
                                     >
