@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
-import { PersonalListsView, type MyCollection } from "./PersonalListsView";
+import { PersonalListsView, type MyCollection, type UserFolder } from "./PersonalListsView";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
 type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared";
@@ -39,7 +39,7 @@ type Props = {
 
 export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Props) {
   const { data: session } = useSession();
-  const isOwner = !!session?.user?.name;
+  const isOwner = session?.user?.name === name;
 
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -47,6 +47,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
 
   const [lists, setLists] = useState<QuestionList[]>([]);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
+  const [profileFolders, setProfileFolders] = useState<UserFolder[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
 
@@ -77,7 +78,11 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
       } else {
         fetch(`/api/users/${encodeURIComponent(name)}/lists`)
           .then(r => r.json())
-          .then(d => setLists(d.lists ?? []))
+          .then(d => {
+            setLists(d.lists ?? []);
+            setMyCollections((d.collections ?? []).filter((col: { approvalStatus?: string }) => col.approvalStatus !== "pending"));
+            setProfileFolders(d.folders ?? []);
+          })
           .catch(() => {})
           .finally(finish);
       }
@@ -163,6 +168,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
             lists={lists}
             setLists={setLists}
             myCollections={myCollections}
+            folders={profileFolders}
             pinnedListIds={pinnedListIds}
             setPinnedListIds={setPinnedListIds}
             pinnedCollectionIds={pinnedCollectionIds}

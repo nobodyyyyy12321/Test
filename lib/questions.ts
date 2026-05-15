@@ -110,7 +110,11 @@ async function fetchCollectionQuestions(collectionId: string, levelsParam: strin
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function fetchQuestionsByCategoryId(categoryId: string, levelsParam: string | null): Promise<Question[]> {
+async function fetchQuestionsByCategoryId(
+  categoryId: string,
+  levelsParam: string | null,
+  numbers?: number[] | null
+): Promise<Question[]> {
   const url = `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&order=number.asc&select=id,number,content,q_type,options,answer,level`;
   const res = await fetch(url, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
@@ -128,8 +132,12 @@ async function fetchQuestionsByCategoryId(categoryId: string, levelsParam: strin
   };
   const rows: Row[] = await res.json();
   const levelSet = levelsParam ? new Set(levelsParam.split(",").map(Number)) : null;
+  const numberSet = numbers?.length ? new Set(numbers.map((value) => String(value))) : null;
   return rows
-    .filter((r) => (levelSet ? r.level != null && levelSet.has(r.level) : true))
+    .filter((r) => {
+      if (numberSet && !numberSet.has(String(r.number))) return false;
+      return levelSet ? r.level != null && levelSet.has(r.level) : true;
+    })
     .map((r) => {
       const options = r.options
         ? Object.entries(r.options)
@@ -176,7 +184,7 @@ export async function fetchQuestions(opts: {
 
     const byCollection: Record<string, number[]> = {};
     for (const q of list.questions) {
-      const num = parseInt(q.questionId);
+      const num = Number.isFinite(q.number) && q.number > 0 ? q.number : parseInt(q.questionId, 10);
       if (!isNaN(num)) {
         (byCollection[q.collectionId] = byCollection[q.collectionId] ?? []).push(num);
       }
@@ -184,8 +192,12 @@ export async function fetchQuestions(opts: {
 
     const allQuestions: Question[] = [];
     for (const [collectionId, numbers] of Object.entries(byCollection)) {
-      const rows = await fetchQuizQuestions({ collectionId, numbers, revalidate: 3600, language, viewerId });
-      allQuestions.push(...rows.map(rowToQuestion));
+      if (UUID_RE.test(collectionId)) {
+        allQuestions.push(...await fetchQuestionsByCategoryId(collectionId, null, numbers));
+      } else {
+        const rows = await fetchQuizQuestions({ collectionId, numbers, revalidate: 3600, language, viewerId });
+        allQuestions.push(...rows.map(rowToQuestion));
+      }
     }
     return allQuestions;
   }

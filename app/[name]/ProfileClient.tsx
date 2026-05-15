@@ -65,7 +65,19 @@ type Group = { id: string; name: string; ownerId: string; ownerName?: string; ow
 type PendingInvite = { groupId: string; groupName: string; ownerName: string; invitedAt: string };
 
 type FollowUser = { id: string; name: string; avatarUrl?: string };
-type MyCollection = { id: string; collectionId: string; displayName: string; createdAt: string };
+type MyCollection = {
+  id: string;
+  collectionId: string;
+  href?: string | null;
+  displayName: string;
+  createdAt: string;
+  fromGrid?: boolean;
+  parentId?: string | null;
+  problemsPerTest?: number | null;
+  shuffleProblems?: boolean | null;
+  approvalStatus?: string;
+};
+type UserFolder = { id: string; name: string; parentId: string | null; isPublic: boolean };
 
 type SocialLinks = { x?: string; facebook?: string; instagram?: string; threads?: string; website?: string };
 
@@ -228,6 +240,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [shareSharedGroupIds, setShareSharedGroupIds] = useState<Set<string>>(new Set());
   const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
+  const [profileFolders, setProfileFolders] = useState<UserFolder[]>([]);
   const [myCollectionsLoaded, setMyCollectionsLoaded] = useState(false);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
@@ -359,7 +372,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     } else {
       fetch(`/api/users/${encodeURIComponent(urlName)}/lists`)
         .then(r => r.json())
-        .then(d => { setLists(d.lists ?? []); setListsLoaded(true); })
+        .then(d => {
+          setLists(d.lists ?? []);
+          setMyCollections((d.collections ?? []).filter((c: { approvalStatus?: string }) => c.approvalStatus !== "pending"));
+          setProfileFolders(d.folders ?? []);
+          setMyCollectionsLoaded(true);
+          setListsLoaded(true);
+        })
         .finally(() => setListsLoading(false));
     }
   }, [activeTab, listsLoaded, isOwner, urlName]);
@@ -1275,6 +1294,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               lists={lists}
               setLists={setLists}
               myCollections={myCollections}
+              folders={profileFolders}
               pinnedListIds={pinnedListIds}
               setPinnedListIds={setPinnedListIds}
               pinnedCollectionIds={pinnedCollectionIds}

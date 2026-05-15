@@ -17,19 +17,22 @@ export type MyCollection = {
   approvalStatus?: string;
 };
 
-type UserFolder = {
+export type UserFolder = {
   id: string;
   name: string;
   parentId: string | null;
   isPublic: boolean;
 };
 
+type DisplayList = QuestionList & { parentId?: string | null };
+
 type Props = {
   isOwner: boolean;
   loading: boolean;
-  lists: QuestionList[];
+  lists: DisplayList[];
   setLists: React.Dispatch<React.SetStateAction<QuestionList[]>>;
   myCollections: MyCollection[];
+  folders?: UserFolder[];
   pinnedListIds: string[];
   setPinnedListIds: React.Dispatch<React.SetStateAction<string[]>>;
   pinnedCollectionIds: string[];
@@ -41,6 +44,7 @@ export function PersonalListsView({
   loading,
   lists,
   myCollections,
+  folders: publicFolders = [],
 }: Props) {
   const { status: sessionStatus } = useSession();
   const [folders, setFolders] = useState<UserFolder[]>([]);
@@ -61,6 +65,7 @@ export function PersonalListsView({
   const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
   const [folderError, setFolderError] = useState<string | null>(null);
 
+  const visibleLists = lists;
   const visibleCollections = myCollections.filter((c) => c.approvalStatus !== "pending");
 
   const applyFoldersResponse = (data: { folders?: unknown }) => {
@@ -104,6 +109,13 @@ export function PersonalListsView({
     }
     void loadFolders();
   }, [isOwner, foldersLoaded, sessionStatus, loadFolders]);
+
+  useEffect(() => {
+    if (isOwner) return;
+    setFolders(publicFolders);
+    setFolderError(null);
+    setFoldersLoaded(true);
+  }, [isOwner, publicFolders]);
 
   const addFolder = async (name: string, parentId: string | null = null) => {
     const trimmed = name.trim();
@@ -226,6 +238,9 @@ export function PersonalListsView({
   const foldersUnder = (folderId: string | null) =>
     folders.filter((f) => (f.parentId ?? null) === folderId);
 
+  const listsUnder = (folderId: string | null) =>
+    visibleLists.filter((list) => (list.parentId ?? null) === folderId);
+
   const appendHrefOptions = (href?: string | null, problemsPerTest?: number | null, shuffleProblems?: boolean | null): string => {
     const base = href || "#";
     if (base === "#") return base;
@@ -262,12 +277,58 @@ export function PersonalListsView({
     ];
   };
 
+  const renderListItem = (list: DisplayList, depth: number = 0): React.ReactNode => {
+    const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
+    return (
+      <div key={list.id} className="relative">
+        <a
+          href={`/test/list?listId=${list.id}&autostart=1`}
+          className={`book-link bookshelf-btn ${depth > 0 ? "sub-item" : ""}`.trim()}
+          style={{ color: "#6ea8d8", ...margin }}
+          onContextMenu={(e) => {
+            if (!isOwner) return;
+            e.preventDefault();
+            setListCtxMenuId(list.id);
+            setListCtxMenuPos({ x: e.clientX, y: e.clientY });
+            setColCtxMenuId(null);
+            setFolderCtxMenuId(null);
+          }}
+        >
+          {list.title}
+        </a>
+        {isOwner && listCtxMenuId === list.id && (
+          <>
+            <div className="fixed inset-0 z-40" onMouseDown={() => setListCtxMenuId(null)} />
+            <div
+              className="fixed z-50 w-36 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
+              style={{ left: listCtxMenuPos.x, top: listCtxMenuPos.y }}
+            >
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setListCtxMenuId(null);
+                  window.location.href = `/lists/${list.id}/edit`;
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                蝺刻摩
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderFolder = (folder: UserFolder, depth: number, ancestorExpanded: boolean = false): React.ReactNode => {
     const isOpen = openFolderIds.has(folder.id);
     const isHighlighted = ancestorExpanded || isOpen;
     const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     const childFolders = foldersUnder(folder.id);
     const childCollections = collectionsUnder(folder.id);
+    const childLists = listsUnder(folder.id);
     const isEditing = editingFolderId === folder.id;
     return (
       <div key={folder.id} className="contents">
@@ -468,6 +529,8 @@ export function PersonalListsView({
           </div>
         ))}
 
+        {isOpen && childLists.map((list) => renderListItem(list, depth + 1))}
+
         {isOpen && childFolders.map((child) => renderFolder(child, depth + 1, isHighlighted))}
       </div>
     );
@@ -476,9 +539,10 @@ export function PersonalListsView({
   if (loading) return <p className="text-sm zen-subtle">載入中...</p>;
 
   const topFolders = foldersUnder(null);
+  const topLists = listsUnder(null);
   const topCollections = collectionsUnder(null);
 
-  const isEmpty = lists.length === 0 && topCollections.length === 0 && topFolders.length === 0;
+  const isEmpty = visibleLists.length === 0 && topCollections.length === 0 && topFolders.length === 0;
 
   if (!isOwner && isEmpty) {
     return <p className="text-sm zen-subtle opacity-50">尚無公開試卷</p>;
@@ -494,7 +558,7 @@ export function PersonalListsView({
       {folderError && (
         <p className="text-sm text-red-600 dark:text-red-400 col-span-full">{folderError}</p>
       )}
-      {lists.map((list) => (
+      {topLists.map((list) => (
         <div key={list.id} className="relative">
           <a
             href={`/test/list?listId=${list.id}&autostart=1`}
