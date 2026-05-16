@@ -284,7 +284,6 @@ export function HomeContent() {
     const isHighlighted = ancestorExpanded || isOpen;
     const childCollections = getRecommendedChildrenOf(userCategories, cat.id).filter(c => !isRecommendedFolder(c));
     const childFolders = getRecommendedChildrenOf(userCategories, cat.id).filter(c => isRecommendedFolder(c));
-    const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     const folderPinId = `rec-folder:${ownerId}:${cat.id}`;
     const folderPinned = loggedIn && pinnedNames.includes(folderPinId);
 
@@ -293,7 +292,7 @@ export function HomeContent() {
         <button
           type="button"
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-          style={{ ...margin, color: isHighlighted ? "#b19739" : "#5fa870" }}
+          style={{ color: isHighlighted ? "#b19739" : "#5fa870" }}
           onClick={() => toggleRecommendedFolder(ownerId, cat.id, userCategories)}
           onContextMenu={loggedIn ? e => openCtx(
             e,
@@ -316,7 +315,7 @@ export function HomeContent() {
               key={`rec-${childCat.id}`}
               href={childHref}
               className="book-link bookshelf-btn sub-item"
-              style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
+              style={{ color: "#b19739" }}
               onContextMenu={loggedIn ? e => openCtx(e, pinId, childCat.name, isPinned ? "pinned" : "grid", childHref) : undefined}
             >
               {childCat.name}

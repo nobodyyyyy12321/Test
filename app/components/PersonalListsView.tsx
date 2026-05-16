@@ -278,13 +278,12 @@ export function PersonalListsView({
   };
 
   const renderListItem = (list: DisplayList, depth: number = 0): React.ReactNode => {
-    const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     return (
       <div key={list.id} className="relative">
         <a
           href={`/test/list?listId=${list.id}&autostart=1`}
           className={`book-link bookshelf-btn ${depth > 0 ? "sub-item" : ""}`.trim()}
-          style={{ color: "#6ea8d8", ...margin }}
+          style={{ color: "#6ea8d8" }}
           onContextMenu={(e) => {
             if (!isOwner) return;
             e.preventDefault();
@@ -325,7 +324,6 @@ export function PersonalListsView({
   const renderFolder = (folder: UserFolder, depth: number, ancestorExpanded: boolean = false): React.ReactNode => {
     const isOpen = openFolderIds.has(folder.id);
     const isHighlighted = ancestorExpanded || isOpen;
-    const margin = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
     const childFolders = foldersUnder(folder.id);
     const childCollections = collectionsUnder(folder.id);
     const childLists = listsUnder(folder.id);
@@ -335,7 +333,7 @@ export function PersonalListsView({
         {isEditing ? (
           <div
             className="relative px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600"
-            style={{ ...margin, backgroundColor: "var(--zen-bg)" }}
+            style={{ backgroundColor: "var(--zen-bg)" }}
           >
             <input
               autoFocus
@@ -410,7 +408,7 @@ export function PersonalListsView({
             <button
               type="button"
               className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-              style={{ ...margin, color: isHighlighted ? "#b19739" : "#5fa870" }}
+              style={{ color: isHighlighted ? "#b19739" : "#5fa870" }}
               onClick={() => toggleFolderOpen(folder.id)}
               onContextMenu={(e) => {
                 if (!isOwner) return;
@@ -478,7 +476,7 @@ export function PersonalListsView({
             <a
               href={appendHrefOptions(`/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
               className="book-link bookshelf-btn sub-item"
-              style={{ color: "#b19739", marginLeft: `${(depth + 1) * 14}px` }}
+              style={{ color: "#b19739" }}
               onContextMenu={(e) => {
                 if (!isOwner) return;
                 e.preventDefault();
