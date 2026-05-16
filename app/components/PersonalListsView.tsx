@@ -96,19 +96,20 @@ export function PersonalListsView({
   }, []);
 
   useEffect(() => {
-    if (!isOwner || foldersLoaded || sessionStatus === "loading") return;
-    if (sessionStatus !== "authenticated") {
-      setFoldersLoaded(true);
-      return;
-    }
+    if (!isOwner || publicFolders.length === 0) return;
+    setFolders(publicFolders);
+    setFoldersLoaded(true);
+  }, [isOwner, publicFolders]);
+
+  useEffect(() => {
+    if (!isOwner || foldersLoaded || sessionStatus !== "authenticated" || publicFolders.length > 0) return;
     void loadFolders();
-  }, [isOwner, foldersLoaded, sessionStatus, loadFolders]);
+  }, [isOwner, foldersLoaded, sessionStatus, loadFolders, publicFolders.length]);
 
   useEffect(() => {
     if (isOwner) return;
     setFolders(publicFolders);
     setFolderError(null);
-    setFoldersLoaded(true);
   }, [isOwner, publicFolders]);
 
   const patchFolder = async (body: Record<string, unknown>) => {
@@ -520,21 +521,22 @@ export function PersonalListsView({
     );
   };
 
-  if (loading) return <p className="text-sm zen-subtle">載入中...</p>;
-
   const topFolders = foldersUnder(null);
   const topLists = listsUnder(null);
   const topCollections = collectionsUnder(null);
 
   const isEmpty = visibleLists.length === 0 && topCollections.length === 0 && topFolders.length === 0;
 
-  if (!isOwner && isEmpty) {
+  if (!isOwner && isEmpty && !loading) {
     return <p className="text-sm zen-subtle opacity-50">尚無公開試卷</p>;
   }
 
   return (
     <div className="bookshelf-grid">
-      {isEmpty && isOwner && (
+      {loading && (
+        <p className="text-sm zen-subtle col-span-full">載入中...</p>
+      )}
+      {!loading && isEmpty && isOwner && (
         <p className="text-sm zen-subtle opacity-50 col-span-full">
           尚無試卷，在題目頁按 + 新增，或先建立資料夾
         </p>

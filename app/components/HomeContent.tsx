@@ -21,12 +21,19 @@ type UserResult = {
     id: string;
     name: string;
     href?: string;
+    parentId?: string | null;
     problemsPerTest?: number | null;
     shuffleProblems?: boolean | null;
   }>;
   lists?: Array<{
     id: string;
     title: string;
+    parentId?: string | null;
+  }>;
+  folders?: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
   }>;
 };
 type ExternalPinnedRef = {
@@ -82,6 +89,7 @@ export function HomeContent() {
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
   const [recommendedLoaded, setRecommendedLoaded] = useState(false);
+  const [recommendedOpenFolderKeys, setRecommendedOpenFolderKeys] = useState<Set<string>>(new Set());
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -362,6 +370,7 @@ export function HomeContent() {
   useEffect(() => {
     setRecommendedAccounts([]);
     setRecommendedLoaded(false);
+    setRecommendedOpenFolderKeys(new Set());
     fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
       .then(r => {
         if (!r.ok) {
@@ -379,6 +388,7 @@ export function HomeContent() {
             avatarUrl: u.avatarUrl,
             categories: u.categories || [],
             lists: u.lists || [],
+            folders: u.folders || [],
           })));
         } else {
           console.log("No users in response", d);
@@ -710,6 +720,87 @@ export function HomeContent() {
     );
   };
 
+  const recommendedFolderKey = (ownerId: string, folderId: string): string => `${ownerId}:${folderId}`;
+
+  const toggleRecommendedFolder = (ownerId: string, folderId: string) => {
+    const key = recommendedFolderKey(ownerId, folderId);
+    setRecommendedOpenFolderKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const recommendedCategoriesUnder = (user: UserResult, folderId: string | null) =>
+    (user.categories ?? []).filter((cat) => (cat.parentId ?? null) === folderId);
+
+  const recommendedFoldersUnder = (user: UserResult, folderId: string | null) =>
+    (user.folders ?? []).filter((folder) => (folder.parentId ?? null) === folderId);
+
+  const recommendedListsUnder = (user: UserResult, folderId: string | null) =>
+    (user.lists ?? []).filter((list) => (list.parentId ?? null) === folderId);
+
+  const renderRecommendedCategory = (user: UserResult, cat: NonNullable<UserResult["categories"]>[number]) => {
+    const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
+    const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${user.id}:${cat.id}`;
+    const isPinned = loggedIn && pinnedNames.includes(pinId);
+    return (
+      <a
+        key={`cat-${cat.id}`}
+        href={recommendedHref}
+        className="book-link bookshelf-btn"
+        style={{ color: LEAF_COLOR }}
+        onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
+      >
+        {cat.name}
+      </a>
+    );
+  };
+
+  const renderRecommendedList = (list: NonNullable<UserResult["lists"]>[number]) => (
+    <a
+      key={`list-${list.id}`}
+      href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
+      className="book-link bookshelf-btn"
+      style={{ color: "#6ea8d8" }}
+    >
+      {list.title}
+    </a>
+  );
+
+  const renderRecommendedFolder = (
+    user: UserResult,
+    folder: NonNullable<UserResult["folders"]>[number]
+  ): React.ReactNode => {
+    const key = recommendedFolderKey(user.id, folder.id);
+    const isOpen = recommendedOpenFolderKeys.has(key);
+    return (
+      <div key={`folder-${folder.id}`} className="contents">
+        <button
+          type="button"
+          className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
+          style={{ color: FOLDER_COLOR }}
+          title="公開資料夾"
+          onClick={() => toggleRecommendedFolder(user.id, folder.id)}
+        >
+          📁 {folder.name}
+        </button>
+        {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderRecommendedCategory(user, cat))}
+        {isOpen && recommendedFoldersUnder(user, folder.id).map((child) => renderRecommendedFolder(user, child))}
+        {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderRecommendedList(list))}
+      </div>
+    );
+  };
+
+  const renderRecommendedCreatorItems = (user: UserResult) => (
+    <>
+      {recommendedCategoriesUnder(user, null).map((cat) => renderRecommendedCategory(user, cat))}
+      {recommendedFoldersUnder(user, null).map((folder) => renderRecommendedFolder(user, folder))}
+      {recommendedListsUnder(user, null).map((list) => renderRecommendedList(list))}
+    </>
+  );
+
   return (
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
       {/* profile-tab pin context menu */}
@@ -911,13 +1002,13 @@ export function HomeContent() {
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
-              {loggedIn && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && (
+              {loggedIn && !session?.user?.name && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
                   <line x1="12" y1="17" x2="12" y2="22"/>
                   <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
                 </svg>
               )}
-              {loggedIn && (pinnedNames.length > 0 || pinnedInboxIds.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0) && (
+              {loggedIn && (!!session?.user?.name || pinnedNames.length > 0 || pinnedInboxIds.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0) && (
                 <div className="bookshelf-grid home-bookshelf-grid">
                   {pinnedListIds.map((id, idx) => {
                     const list = homeLists.find(l => l.id === id);
@@ -949,6 +1040,15 @@ export function HomeContent() {
                       </a>
                     );
                   })}
+                  {loggedIn && session?.user?.name && (
+                    <Link
+                      href={`/${encodeURIComponent(session.user.name)}?tab=lists`}
+                      className="book-link bookshelf-btn text-xs opacity-60 hover:opacity-90"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      + 新增資料夾
+                    </Link>
+                  )}
                   {pinnedInboxIds.map((id, idx) => {
                     const cat = inboxCats.find(c => c.id === id);
                     if (!cat) return null;
@@ -1194,34 +1294,9 @@ export function HomeContent() {
                               />
                               <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                             </Link>
-                            {((u.categories && u.categories.length > 0) || (u.lists && u.lists.length > 0)) && (
+                            {((u.categories && u.categories.length > 0) || (u.folders && u.folders.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
-                                  {(u.categories ?? []).map((cat) => {
-                                    const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
-                                    const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${u.id}:${cat.id}`;
-                                    const isPinned = loggedIn && pinnedNames.includes(pinId);
-                                    return (
-                                      <a
-                                        key={cat.id}
-                                        href={recommendedHref}
-                                        className="book-link bookshelf-btn"
-                                        style={{ color: "#5fa870" }}
-                                        onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
-                                      >
-                                        {cat.name}
-                                      </a>
-                                    );
-                                  })}
-                                  {(u.lists ?? []).map((list) => (
-                                    <a
-                                      key={`list-${list.id}`}
-                                      href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
-                                      className="book-link bookshelf-btn"
-                                      style={{ color: "#6ea8d8" }}
-                                    >
-                                      {list.title}
-                                    </a>
-                                  ))}
+                                  {renderRecommendedCreatorItems(u)}
                                 </div>
                             )}
                           </li>

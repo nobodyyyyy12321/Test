@@ -38,12 +38,19 @@ type Props = {
 };
 
 export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Props) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const isOwner = session?.user?.name === name;
 
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+  // Session resolution can flip `isOwner` after the first fetch already ran on
+  // the wrong branch — reset `loaded` so the owner/non-owner fetch re-runs.
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+    setLoaded(false);
+  }, [isOwner, sessionStatus]);
 
   const [lists, setLists] = useState<QuestionList[]>([]);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
@@ -69,9 +76,11 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
           fetch("/api/lists").then(r => r.json()).catch(() => ({})),
           fetch("/api/my-collections?allLanguages=1").then(r => r.json()).catch(() => ({})),
           fetch("/api/user/pins").then(r => r.json()).catch(() => ({})),
-        ]).then(([l, c, p]) => {
+          fetch("/api/my-folders").then(r => r.json()).catch(() => ({})),
+        ]).then(([l, c, p, f]) => {
           setLists(l.lists ?? []);
           setMyCollections((c.collections ?? []).filter((col: { approvalStatus?: string }) => col.approvalStatus !== "pending"));
+          setProfileFolders(f.folders ?? []);
           if (Array.isArray(p.pinnedListIds)) setPinnedListIds(p.pinnedListIds);
           if (Array.isArray(p.pinnedCollectionIds)) setPinnedCollectionIds(p.pinnedCollectionIds);
         }).finally(finish);
