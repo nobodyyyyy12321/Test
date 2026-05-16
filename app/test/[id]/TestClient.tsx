@@ -5,8 +5,10 @@ import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
 import type { Question } from "../../../lib/questions";
-import RenderContent from "../../components/RenderContent";
 import { useTimer } from "../../providers/TimerContext";
+import dynamic from "next/dynamic";
+
+const RenderContent = dynamic(() => import("../../components/RenderContent"), { ssr: false });
 import { getTestLabels } from "../../lib/i18n/test";
 
 const QUIZ_GUARD_STATE = { __quizGuard: true };

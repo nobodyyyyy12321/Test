@@ -141,36 +141,24 @@ async function findGlobalQuizSetId(collectionId: string, viewerId?: string | nul
 
 async function findPersonalQuizSetId(collectionId: string, userId: string): Promise<string | null> {
   const url = `${SUPABASE_URL}/rest/v1/${QUIZ_SETS_TABLE}?select=id&source_quiz_id=eq.${encodeURIComponent(collectionId)}&owner_id=eq.${encodeURIComponent(userId)}&limit=1`;
-  console.log(`[findPersonalQuizSetId] Query: source_quiz_id=${collectionId}, owner_id=${userId}`);
   const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
-  if (!res.ok) {
-    console.error(`[findPersonalQuizSetId] Query failed:`, await res.text());
-    throw new Error(await res.text());
-  }
+  if (!res.ok) throw new Error(await res.text());
   const rows: Array<{ id: string }> = await res.json();
-  console.log(`[findPersonalQuizSetId] Found ${rows.length} quiz sets`);
   return rows[0]?.id ?? null;
 }
 
 async function fetchSetQuestions(setId: string): Promise<Map<string, string>> {
   const rows: Array<{ id: string; number: number }> = [];
   let offset = 0;
-  let totalFetched = 0;
   while (true) {
     const url = `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`;
     const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
-    if (!res.ok) {
-      console.error(`[fetchSetQuestions] Query failed at offset=${offset}:`, await res.text());
-      throw new Error(await res.text());
-    }
+    if (!res.ok) throw new Error(await res.text());
     const page: Array<{ id: string; number: number }> = await res.json();
-    console.log(`[fetchSetQuestions] setId=${setId}, offset=${offset}, pageSize=${page.length}`);
     rows.push(...page);
-    totalFetched += page.length;
     if (page.length < 1000) break;
     offset += 1000;
   }
-  console.log(`[fetchSetQuestions] setId=${setId}, totalFetched=${totalFetched}`);
   return new Map(rows.map((row) => [String(row.number), row.id]));
 }
 
@@ -179,22 +167,15 @@ type SetQuestionRow = { id: string; number: number; level: number | null; answer
 async function fetchSetQuestionRows(setId: string): Promise<SetQuestionRow[]> {
   const rows: SetQuestionRow[] = [];
   let offset = 0;
-  let totalFetched = 0;
   while (true) {
     const url = `${SUPABASE_URL}/rest/v1/${QUESTIONS_TABLE}?select=id,number,level,answer&set_id=eq.${encodeURIComponent(setId)}&order=number.asc&limit=1000&offset=${offset}`;
     const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
-    if (!res.ok) {
-      console.error(`[fetchSetQuestionRows] Query failed at offset=${offset}:`, await res.text());
-      throw new Error(await res.text());
-    }
+    if (!res.ok) throw new Error(await res.text());
     const page: SetQuestionRow[] = await res.json();
-    console.log(`[fetchSetQuestionRows] setId=${setId}, offset=${offset}, pageSize=${page.length}`);
     rows.push(...page);
-    totalFetched += page.length;
     if (page.length < 1000) break;
     offset += 1000;
   }
-  console.log(`[fetchSetQuestionRows] setId=${setId}, totalFetched=${totalFetched}`);
   return rows;
 }
 
@@ -383,13 +364,8 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
 }): Promise<{ setId: string; upserted: number }> {
   const { userId, collectionId, language, displayName, questions } = opts;
 
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Starting: userId=${userId}, collectionId=${collectionId}, language=${language}, questionCount=${questions.length}`);
-
   let setId = await findPersonalQuizSetId(collectionId, userId);
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Found setId=${setId}`);
-  
   if (!setId) {
-    console.log(`[upsertPersonalQuizQuestionsNewSchema] Creating new quiz_set for collectionId=${collectionId}`);
     const insertedSets = await postRows(QUIZ_SETS_TABLE, [{
       owner_id: userId,
       source_quiz_id: collectionId,
@@ -398,7 +374,6 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
       shuffle_problems: false,
     }]);
     setId = insertedSets[0]?.id;
-    console.log(`[upsertPersonalQuizQuestionsNewSchema] Created new setId=${setId}`);
   }
   if (!setId) throw new Error(`Failed to resolve quiz set for ${collectionId}`);
 
@@ -407,13 +382,9 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
     lang: language,
     title: displayName,
   }], "set_id,lang");
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Inserted quiz_set_i18n for setId=${setId}, language=${language}`);
 
   const existingQuestionIds = await fetchSetQuestions(setId);
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Found ${existingQuestionIds.size} existing questions for setId=${setId}`);
-  
   const missingQuestions = questions.filter((question) => !existingQuestionIds.has(String(question.number)));
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Need to insert ${missingQuestions.length} missing questions`);
 
   for (let i = 0; i < missingQuestions.length; i += 200) {
     const batch = missingQuestions.slice(i, i + 200).map((question) => ({
@@ -423,9 +394,7 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
       group_id: null,
       answer: normalizeNewSchemaAnswer(question.answer ?? null),
     }));
-    console.log(`[upsertPersonalQuizQuestionsNewSchema] Inserting batch ${Math.floor(i / 200) + 1}: ${batch.length} questions`);
     const insertedQuestions = await postRows(QUESTIONS_TABLE, batch, "set_id,number");
-    console.log(`[upsertPersonalQuizQuestionsNewSchema] Batch ${Math.floor(i / 200) + 1} returned ${insertedQuestions.length} rows`);
     for (const row of insertedQuestions) {
       existingQuestionIds.set(String(row.number), row.id);
     }
@@ -434,10 +403,7 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
   const i18nRows = questions
     .map((question) => {
       const questionId = existingQuestionIds.get(String(question.number));
-      if (!questionId) {
-        console.warn(`[upsertPersonalQuizQuestionsNewSchema] No questionId found for number=${question.number}`);
-        return null;
-      }
+      if (!questionId) return null;
       return {
         question_id: questionId,
         lang: language,
@@ -450,35 +416,44 @@ export async function upsertPersonalQuizQuestionsNewSchema(opts: {
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
 
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Prepared ${i18nRows.length} i18n rows to insert`);
-
   for (let i = 0; i < i18nRows.length; i += 200) {
-    const batch = i18nRows.slice(i, i + 200);
-    console.log(`[upsertPersonalQuizQuestionsNewSchema] Inserting i18n batch ${Math.floor(i / 200) + 1}: ${batch.length} rows`);
-    await postRows(QUESTION_I18N_TABLE, batch, "question_id,lang");
+    await postRows(QUESTION_I18N_TABLE, i18nRows.slice(i, i + 200), "question_id,lang");
   }
-  
-  console.log(`[upsertPersonalQuizQuestionsNewSchema] Completed successfully for collectionId=${collectionId}, setId=${setId}, totalUpserted=${questions.length}`);
 
   return { setId, upserted: questions.length };
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function fetchQuestionsFlatByCategoryId(categoryId: string): Promise<QuizQuestionRow[]> {
-  const url = `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&order=number.asc&select=number,content,q_type,options,answer,level`;
+export type FlatQuestionRow = {
+  id: string;
+  number: number;
+  content: string;
+  q_type: string;
+  options: Record<string, string> | null;
+  answer: unknown;
+  level: number | null;
+};
+
+export async function fetchFlatRowsByCategoryId(
+  categoryId: string,
+  filters?: { levels?: number[] | null; numbers?: number[] | null }
+): Promise<FlatQuestionRow[]> {
+  const url = `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&order=number.asc&select=id,number,content,q_type,options,answer,level`;
   const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
   if (!res.ok) throw new Error(await res.text());
-  type Row = {
-    number: number;
-    content: string;
-    q_type: string;
-    options: Record<string, string> | null;
-    answer: unknown;
-    level: number | null;
-  };
-  const rows: Row[] = await res.json();
-  return rows.map((r) => ({
+  const rows: FlatQuestionRow[] = await res.json();
+  const levelSet = filters?.levels?.length ? new Set(filters.levels) : null;
+  const numberSet = filters?.numbers?.length ? new Set(filters.numbers.map(String)) : null;
+  return rows.filter((r) => {
+    if (numberSet && !numberSet.has(String(r.number))) return false;
+    if (levelSet) return r.level != null && levelSet.has(r.level);
+    return true;
+  });
+}
+
+function flatRowToQuizQuestionRow(r: FlatQuestionRow): QuizQuestionRow {
+  return {
     number: Number(r.number),
     title: r.content,
     type: r.q_type,
@@ -492,7 +467,7 @@ async function fetchQuestionsFlatByCategoryId(categoryId: string): Promise<QuizQ
     group_range: null,
     group_content: null,
     content: r.content,
-  }));
+  };
 }
 
 export async function fetchPersonalQuizQuestionsFresh(
@@ -500,28 +475,17 @@ export async function fetchPersonalQuizQuestionsFresh(
   collectionId: string,
   language: string
 ): Promise<QuizQuestionRow[]> {
-  console.log(`[fetchPersonalQuizQuestionsFresh] Starting: userId=${userId}, collectionId=${collectionId}, language=${language}`);
-
   // UUID collectionId → new flat schema (questions.qsets_id = categories.id)
   if (UUID_RE.test(collectionId)) {
-    const rows = await fetchQuestionsFlatByCategoryId(collectionId);
-    console.log(`[fetchPersonalQuizQuestionsFresh] flat schema returned ${rows.length} questions`);
-    return rows;
+    const rows = await fetchFlatRowsByCategoryId(collectionId);
+    return rows.map(flatRowToQuizQuestionRow);
   }
 
   const setId = await findPersonalQuizSetId(collectionId, userId);
-  if (!setId) {
-    console.warn(`[fetchPersonalQuizQuestionsFresh] No quiz set found for collectionId=${collectionId}, userId=${userId}`);
-    return [];
-  }
+  if (!setId) return [];
 
   const questionRows = await fetchSetQuestionRows(setId);
-  if (questionRows.length === 0) {
-    console.warn(`[fetchPersonalQuizQuestionsFresh] No questions found for setId=${setId}`);
-    return [];
-  }
-
-  console.log(`[fetchPersonalQuizQuestionsFresh] Found ${questionRows.length} questions for setId=${setId}`);
+  if (questionRows.length === 0) return [];
 
   const questionIds = questionRows.map((row) => row.id);
   const i18nByQuestionId = new Map<string, {
@@ -535,32 +499,16 @@ export async function fetchPersonalQuizQuestionsFresh(
     const encodedIds = batch.map((id) => encodeURIComponent(id)).join(",");
     const url = `${SUPABASE_URL}/rest/v1/${QUESTION_I18N_TABLE}?select=question_id,content,group_content,options&lang=eq.${encodeURIComponent(language)}&question_id=in.(${encodedIds})`;
 
-    console.log(`[fetchPersonalQuizQuestionsFresh] Fetching i18n batch ${Math.floor(i / 200) + 1}/${Math.ceil(questionIds.length / 200)}, language=${language}, batchSize=${batch.length}`);
-
     const res = await fetch(url, { headers: READ_HEADERS, cache: "no-store" });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`[fetchPersonalQuizQuestionsFresh] Failed to fetch i18n for language=${language}:`, errText);
-      throw new Error(errText);
-    }
+    if (!res.ok) throw new Error(await res.text());
     const rows: Array<{ question_id: string; content: string; group_content: string | null; options: unknown }> = await res.json();
-    console.log(`[fetchPersonalQuizQuestionsFresh] Batch ${Math.floor(i / 200) + 1} returned ${rows.length} rows`);
     for (const row of rows) i18nByQuestionId.set(row.question_id, row);
   }
 
-  if (i18nByQuestionId.size === 0) {
-    console.warn(`[fetchPersonalQuizQuestionsFresh] No i18n data found for language=${language}, setId=${setId}`);
-  } else {
-    console.log(`[fetchPersonalQuizQuestionsFresh] Loaded ${i18nByQuestionId.size} i18n entries for language=${language}`);
-  }
-
-  const result = questionRows
+  return questionRows
     .map((question) => {
       const i18n = i18nByQuestionId.get(question.id);
-      if (!i18n) {
-        console.warn(`[fetchPersonalQuizQuestionsFresh] Missing i18n for questionId=${question.id}, language=${language}`);
-        return null;
-      }
+      if (!i18n) return null;
       const options = denormalizeNewSchemaOptions(i18n.options);
       const answer = denormalizeNewSchemaAnswer(question.answer);
       return {
@@ -575,9 +523,6 @@ export async function fetchPersonalQuizQuestionsFresh(
       } satisfies QuizQuestionRow;
     })
     .filter(Boolean) as QuizQuestionRow[];
-  
-  console.log(`[fetchPersonalQuizQuestionsFresh] Returning ${result.length} questions`);
-  return result;
 }
 
 async function updateFlatQuestion(

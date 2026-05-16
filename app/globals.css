@@ -92,7 +92,6 @@ html.formal-quiz-active #mobile-bottom-bar {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -132,12 +131,6 @@ body {
 
 .zen-title {
   font-family: var(--font-zen-serif);
-  letter-spacing: 0.02em;
-  color: var(--zen-ink);
-}
-
-.zen-title-sc {
-  font-family: var(--font-zen-serif-sc), var(--font-zen-serif);
   letter-spacing: 0.02em;
   color: var(--zen-ink);
 }

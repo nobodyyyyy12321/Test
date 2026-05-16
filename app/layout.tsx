@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Serif_SC, Noto_Serif_TC } from "next/font/google";
+import { Geist, Noto_Serif_TC } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import AuthNav from "./components/AuthNav";
@@ -21,18 +21,8 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 const notoSerif = Noto_Serif_TC({
   variable: "--font-zen-serif",
-  subsets: ["latin"],
-});
-
-const notoSerifSc = Noto_Serif_SC({
-  variable: "--font-zen-serif-sc",
   subsets: ["latin"],
 });
 
@@ -58,7 +48,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${notoSerifSc.variable} antialiased`}
+        className={`${geistSans.variable} ${notoSerif.variable} antialiased`}
       >
         <Providers>
           <TimerProvider>

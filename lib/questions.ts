@@ -1,5 +1,11 @@
 import { getListById } from "./lists-supabase";
-import { fetchQuizQuestions, collectionTableExists, resolveTableName } from "./questions-supabase";
+import {
+  fetchQuizQuestions,
+  collectionTableExists,
+  resolveTableName,
+  fetchFlatRowsByCategoryId,
+  UUID_RE,
+} from "./questions-supabase";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
@@ -108,59 +114,36 @@ async function fetchCollectionQuestions(collectionId: string, levelsParam: strin
   return rows.map(rowToQuestion);
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 async function fetchQuestionsByCategoryId(
   categoryId: string,
   levelsParam: string | null,
   numbers?: number[] | null
 ): Promise<Question[]> {
-  const url = `${SUPABASE_URL}/rest/v1/questions?qsets_id=eq.${encodeURIComponent(categoryId)}&order=number.asc&select=id,number,content,q_type,options,answer,level`;
-  const res = await fetch(url, {
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-    next: { revalidate: 60 },
+  const levels = levelsParam ? levelsParam.split(",").map(Number) : null;
+  const rows = await fetchFlatRowsByCategoryId(categoryId, { levels, numbers });
+  return rows.map((r) => {
+    const options = r.options
+      ? Object.entries(r.options)
+          .map(([label, text]) => ({ label, text }))
+          .sort((a, b) => a.label.localeCompare(b.label))
+      : [];
+    const answer = typeof r.answer === "string" ? r.answer : Array.isArray(r.answer) ? r.answer.map(String) : String(r.answer ?? "");
+    const type: Question["type"] =
+      r.q_type === "multiple" ? "multiple" :
+      r.q_type === "fill" ? "fill" :
+      "single";
+    return {
+      id: String(r.id),
+      number: Number(r.number),
+      title: r.content,
+      type,
+      options,
+      answer,
+      level: r.level ?? null,
+      groupContent: null,
+      groupRange: null,
+    };
   });
-  if (!res.ok) throw new Error(`questions fetch failed: ${await res.text()}`);
-  type Row = {
-    id: string;
-    number: number;
-    content: string;
-    q_type: "single" | "multiple" | "true_false" | "fill";
-    options: Record<string, string> | null;
-    answer: unknown;
-    level: number | null;
-  };
-  const rows: Row[] = await res.json();
-  const levelSet = levelsParam ? new Set(levelsParam.split(",").map(Number)) : null;
-  const numberSet = numbers?.length ? new Set(numbers.map((value) => String(value))) : null;
-  return rows
-    .filter((r) => {
-      if (numberSet && !numberSet.has(String(r.number))) return false;
-      return levelSet ? r.level != null && levelSet.has(r.level) : true;
-    })
-    .map((r) => {
-      const options = r.options
-        ? Object.entries(r.options)
-            .map(([label, text]) => ({ label, text }))
-            .sort((a, b) => a.label.localeCompare(b.label))
-        : [];
-      const answer = typeof r.answer === "string" ? r.answer : Array.isArray(r.answer) ? r.answer.map(String) : String(r.answer ?? "");
-      const type: Question["type"] =
-        r.q_type === "multiple" ? "multiple" :
-        r.q_type === "fill" ? "fill" :
-        "single";
-      return {
-        id: String(r.id),
-        number: Number(r.number),
-        title: r.content,
-        type,
-        options,
-        answer,
-        level: r.level ?? null,
-        groupContent: null,
-        groupRange: null,
-      };
-    });
 }
 
 export async function fetchQuestions(opts: {
