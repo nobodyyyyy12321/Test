@@ -1040,15 +1040,6 @@ export function HomeContent() {
                       </a>
                     );
                   })}
-                  {loggedIn && session?.user?.name && (
-                    <Link
-                      href={`/${encodeURIComponent(session.user.name)}?tab=lists`}
-                      className="book-link bookshelf-btn text-xs opacity-60 hover:opacity-90"
-                      style={{ color: "var(--zen-ink)" }}
-                    >
-                      + 新增資料夾
-                    </Link>
-                  )}
                   {pinnedInboxIds.map((id, idx) => {
                     const cat = inboxCats.find(c => c.id === id);
                     if (!cat) return null;
