@@ -144,7 +144,7 @@ export function HomeContent() {
   const subjects = useFilteredCategories(categories, query);
 
   const FOLDER_COLOR = "#b19739"; // gold — nodes with children or dropdown
-  const LEAF_COLOR = "#5fa870";   // green — leaf items (link directly to a test)
+  const LEAF_COLOR = "#D1D5DB";   // off-white — leaf items (link directly to a test)
   const colorOf = (n: CategoryNode): string =>
     (n.children?.length || n.dropdown?.length) ? FOLDER_COLOR : LEAF_COLOR;
   const itemClassForDepth = (depth: number): string => {
@@ -1103,7 +1103,7 @@ export function HomeContent() {
       <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
           <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Test</h1>
-          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#5fa870" }}>testtttt.io</span>
+          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#D1D5DB" }}>testtttt.io</span>
           <div className="absolute -top-1 -right-5">
             <LanguageSelector />
           </div>
@@ -1145,7 +1145,7 @@ export function HomeContent() {
                         key={id}
                         href={`/test/list?listId=${list.id}&autostart=1`}
                         className="book-link bookshelf-btn"
-                        style={{ color: idx % 2 === 0 ? "#6ea8d8" : "#d87fa0" }}
+                        style={{ color: "#D1D5DB" }}
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list-pinned" }); }}
                       >
                         {list.title}
@@ -1398,7 +1398,7 @@ export function HomeContent() {
                                 unoptimized
                                 className="w-10 h-10 rounded-full object-cover shrink-0"
                               />
-                              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                              <span className="text-base font-medium" style={{ color: "#D1D5DB" }}>{u.name}</span>
                             </Link>
                             {((u.categories && u.categories.length > 0) || (u.folders && u.folders.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
@@ -1481,7 +1481,7 @@ export function HomeContent() {
         aria-label="意見回饋"
         className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center justify-center w-11 h-11 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2"/>
           <path d="m2 7 10 7 10-7"/>
         </svg>

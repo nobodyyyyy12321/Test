@@ -148,7 +148,7 @@ function ShareButtonInner() {
         title="分享"
         className="flex items-center justify-center transition-opacity hover:opacity-70"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="18" cy="5" r="3"/>
           <circle cx="6" cy="12" r="3"/>
           <circle cx="18" cy="19" r="3"/>
@@ -217,7 +217,7 @@ function ShareButtonInner() {
 }
 
 const ShareButtonFallback = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5fa870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0 }}>
+  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0 }}>
     <circle cx="18" cy="5" r="3"/>
     <circle cx="6" cy="12" r="3"/>
     <circle cx="18" cy="19" r="3"/>
