@@ -644,7 +644,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                     {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.fillBadge}</span>}
                   </div>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-base rounded transition-all" style={{ color: "#D1D5DB", backgroundColor: idx === focusedIdx && !showResults && qt !== "fill" ? "rgba(95,168,112,0.15)" : "transparent" }}><RenderContent inline>{q.title}</RenderContent></span>
+                    <span className="text-base rounded transition-all" style={{ color: "#D1D5DB", backgroundColor: idx === focusedIdx && !showResults && qt !== "fill" ? "rgba(209,213,219,0.2)" : "transparent" }}><RenderContent inline>{q.title}</RenderContent></span>
                     {id === "englishWords" && (
                       <button type="button" onClick={() => speakQuestion(q.title)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-white hover:bg-zinc-600" aria-label={L.speakLabel}>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
