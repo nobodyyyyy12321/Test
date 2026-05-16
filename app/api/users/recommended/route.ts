@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
-import {
-  buildPublicRecommendedCategories,
-  countPublicFolders,
-  parsePersonalTree,
-} from "../../../../lib/personal-tree";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -53,17 +48,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Include creators who only have public folders in personal_tree.
-    const { data: treeRows, error: treeError } = await db.from("users").select("id,personal_tree");
-    if (treeError?.code !== "42703" && !treeError?.message?.toLowerCase().includes("personal_tree")) {
-      for (const row of treeRows ?? []) {
-        const n = countPublicFolders(parsePersonalTree(row.personal_tree));
-        if (n > 0) {
-          userMap.set(row.id, (userMap.get(row.id) ?? 0) + n);
-        }
-      }
-    }
-
     if (userMap.size === 0) {
       return NextResponse.json({ users: [] });
     }
@@ -73,22 +57,11 @@ export async function GET(request: NextRequest) {
       .slice(0, limit)
       .map((e) => e[0]);
 
-    type UserRow = { id: string; name: string; avatar_url: string | null; personal_tree?: unknown };
-    let users: UserRow[] | null = null;
-    let userError: { message?: string; code?: string } | null = null;
-
-    const withTree = await db.from("users").select("id,name,avatar_url,personal_tree").in("id", topUserIds);
-    users = withTree.data as UserRow[] | null;
-    userError = withTree.error;
-
-    if (userError) {
-      const msg = (userError.message ?? "").toLowerCase();
-      if (userError.code === "42703" || msg.includes("personal_tree")) {
-        const fallback = await db.from("users").select("id,name,avatar_url").in("id", topUserIds);
-        users = fallback.data as UserRow[] | null;
-        userError = fallback.error;
-      }
-    }
+    type UserRow = { id: string; name: string; avatar_url: string | null };
+    const { data: users, error: userError } = await db
+      .from("users")
+      .select("id,name,avatar_url")
+      .in("id", topUserIds);
 
     if (userError || !users) {
       console.error("Fetch users error:", userError);
@@ -139,30 +112,23 @@ export async function GET(request: NextRequest) {
     }
 
     const result = topUserIds
-      .map((uid) => users.find((u) => u.id === uid))
+      .map((uid) => (users as UserRow[]).find((u) => u.id === uid))
       .filter(Boolean)
-      .map((u) => {
-        const tree = parsePersonalTree(u!.personal_tree);
-        const categories = buildPublicRecommendedCategories(tree, qsetsByOwner.get(u!.id) ?? []);
-        return {
-          id: u!.id,
-          name: u!.name,
-          avatarUrl: u!.avatar_url,
-          categories: categories.map((cat) => ({
-            id: cat.id,
-            name: cat.name,
-            href: cat.href,
-            isFolder: cat.isFolder,
-            parentId: cat.parentId,
-            problemsPerTest: cat.problemsPerTest,
-            shuffleProblems: cat.shuffleProblems,
-          })),
-          lists: (listsByOwner.get(u!.id) || []).map((list) => ({
-            id: list.id,
-            title: list.title,
-          })),
-        };
-      })
+      .map((u) => ({
+        id: u!.id,
+        name: u!.name,
+        avatarUrl: u!.avatar_url,
+        categories: (qsetsByOwner.get(u!.id) ?? []).map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+          problemsPerTest: cat.problems_per_test ?? null,
+          shuffleProblems: cat.shuffle_problems ?? null,
+        })),
+        lists: (listsByOwner.get(u!.id) || []).map((list) => ({
+          id: list.id,
+          title: list.title,
+        })),
+      }))
       .filter((u) => u.categories.length > 0 || u.lists.length > 0);
 
     return NextResponse.json({ users: result });

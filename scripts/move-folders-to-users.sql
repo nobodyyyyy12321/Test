@@ -1,1 +1,0 @@
--- Deprecated: run scripts/add-personal-tree-to-users.sql instead.

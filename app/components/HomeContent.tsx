@@ -13,16 +13,14 @@ import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import type { QuestionList } from "../../lib/lists-supabase";
 
-type UserResult = { 
-  id: string; 
-  name: string; 
+type UserResult = {
+  id: string;
+  name: string;
   avatarUrl?: string;
   categories?: Array<{
     id: string;
     name: string;
     href?: string;
-    isFolder?: boolean;
-    parentId?: string | null;
     problemsPerTest?: number | null;
     shuffleProblems?: boolean | null;
   }>;
@@ -31,21 +29,9 @@ type UserResult = {
     title: string;
   }>;
 };
-type RecommendedCategory = {
-  id: string;
-  name: string;
-  href?: string;
-  isFolder?: boolean;
-  parentId?: string | null;
-  problemsPerTest?: number | null;
-  shuffleProblems?: boolean | null;
-};
 type ExternalPinnedRef = {
   name: string;
   href?: string;
-  kind: "link" | "folder";
-  ownerId?: string;
-  folderId?: string;
 };
 type CtxMenu = {
   id: string;
@@ -54,7 +40,6 @@ type CtxMenu = {
   x: number;
   y: number;
   from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned";
-  meta?: { kind?: "folder"; ownerId?: string; folderId?: string };
 };
 type Group = { id: string; name: string };
 type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
@@ -70,7 +55,7 @@ export function HomeContent() {
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
-  const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; isFolder: boolean; parentId: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
+  const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
@@ -97,7 +82,6 @@ export function HomeContent() {
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
   const [recommendedLoaded, setRecommendedLoaded] = useState(false);
-  const [openRecommendedFolderChains, setOpenRecommendedFolderChains] = useState<Record<string, string[]>>({});
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -223,116 +207,6 @@ export function HomeContent() {
       if (currentIndex >= 0) return prev.slice(0, currentIndex);
       return chain;
     });
-  };
-
-  const toggleRecommendedFolder = (ownerId: string, folderId: string, categories: UserResult["categories"] | undefined) => {
-    if (!categories) return;
-
-    const getPathToFolder = (targetId: string): string[] => {
-      const path: string[] = [];
-      const visited = new Set<string>();
-      let currentId: string | null = targetId;
-
-      while (currentId) {
-        if (visited.has(currentId)) break;
-        visited.add(currentId);
-        path.unshift(currentId);
-        const current = categories.find((c) => c.id === currentId);
-        currentId = current?.parentId ?? null;
-      }
-
-      return path;
-    };
-
-    setOpenRecommendedFolderChains((prev) => {
-      const next = { ...prev };
-      const currentChain = next[ownerId] ?? [];
-      const path = getPathToFolder(folderId);
-      if (path.length === 0) {
-        next[ownerId] = [];
-        return next;
-      }
-      if (currentChain.includes(folderId)) {
-        next[ownerId] = path.slice(0, -1);
-      } else {
-        next[ownerId] = path;
-      }
-      return next;
-    });
-  };
-
-  const isRecommendedFolder = (cat: RecommendedCategory | undefined): boolean => {
-    if (!cat) return false;
-    return cat.isFolder === true;
-  };
-
-  const getRecommendedChildrenOf = (categories: UserResult["categories"] | undefined, parentId: string | null | undefined) => {
-    if (!categories) return [];
-    return categories.filter(cat => (cat.parentId ?? null) === parentId);
-  };
-
-  const renderRecommendedFolder = (
-    cat: RecommendedCategory | undefined,
-    userCategories: UserResult["categories"] | undefined,
-    depth: number,
-    ownerId: string,
-    ancestorExpanded: boolean = false
-  ) => {
-    if (!cat) return null;
-    
-    const isOpen = (openRecommendedFolderChains[ownerId] ?? []).includes(cat.id);
-    const isHighlighted = ancestorExpanded || isOpen;
-    const childCollections = getRecommendedChildrenOf(userCategories, cat.id).filter(c => !isRecommendedFolder(c));
-    const childFolders = getRecommendedChildrenOf(userCategories, cat.id).filter(c => isRecommendedFolder(c));
-    const folderPinId = `rec-folder:${ownerId}:${cat.id}`;
-    const folderPinned = loggedIn && pinnedNames.includes(folderPinId);
-
-    return (
-      <div key={`folder-${cat.id}`} className="contents">
-        <button
-          type="button"
-          className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-          style={{ color: isHighlighted ? "#b19739" : "#5fa870" }}
-          onClick={() => toggleRecommendedFolder(ownerId, cat.id, userCategories)}
-          onContextMenu={loggedIn ? e => openCtx(
-            e,
-            folderPinId,
-            cat.name,
-            folderPinned ? "pinned" : "grid",
-            undefined,
-            { kind: "folder", ownerId, folderId: cat.id }
-          ) : undefined}
-        >
-          📁 {cat.name}
-        </button>
-        
-        {isOpen && childCollections.map((childCat) => {
-          const childHref = appendHrefOptions(`/test/${encodeURIComponent(childCat.id)}`, childCat.problemsPerTest, childCat.shuffleProblems);
-          const pinId = childCat.href ? `href:${hrefToCategoryKey(childCat.href)}` : `rec:${ownerId}:${childCat.id}`;
-          const isPinned = loggedIn && pinnedNames.includes(pinId);
-          return (
-            <a
-              key={`rec-${childCat.id}`}
-              href={childHref}
-              className="book-link bookshelf-btn sub-item"
-              style={{ color: "#b19739" }}
-              onContextMenu={loggedIn ? e => openCtx(e, pinId, childCat.name, isPinned ? "pinned" : "grid", childHref) : undefined}
-            >
-              {childCat.name}
-            </a>
-          );
-        })}
-        
-        {isOpen && childFolders.map((childFolder) =>
-          renderRecommendedFolder(childFolder, userCategories, depth + 1, ownerId, isHighlighted)
-        )}
-      </div>
-    );
-  };
-
-  const renderRecommendedCategoryRoots = (categories: UserResult["categories"] | undefined) => {
-    if (!categories) return [];
-    return categories.filter(cat => (cat.parentId ?? null) === null);
   };
 
   const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[], ancestorExpanded: boolean = false) => {
@@ -488,7 +362,6 @@ export function HomeContent() {
   useEffect(() => {
     setRecommendedAccounts([]);
     setRecommendedLoaded(false);
-    setOpenRecommendedFolderChains({});
     fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
       .then(r => {
         if (!r.ok) {
@@ -556,20 +429,12 @@ export function HomeContent() {
     }
   };
 
-  const pin = (name: string, meta?: { name?: string; href?: string; kind?: "folder"; ownerId?: string; folderId?: string }) => {
-    if (meta?.href || meta?.kind === "folder") {
-      const ref: ExternalPinnedRef = meta?.kind === "folder"
-        ? {
-            name: meta.name || name,
-            kind: "folder",
-            ownerId: meta.ownerId,
-            folderId: meta.folderId,
-          }
-        : {
-            name: meta?.name || name,
-            href: meta?.href,
-            kind: "link",
-          };
+  const pin = (name: string, meta?: { name?: string; href?: string }) => {
+    if (meta?.href) {
+      const ref: ExternalPinnedRef = {
+        name: meta?.name || name,
+        href: meta?.href,
+      };
       setExternalPinnedRefs(prev => {
         const next = { ...prev, [name]: ref };
         try { localStorage.setItem("externalPinnedRefs", JSON.stringify(next)); } catch {}
@@ -736,11 +601,10 @@ export function HomeContent() {
     id: string,
     name: string,
     from: CtxMenu["from"],
-    href?: string,
-    meta?: CtxMenu["meta"]
+    href?: string
   ) => {
     e.preventDefault();
-    setCtxMenu({ id, name, href, x: e.clientX, y: e.clientY, from, meta });
+    setCtxMenu({ id, name, href, x: e.clientX, y: e.clientY, from });
   };
 
   const hrefToCategoryKey = (href: string): string => {
@@ -846,78 +710,6 @@ export function HomeContent() {
     );
   };
 
-  const renderPinnedRecommendedDescendants = (
-    ownerId: string,
-    categories: UserResult["categories"] | undefined,
-    parentId: string,
-    depth: number,
-    ancestorExpanded: boolean = false,
-    parentChain: string[] = []
-  ): (React.ReactElement | null)[] => {
-    if (!categories) return [];
-    const children = getRecommendedChildrenOf(categories, parentId);
-    if (children.length === 0) return [];
-
-    const results: (React.ReactElement | null)[] = [];
-
-    children.forEach((child) => {
-      const isFolder = isRecommendedFolder(child);
-      const itemClass = itemClassForDepth(depth);
-      const indentStyle = depth > 1 ? { marginLeft: `${(depth - 1) * 14}px` } : undefined;
-
-      if (isFolder) {
-        const folderPinId = `rec-folder:${ownerId}:${child.id}`;
-        const chain = [...parentChain, folderPinId];
-        const folderPinned = loggedIn && pinnedNames.includes(folderPinId);
-        const isExpanded = isPinnedKeyOpen(folderPinId);
-        const color = ancestorExpanded || isExpanded ? FOLDER_COLOR : LEAF_COLOR;
-
-        results.push(
-          <button
-            key={folderPinId}
-            type="button"
-            className={`${itemClass} ${isExpanded ? "active-category" : ""}`.trim()}
-            style={{ color, ...indentStyle }}
-            onClick={() => toggleOpenPinnedKey(folderPinId, chain)}
-            onContextMenu={loggedIn ? e => openCtx(
-              e,
-              folderPinId,
-              child.name,
-              folderPinned ? "pinned" : "grid",
-              undefined,
-              { kind: "folder", ownerId, folderId: child.id }
-            ) : undefined}
-          >
-            <span className="mr-1">📁</span>{child.name}
-          </button>
-        );
-
-        if (isExpanded) {
-          const nestedResults = renderPinnedRecommendedDescendants(ownerId, categories, child.id, depth + 1, true, chain);
-          results.push(...nestedResults);
-        }
-      } else {
-        const leafHref = appendHrefOptions(child.href, child.problemsPerTest, child.shuffleProblems);
-        const leafPinId = child.href ? `href:${hrefToCategoryKey(child.href)}` : `rec:${ownerId}:${child.id}`;
-        const leafPinned = loggedIn && pinnedNames.includes(leafPinId);
-
-        results.push(
-          <a
-            key={leafPinId}
-            href={leafHref}
-            className={itemClass}
-            style={{ color: FOLDER_COLOR, ...indentStyle }}
-            onContextMenu={loggedIn ? e => openCtx(e, leafPinId, child.name, leafPinned ? "pinned" : "grid", leafHref) : undefined}
-          >
-            {child.name}
-          </a>
-        );
-      }
-    });
-
-    return results;
-  };
-
   return (
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
       {/* profile-tab pin context menu */}
@@ -962,7 +754,7 @@ export function HomeContent() {
               <button
                 type="button"
                 onMouseDown={e => e.stopPropagation()}
-                onClick={() => { pin(ctxMenu.id, { name: ctxMenu.name, href: ctxMenu.href, kind: ctxMenu.meta?.kind, ownerId: ctxMenu.meta?.ownerId, folderId: ctxMenu.meta?.folderId }); setCtxMenu(null); }}
+                onClick={() => { pin(ctxMenu.id, { name: ctxMenu.name, href: ctxMenu.href }); setCtxMenu(null); }}
                 className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 style={{ color: "var(--zen-ink)" }}
               >
@@ -1186,34 +978,6 @@ export function HomeContent() {
                     const found = findPinnedNode(pinValue, subjects);
                     if (!found) {
                       const external = externalPinnedRefs[pinValue];
-                      if (external?.kind === "folder") {
-                        const ownerCategories = external.ownerId
-                          ? recommendedAccounts.find((u) => u.id === external.ownerId)?.categories
-                          : undefined;
-                        const chain = [pinValue];
-                        const isExpanded = isPinnedKeyOpen(pinValue);
-                        return (
-                          <React.Fragment key={`ext-folder-${pinValue}`}>
-                            <button
-                              type="button"
-                              className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`.trim()}
-                              style={{ color: isExpanded ? FOLDER_COLOR : LEAF_COLOR }}
-                              onClick={() => toggleOpenPinnedKey(pinValue, chain)}
-                              onContextMenu={e => openCtx(e, pinValue, external.name, "pinned")}
-                            >
-                              <span className="mr-1">📁</span>{external.name}
-                            </button>
-                            {isExpanded && external.ownerId && external.folderId && renderPinnedRecommendedDescendants(
-                              external.ownerId,
-                              ownerCategories,
-                              external.folderId,
-                              1,
-                              true,
-                              chain
-                            )}
-                          </React.Fragment>
-                        );
-                      }
                       const fallbackHref = external?.href ?? keyToHref(pinValue);
                       if (!fallbackHref) return null;
                       return (
@@ -1339,50 +1103,42 @@ export function HomeContent() {
                           map.get(cat.ownerId)!.cats.push(cat);
                           return map;
                         }, new Map<string, { ownerName: string | null; ownerAvatarUrl: string | null; cats: typeof ownerCatResults }>())
-                      ).map(([ownerId, { ownerName, ownerAvatarUrl, cats }]) => {
-                        // Build RecommendedCategory-compatible list for reuse of folder rendering
-                        const recCats = cats.map(c => ({ id: c.id, name: c.name, href: c.href ?? undefined, isFolder: c.isFolder ?? false, parentId: c.parentId, problemsPerTest: c.problemsPerTest, shuffleProblems: c.shuffleProblems }));
-                        const roots = recCats.filter(c => (c.parentId ?? null) === null);
-                        return (
-                          <li key={ownerId}>
-                            <Link
-                              href={`/${encodeURIComponent(ownerName ?? ownerId)}`}
-                              className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
-                            >
-                              <Image
-                                src={ownerAvatarUrl || AVATAR_PLACEHOLDER}
-                                alt={ownerName ?? ownerId}
-                                width={40}
-                                height={40}
-                                unoptimized
-                                className="w-10 h-10 rounded-full object-cover shrink-0"
-                              />
-                              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{ownerName ?? ownerId}</span>
-                            </Link>
-                            <div className="bookshelf-grid">
-                              {roots.map(cat => {
-                                if (isRecommendedFolder(cat)) {
-                                  return renderRecommendedFolder(cat, recCats, 0, ownerId);
-                                }
-                                const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
-                                const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${ownerId}:${cat.id}`;
-                                const isPinned = loggedIn && pinnedNames.includes(pinId);
-                                return (
-                                  <a
-                                    key={cat.id}
-                                    href={recommendedHref}
-                                    className="book-link bookshelf-btn"
-                                    style={{ color: LEAF_COLOR }}
-                                    onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
-                                  >
-                                    {cat.name}
-                                  </a>
-                                );
-                              })}
-                            </div>
-                          </li>
-                        );
-                      })}
+                      ).map(([ownerId, { ownerName, ownerAvatarUrl, cats }]) => (
+                        <li key={ownerId}>
+                          <Link
+                            href={`/${encodeURIComponent(ownerName ?? ownerId)}`}
+                            className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
+                          >
+                            <Image
+                              src={ownerAvatarUrl || AVATAR_PLACEHOLDER}
+                              alt={ownerName ?? ownerId}
+                              width={40}
+                              height={40}
+                              unoptimized
+                              className="w-10 h-10 rounded-full object-cover shrink-0"
+                            />
+                            <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{ownerName ?? ownerId}</span>
+                          </Link>
+                          <div className="bookshelf-grid">
+                            {cats.map(cat => {
+                              const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
+                              const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${ownerId}:${cat.id}`;
+                              const isPinned = loggedIn && pinnedNames.includes(pinId);
+                              return (
+                                <a
+                                  key={cat.id}
+                                  href={recommendedHref}
+                                  className="book-link bookshelf-btn"
+                                  style={{ color: LEAF_COLOR }}
+                                  onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
+                                >
+                                  {cat.name}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -1440,10 +1196,7 @@ export function HomeContent() {
                             </Link>
                             {((u.categories && u.categories.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
-                                  {(u.categories ?? []).length > 0 && renderRecommendedCategoryRoots(u.categories).map((cat) => {
-                                    if (isRecommendedFolder(cat)) {
-                                      return renderRecommendedFolder(cat, u.categories, 0, u.id);
-                                    }
+                                  {(u.categories ?? []).map((cat) => {
                                     const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
                                     const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${u.id}:${cat.id}`;
                                     const isPinned = loggedIn && pinnedNames.includes(pinId);

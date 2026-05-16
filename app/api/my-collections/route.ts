@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { getFoldersPayload, patchFolderOp } from "@/lib/my-folders-api";
 import { getUserCollections, deleteUserCollection, upsertUserCollection, updateUserCollection, userOwnsCollection, countCollectionRefs } from "@/lib/user-collections-supabase";
 import { deletePersonalQuizSet } from "@/lib/questions-supabase";
-import { getPersonalTree, qsetParentId } from "@/lib/personal-tree";
 
 async function getUser() {
   const session = await auth();
@@ -19,33 +17,12 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const foldersOnly = ["1", "true", "yes"].includes((searchParams.get("foldersOnly") ?? "").toLowerCase());
 
   try {
-    if (foldersOnly) {
-      return NextResponse.json(await getFoldersPayload(user.id));
-    }
-
     const allLanguages = ["1", "true", "yes"].includes((searchParams.get("allLanguages") ?? "").toLowerCase());
     const language = allLanguages ? undefined : (searchParams.get("language") ?? "zh-TW");
-    const [collections, tree, foldersPayload] = await Promise.all([
-      getUserCollections(user.id, language),
-      getPersonalTree(user.id).catch(() => null),
-      getFoldersPayload(user.id).catch(() => ({ folders: [], storageReady: false, warning: undefined as string | undefined })),
-    ]);
-    const withParents = tree
-      ? collections.map((c) => ({
-          ...c,
-          parentId: qsetParentId(tree, c.collectionId),
-        }))
-      : collections;
-    const warning = "warning" in foldersPayload ? foldersPayload.warning : undefined;
-    return NextResponse.json({
-      collections: withParents,
-      folders: foldersPayload.folders,
-      storageReady: foldersPayload.storageReady,
-      ...(warning ? { warning } : {}),
-    });
+    const collections = await getUserCollections(user.id, language);
+    return NextResponse.json({ collections });
   } catch (err) {
     console.error("GET /api/my-collections error:", err);
     const message = err instanceof Error ? err.message : String(err);
@@ -62,20 +39,6 @@ export async function PATCH(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (typeof body.op === "string" && body.op.length > 0) {
-    try {
-      const result = await patchFolderOp(user.id, body);
-      if (result.status !== 200) {
-        return NextResponse.json({ error: result.error }, { status: result.status });
-      }
-      return NextResponse.json({ ok: true, folders: result.folders });
-    } catch (err) {
-      console.error("PATCH /api/my-collections (folder op) error:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      return NextResponse.json({ error: message }, { status: 500 });
-    }
   }
 
   const collectionId = typeof body.collectionId === "string" ? body.collectionId.trim() : "";

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { findUserByEmail, findUserByName, findUserById } from "../../../lib/users";
 import { getListsByOwner, getListsSharedWithUser, createList } from "../../../lib/lists-supabase";
-import { getPersonalTree, listParentId } from "../../../lib/personal-tree";
 import type { Session } from "next-auth";
 
 async function getSessionUser() {
@@ -18,18 +17,10 @@ export async function GET() {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const [ownLists, sharedLists, tree] = await Promise.all([
+    const [ownLists, sharedLists] = await Promise.all([
       getListsByOwner(user.id),
       getListsSharedWithUser(user.name),
-      getPersonalTree(user.id).catch(() => null),
     ]);
-
-    const ownWithParents = tree
-      ? ownLists.map((list) => ({
-          ...list,
-          parentId: listParentId(tree, list.id),
-        }))
-      : ownLists;
 
     // resolve ownerName for shared lists
     const ownerCache = new Map<string, string>();
@@ -43,7 +34,7 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ lists: ownWithParents, sharedLists: sharedWithOwner });
+    return NextResponse.json({ lists: ownLists, sharedLists: sharedWithOwner });
   } catch (e) {
     console.error("GET /api/lists error:", e);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
