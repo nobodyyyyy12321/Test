@@ -253,12 +253,12 @@ export function PersonalListsView({
     ];
   };
 
-  const renderListItem = (list: DisplayList): React.ReactNode => (
+  const renderListItem = (list: DisplayList, inChain: boolean = false): React.ReactNode => (
     <div key={list.id} className="relative">
       <a
         href={`/test/list?listId=${list.id}&autostart=1`}
         className="book-link bookshelf-btn"
-        style={{ color: "#6ea8d8" }}
+        style={{ color: inChain ? "#b19739" : "#5fa870" }}
         onContextMenu={(e) => {
           if (!isOwner) return;
           e.preventDefault();
@@ -307,12 +307,12 @@ export function PersonalListsView({
     </div>
   );
 
-  const renderCollectionItem = (col: MyCollection): React.ReactNode => (
+  const renderCollectionItem = (col: MyCollection, inChain: boolean = false): React.ReactNode => (
     <div key={`my-${col.id}`} className="relative">
       <a
         href={appendHrefOptions(`/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
         className="book-link bookshelf-btn"
-        style={{ color: "#5fa870" }}
+        style={{ color: inChain ? "#b19739" : "#5fa870" }}
         onContextMenu={(e) => {
           if (!isOwner) return;
           e.preventDefault();
@@ -512,9 +512,9 @@ export function PersonalListsView({
           </div>
         )}
 
-        {isOpen && childCollections.map((col) => renderCollectionItem(col))}
-        {isOpen && childLists.map((list) => renderListItem(list))}
-        {isOpen && childFolders.map((child) => renderFolder(child, isHighlighted))}
+        {isOpen && childCollections.map((col) => renderCollectionItem(col, true))}
+        {isOpen && childLists.map((list) => renderListItem(list, true))}
+        {isOpen && childFolders.map((child) => renderFolder(child, true))}
       </div>
     );
   };

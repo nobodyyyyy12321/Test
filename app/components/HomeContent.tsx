@@ -63,14 +63,12 @@ export function HomeContent() {
       chain: string[]
     ): React.ReactNode {
       const isExpanded = isPinnedKeyOpen(pinId);
-      const color = FOLDER_COLOR;
-      const indentStyle = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
       return (
         <div key={pinId} className="contents">
           <button
             type="button"
             className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`.trim()}
-            style={{ color, ...indentStyle }}
+            style={{ color: FOLDER_COLOR }}
             title="資料夾"
             onClick={() => toggleOpenPinnedKey(pinId, chain)}
             onContextMenu={e => openCtx(e, pinId, node.name, "pinned", node.href)}
@@ -88,7 +86,7 @@ export function HomeContent() {
                 key={childPinId}
                 href={hrefWithOptions(child)}
                 className="book-link bookshelf-btn"
-                style={{ color: LEAF_COLOR, ...{ marginLeft: `${(depth + 1) * 14}px` } }}
+                style={{ color: LEAF_COLOR }}
                 onContextMenu={e => openCtx(e, childPinId, child.name, "pinned", child.href)}
               >
                 {child.name}
@@ -136,6 +134,7 @@ export function HomeContent() {
   const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
   const [recommendedLoaded, setRecommendedLoaded] = useState(false);
   const [recommendedOpenFolderKeys, setRecommendedOpenFolderKeys] = useState<Set<string>>(new Set());
+  const [pinnedRecOpenChain, setPinnedRecOpenChain] = useState<string[]>([]);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
@@ -486,7 +485,7 @@ export function HomeContent() {
   };
 
   const pin = (name: string, meta?: { name?: string; href?: string }) => {
-    if (meta?.href) {
+    if (meta?.href || meta?.name) {
       const ref: ExternalPinnedRef = {
         name: meta?.name || name,
         href: meta?.href,
@@ -787,7 +786,11 @@ export function HomeContent() {
   const recommendedListsUnder = (user: UserResult, folderId: string | null) =>
     (user.lists ?? []).filter((list) => (list.parentId ?? null) === folderId);
 
-  const renderRecommendedCategory = (user: UserResult, cat: NonNullable<UserResult["categories"]>[number]) => {
+  const renderRecommendedCategory = (
+    user: UserResult,
+    cat: NonNullable<UserResult["categories"]>[number],
+    inChain: boolean = false
+  ) => {
     const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
     const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${user.id}:${cat.id}`;
     const isPinned = loggedIn && pinnedNames.includes(pinId);
@@ -796,7 +799,7 @@ export function HomeContent() {
         key={`cat-${cat.id}`}
         href={recommendedHref}
         className="book-link bookshelf-btn"
-        style={{ color: LEAF_COLOR }}
+        style={{ color: inChain ? FOLDER_COLOR : LEAF_COLOR }}
         onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
       >
         {cat.name}
@@ -804,12 +807,15 @@ export function HomeContent() {
     );
   };
 
-  const renderRecommendedList = (list: NonNullable<UserResult["lists"]>[number]) => (
+  const renderRecommendedList = (
+    list: NonNullable<UserResult["lists"]>[number],
+    inChain: boolean = false
+  ) => (
     <a
       key={`list-${list.id}`}
       href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
       className="book-link bookshelf-btn"
-      style={{ color: "#6ea8d8" }}
+      style={{ color: inChain ? FOLDER_COLOR : LEAF_COLOR }}
     >
       {list.title}
     </a>
@@ -817,25 +823,99 @@ export function HomeContent() {
 
   const renderRecommendedFolder = (
     user: UserResult,
-    folder: NonNullable<UserResult["folders"]>[number]
+    folder: NonNullable<UserResult["folders"]>[number],
+    ancestorExpanded: boolean = false
   ): React.ReactNode => {
     const key = recommendedFolderKey(user.id, folder.id);
     const isOpen = recommendedOpenFolderKeys.has(key);
+    const isHighlighted = ancestorExpanded || isOpen;
     return (
       <div key={`folder-${folder.id}`} className="contents">
         <button
           type="button"
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-          style={{ color: FOLDER_COLOR }}
+          style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
           title="公開資料夾"
           onClick={() => toggleRecommendedFolder(user.id, folder.id)}
           onContextMenu={loggedIn ? e => openCtx(e, `rec-folder:${user.id}:${folder.id}`, folder.name, "grid") : undefined}
         >
           📁 {folder.name}
         </button>
-        {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderRecommendedCategory(user, cat))}
-        {isOpen && recommendedFoldersUnder(user, folder.id).map((child) => renderRecommendedFolder(user, child))}
-        {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderRecommendedList(list))}
+        {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderRecommendedCategory(user, cat, true))}
+        {isOpen && recommendedFoldersUnder(user, folder.id).map((child) => renderRecommendedFolder(user, child, true))}
+        {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderRecommendedList(list, true))}
+      </div>
+    );
+  };
+
+  const togglePinnedRecFolder = (key: string, chain: string[]) => {
+    setPinnedRecOpenChain((prev) => {
+      const idx = prev.indexOf(key);
+      if (idx >= 0) return prev.slice(0, idx);
+      return chain;
+    });
+  };
+
+  const renderPinnedRecCategory = (
+    user: UserResult,
+    cat: NonNullable<UserResult["categories"]>[number]
+  ): React.ReactNode => {
+    const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
+    const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${user.id}:${cat.id}`;
+    const isPinned = loggedIn && pinnedNames.includes(pinId);
+    return (
+      <a
+        key={`pinned-cat-${cat.id}`}
+        href={recommendedHref}
+        className="book-link bookshelf-btn"
+        style={{ color: FOLDER_COLOR }}
+        onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
+      >
+        {cat.name}
+      </a>
+    );
+  };
+
+  const renderPinnedRecList = (
+    list: NonNullable<UserResult["lists"]>[number]
+  ): React.ReactNode => (
+    <a
+      key={`pinned-list-${list.id}`}
+      href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
+      className="book-link bookshelf-btn"
+      style={{ color: FOLDER_COLOR }}
+    >
+      {list.title}
+    </a>
+  );
+
+  const renderPinnedRecFolder = (
+    user: UserResult,
+    folder: NonNullable<UserResult["folders"]>[number],
+    pinValue: string | undefined,
+    chain: string[],
+    ancestorExpanded: boolean = false
+  ): React.ReactNode => {
+    const key = recommendedFolderKey(user.id, folder.id);
+    const isOpen = pinnedRecOpenChain.includes(key);
+    const isHighlighted = ancestorExpanded || isOpen;
+    const ctxId = pinValue ?? `rec-folder:${user.id}:${folder.id}`;
+    const ctxFrom: CtxMenu["from"] = pinValue ? "pinned" : "grid";
+    return (
+      <div key={`pinned-folder-${user.id}-${folder.id}`} className="contents">
+        <button
+          type="button"
+          className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
+          style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
+          title="公開資料夾"
+          onClick={() => togglePinnedRecFolder(key, chain)}
+          onContextMenu={loggedIn ? e => openCtx(e, ctxId, folder.name, ctxFrom) : undefined}
+        >
+          📁 {folder.name}
+        </button>
+        {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderPinnedRecCategory(user, cat))}
+        {isOpen && recommendedFoldersUnder(user, folder.id).map((child) => renderPinnedRecFolder(user, child, undefined, [...chain, recommendedFolderKey(user.id, child.id)], true))}
+        {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderPinnedRecList(list))}
       </div>
     );
   };
@@ -1113,6 +1193,32 @@ export function HomeContent() {
                     );
                   })}
                   {pinnedNames.map((pinValue) => {
+                    if (pinValue.startsWith("rec-folder:")) {
+                      const parts = pinValue.split(":");
+                      const ownerId = parts[1];
+                      const folderId = parts[2];
+                      const allUsers = [...recommendedAccounts, ...userResults];
+                      const user = allUsers.find(u => u.id === ownerId);
+                      const folder = user?.folders?.find(f => f.id === folderId);
+                      if (user && folder) {
+                        const topKey = recommendedFolderKey(user.id, folder.id);
+                        return renderPinnedRecFolder(user, folder, pinValue, [topKey]);
+                      }
+                      const external = externalPinnedRefs[pinValue];
+                      const displayName = external?.name ?? "資料夾";
+                      return (
+                        <button
+                          key={pinValue}
+                          type="button"
+                          className="book-link bookshelf-btn"
+                          style={{ color: FOLDER_COLOR }}
+                          title="公開資料夾"
+                          onContextMenu={e => openCtx(e, pinValue, displayName, "pinned")}
+                        >
+                          📁 {displayName}
+                        </button>
+                      );
+                    }
                     const found = findPinnedNode(pinValue, subjects);
                     if (!found) {
                       const external = externalPinnedRefs[pinValue];

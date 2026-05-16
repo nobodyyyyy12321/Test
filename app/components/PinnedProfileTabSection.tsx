@@ -57,6 +57,38 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
   const [profileFolders, setProfileFolders] = useState<UserFolder[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
+  const [addingFolder, setAddingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [addFolderError, setAddFolderError] = useState<string | null>(null);
+
+  const addFolder = async () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed) {
+      setAddingFolder(false);
+      setNewFolderName("");
+      return;
+    }
+    try {
+      const res = await fetch("/api/my-folders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "addFolder", name: trimmed, parentId: null }),
+      });
+      const data: { folders?: unknown; error?: string } = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddFolderError(data.error ?? `新增失敗 (${res.status})`);
+        return;
+      }
+      setAddFolderError(null);
+      if (Array.isArray(data.folders)) {
+        setProfileFolders(data.folders as UserFolder[]);
+      }
+      setNewFolderName("");
+      setAddingFolder(false);
+    } catch (e) {
+      setAddFolderError(e instanceof Error ? e.message : "新增失敗");
+    }
+  };
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [ownedGroups, setOwnedGroups] = useState<GroupItem[]>([]);
@@ -171,18 +203,60 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
         loading && tab !== "lists" ? (
           <p className="text-sm zen-subtle">載入中...</p>
         ) : tab === "lists" ? (
-          <PersonalListsView
-            isOwner={isOwner}
-            loading={loading}
-            lists={lists}
-            setLists={setLists}
-            myCollections={myCollections}
-            folders={profileFolders}
-            pinnedListIds={pinnedListIds}
-            setPinnedListIds={setPinnedListIds}
-            pinnedCollectionIds={pinnedCollectionIds}
-            setPinnedCollectionIds={setPinnedCollectionIds}
-          />
+          <>
+            {isOwner && (
+              <div className="mb-3 flex flex-col gap-1">
+                {addingFolder ? (
+                  <input
+                    autoFocus
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="資料夾名稱"
+                    onBlur={() => void addFolder()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void addFolder();
+                      }
+                      if (e.key === "Escape") {
+                        setAddingFolder(false);
+                        setNewFolderName("");
+                      }
+                    }}
+                    className="text-sm px-2 py-1 outline-none border border-zinc-300 dark:border-zinc-600 rounded"
+                    style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddFolderError(null);
+                      setAddingFolder(true);
+                    }}
+                    className="self-start text-xs opacity-60 hover:opacity-90 transition-opacity"
+                    style={{ color: "var(--zen-ink)" }}
+                  >
+                    + 新增資料夾
+                  </button>
+                )}
+                {addFolderError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{addFolderError}</p>
+                )}
+              </div>
+            )}
+            <PersonalListsView
+              isOwner={isOwner}
+              loading={loading}
+              lists={lists}
+              setLists={setLists}
+              myCollections={myCollections}
+              folders={profileFolders}
+              pinnedListIds={pinnedListIds}
+              setPinnedListIds={setPinnedListIds}
+              pinnedCollectionIds={pinnedCollectionIds}
+              setPinnedCollectionIds={setPinnedCollectionIds}
+            />
+          </>
         ) : tab === "followers" || tab === "following" ? (
           users.length === 0 ? (
             <p className="text-sm zen-subtle opacity-50">{tab === "followers" ? "尚無追蹤者" : "尚無追蹤中的使用者"}</p>
