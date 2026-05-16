@@ -17,11 +17,6 @@ type Props = {
 
 export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Props) {
   const { data: session, status: sessionStatus } = useSession();
-  const isOwner =
-    session?.user?.name === name ||
-    session?.user?.name === decodeURIComponent(name) ||
-    (session?.user as { email?: string } | undefined)?.email === name ||
-    (session?.user as { email?: string } | undefined)?.email === decodeURIComponent(name);
 
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -33,9 +28,14 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
 
-  const [addingFolder, setAddingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [addFolderError, setAddFolderError] = useState<string | null>(null);
+  const [serverOwner, setServerOwner] = useState<boolean | null>(null);
+
+  const fastOwner =
+    session?.user?.name === name ||
+    session?.user?.name === decodeURIComponent(name) ||
+    (session?.user as { email?: string } | undefined)?.email === name ||
+    (session?.user as { email?: string } | undefined)?.email === decodeURIComponent(name);
+  const isOwner = fastOwner || serverOwner === true;
 
   // Session resolution can flip `isOwner` after the first fetch already ran on
   // the wrong branch — reset `loaded` so the owner/non-owner fetch re-runs.
@@ -46,6 +46,7 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
 
   useEffect(() => {
     if (tab !== "lists" || !open || loaded) return;
+    if (serverOwner === null) return;
     setLoading(true);
     const finish = () => { setLoaded(true); setLoading(false); };
 
@@ -73,81 +74,24 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
         .catch(() => {})
         .finally(finish);
     }
-  }, [open, loaded, tab, name, isOwner]);
+  }, [open, loaded, tab, name, isOwner, serverOwner]);
 
-  const addFolder = async () => {
-    const trimmed = newFolderName.trim();
-    if (!trimmed) {
-      setAddingFolder(false);
-      setNewFolderName("");
+  // Server-side owner check when client-side name match fails
+  useEffect(() => {
+    if (fastOwner || sessionStatus === "loading") {
+      if (fastOwner) setServerOwner(true);
       return;
     }
-    try {
-      const res = await fetch("/api/my-folders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "addFolder", name: trimmed, parentId: null }),
-      });
-      const data: { folders?: unknown; error?: string } = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setAddFolderError(data.error ?? `新增失敗 (${res.status})`);
-        return;
-      }
-      setAddFolderError(null);
-      if (Array.isArray(data.folders)) {
-        setProfileFolders(data.folders as UserFolder[]);
-      }
-      setNewFolderName("");
-      setAddingFolder(false);
-    } catch (e) {
-      setAddFolderError(e instanceof Error ? e.message : "新增失敗");
-    }
-  };
+    fetch(`/api/user/profile?name=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(d => { setServerOwner(d?.user?.isOwner === true); })
+      .catch(() => setServerOwner(false));
+  }, [name, fastOwner, sessionStatus]);
 
   const profileHref = `/${encodeURIComponent(name)}?tab=${encodeURIComponent(tab)}`;
 
   const renderListsBody = () => (
     <>
-      {isOwner && (
-        <div className="mb-3 flex flex-col gap-1">
-          {addingFolder ? (
-            <input
-              autoFocus
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="資料夾名稱"
-              onBlur={() => void addFolder()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void addFolder();
-                }
-                if (e.key === "Escape") {
-                  setAddingFolder(false);
-                  setNewFolderName("");
-                }
-              }}
-              className="text-sm px-2 py-1 outline-none border border-zinc-300 dark:border-zinc-600 rounded"
-              style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setAddFolderError(null);
-                setAddingFolder(true);
-              }}
-              className="self-start text-xs opacity-60 hover:opacity-90 transition-opacity"
-              style={{ color: "var(--zen-ink)" }}
-            >
-              + 新增資料夾
-            </button>
-          )}
-          {addFolderError && (
-            <p className="text-xs text-red-600 dark:text-red-400">{addFolderError}</p>
-          )}
-        </div>
-      )}
       <PersonalListsView
         isOwner={isOwner}
         loading={loading}
