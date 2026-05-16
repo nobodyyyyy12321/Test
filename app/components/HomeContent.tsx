@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -54,6 +54,52 @@ type SharePanelState =
   | { kind: "category"; categoryKey: string; categoryName: string };
 
 export function HomeContent() {
+    // Unified pinned folder rendering (same as recommended creator area)
+    function renderPinnedFolder(
+      node: CategoryNode,
+      pinId: string,
+      path: string[],
+      depth: number,
+      chain: string[]
+    ): React.ReactNode {
+      const isExpanded = isPinnedKeyOpen(pinId);
+      const color = FOLDER_COLOR;
+      const indentStyle = depth > 0 ? { marginLeft: `${depth * 14}px` } : undefined;
+      return (
+        <div key={pinId} className="contents">
+          <button
+            type="button"
+            className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`.trim()}
+            style={{ color, ...indentStyle }}
+            title="資料夾"
+            onClick={() => toggleOpenPinnedKey(pinId, chain)}
+            onContextMenu={e => openCtx(e, pinId, node.name, "pinned", node.href)}
+          >
+            📁 {node.name}
+          </button>
+          {isExpanded && node.children?.map(child => {
+            const childPath = [...path, child.name];
+            const childPinId = pinIdForNode(child, childPath);
+            if (child.children?.length) {
+              return renderPinnedFolder(child, childPinId, childPath, depth + 1, [...chain, childPinId]);
+            }
+            return (
+              <Link
+                key={childPinId}
+                href={hrefWithOptions(child)}
+                className="book-link bookshelf-btn"
+                style={{ color: LEAF_COLOR, ...{ marginLeft: `${(depth + 1) * 14}px` } }}
+                onContextMenu={e => openCtx(e, childPinId, child.name, "pinned", child.href)}
+              >
+                {child.name}
+              </Link>
+            );
+          })}
+        </div>
+      );
+    }
+  
+    // Other existing code...
   const [language, setLanguage] = useState("zh-TW");
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [loadingLang, setLoadingLang] = useState(false);
@@ -783,6 +829,7 @@ export function HomeContent() {
           style={{ color: FOLDER_COLOR }}
           title="公開資料夾"
           onClick={() => toggleRecommendedFolder(user.id, folder.id)}
+          onContextMenu={loggedIn ? e => openCtx(e, `rec-folder:${user.id}:${folder.id}`, folder.name, "grid") : undefined}
         >
           📁 {folder.name}
         </button>
@@ -1084,57 +1131,19 @@ export function HomeContent() {
                       );
                     }
                     const { node: subject, path, pinId } = found;
-                    const chain = [pinId];
-                    const isExpanded = isPinnedKeyOpen(pinId);
-                    const color = isExpanded ? FOLDER_COLOR : LEAF_COLOR;
+                    if (subject.children?.length) {
+                      return renderPinnedFolder(subject, pinId, path, 0, [pinId]);
+                    }
                     return (
-                      <div key={pinId} className="contents">
-                        <div
-                          className="relative"
-                          onContextMenu={e => openCtx(e, pinId, subject.name, "pinned", subject.href)}
-                        >
-                          {subject.children?.length ? (
-                            <button
-                              type="button"
-                              className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`}
-                              style={{ color }}
-                              onClick={() => toggleOpenPinnedKey(pinId, chain)}
-                            >
-                              <span className="mr-1">📁</span>{subject.name}
-                            </button>
-                          ) : subject.dropdown?.length ? (
-                            <button
-                              type="button"
-                              className={`book-link bookshelf-btn flex items-center gap-1 ${isExpanded ? "active-category" : ""}`}
-                              style={{ color }}
-                              onClick={() => toggleOpenPinnedKey(pinId, chain)}
-                            >
-                              <span className="mr-1">📁</span>{subject.name}
-                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
-                            </button>
-                          ) : (
-                            <Link href={hrefWithOptions(subject)} className="book-link bookshelf-btn" style={{ color }}>
-                              {subject.name}
-                            </Link>
-                          )}
-                          {subject.dropdown?.length && isExpanded && (
-                            <div className={`year-dropdown absolute top-full z-50 mt-1 rounded-lg border bg-zen-paper dark:bg-zinc-900 shadow-lg overflow-y-auto ${subject.dropdownAlign === "right" ? "right-0" : "left-0"}`} style={{ maxHeight: "16rem", minWidth: "5rem", borderColor: color, ["--dropdown-color" as any]: color }}>
-                              {subject.dropdown.map(opt => (
-                                <Link
-                                  key={opt.href + opt.name}
-                                  href={opt.href}
-                                  className="block px-4 py-3 text-left"
-                                  style={{ color: FOLDER_COLOR, fontSize: "inherit" }}
-                                  onClick={() => toggleOpenPinnedKey(pinId, chain)}
-                                >
-                                  {opt.name}
-                                </Link>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {isExpanded && subject.children?.map(child => renderPinnedDescendants(child, [...path, child.name], 1, true, chain))}
-                      </div>
+                      <Link
+                        key={pinId}
+                        href={hrefWithOptions(subject)}
+                        className="book-link bookshelf-btn"
+                        style={{ color: LEAF_COLOR }}
+                        onContextMenu={e => openCtx(e, pinId, subject.name, "pinned", subject.href)}
+                      >
+                        {subject.name}
+                      </Link>
                     );
                   })}
                 </div>

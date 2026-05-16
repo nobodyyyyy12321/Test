@@ -401,11 +401,10 @@ export function PersonalListsView({
               <button
                 type="button"
                 onClick={() => setEditingFolderPublic(true)}
-                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                  editingFolderPublic
+                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${editingFolderPublic
                     ? "bg-blue-500 text-white"
                     : "bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                }`}
+                  }`}
                 style={editingFolderPublic ? {} : { color: "var(--zen-ink)" }}
               >
                 設為公開
@@ -413,11 +412,10 @@ export function PersonalListsView({
               <button
                 type="button"
                 onClick={() => setEditingFolderPublic(false)}
-                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                  !editingFolderPublic
+                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${!editingFolderPublic
                     ? "bg-blue-500 text-white"
                     : "bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                }`}
+                  }`}
                 style={!editingFolderPublic ? {} : { color: "var(--zen-ink)" }}
               >
                 設為私人
