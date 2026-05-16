@@ -25,6 +25,7 @@ export type QuestionList = {
   sharedWith?: string[];
   sharedResults?: Record<string, SharedResult[]>;
   ownerName?: string;
+  parentId: string | null;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ function rowToList(row: any, questions: ListQuestion[]): QuestionList {
     questions,
     sharedWith: row.shared_with ?? [],
     sharedResults: row.shared_results ?? {},
+    parentId: row.folder_id ?? null,
   };
 }
 
@@ -108,7 +110,7 @@ export async function createList(ownerId: string, title: string): Promise<Questi
     shared_results: {},
   });
   if (error) throw error;
-  return { id, title, ownerId, isPublic: false, createdAt: now, questions: [], sharedWith: [], sharedResults: {} };
+  return { id, title, ownerId, isPublic: false, createdAt: now, questions: [], sharedWith: [], sharedResults: {}, parentId: null };
 }
 
 export async function updateList(
@@ -261,7 +263,7 @@ export async function copyList(sourceListId: string, newOwnerId: string): Promis
     const { error: qErr } = await db.from("list_questions").insert(rows);
     if (qErr) throw qErr;
   }
-  return { id, title: source.title, ownerId: newOwnerId, isPublic: false, createdAt: now, questions: source.questions, sharedWith: [], sharedResults: {} };
+  return { id, title: source.title, ownerId: newOwnerId, isPublic: false, createdAt: now, questions: source.questions, sharedWith: [], sharedResults: {}, parentId: null };
 }
 
 export async function addSharedResult(

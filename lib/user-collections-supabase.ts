@@ -17,6 +17,7 @@ export type UserCollectionRef = {
   createdAt: string;
   fromGrid: boolean;
   isPublic: boolean;
+  parentId: string | null;
   problemsPerTest?: number | null;
   shuffleProblems?: boolean | null;
   approvalStatus?: string;
@@ -35,9 +36,10 @@ type Row = {
   shuffle_problems?: boolean | null;
   position?: number | null;
   approval_status?: string | null;
+  folder_id?: string | null;
 };
 
-const CATEGORY_COLUMNS = "id,owner_id,language,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status";
+const CATEGORY_COLUMNS = "id,owner_id,language,name,created_at,from_grid,is_public,problems_per_test,shuffle_problems,position,approval_status,folder_id";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -54,6 +56,7 @@ function rowToRef(row: Row): UserCollectionRef {
     createdAt: row.created_at ?? new Date(0).toISOString(),
     fromGrid: row.from_grid ?? false,
     isPublic: row.is_public ?? false,
+    parentId: row.folder_id ?? null,
     problemsPerTest: row.problems_per_test ?? null,
     shuffleProblems: row.shuffle_problems ?? null,
     approvalStatus: row.approval_status ?? "approved",
