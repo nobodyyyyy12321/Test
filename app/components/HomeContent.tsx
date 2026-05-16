@@ -1370,7 +1370,7 @@ export function HomeContent() {
                             unoptimized
                             className="w-8 h-8 rounded-full object-cover shrink-0"
                           />
-                          <span className="text-sm font-medium text-center leading-tight">{u.name}</span>
+                          <span className="text-sm font-medium text-center leading-tight" style={{ color: "#b19739" }}>{u.name}</span>
                         </Link>
                       ))}
                     </div>
@@ -1388,17 +1388,9 @@ export function HomeContent() {
                             <li key={u.id}>
                             <Link
                               href={`/${encodeURIComponent(u.name)}`}
-                              className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
+                              className="inline-block mb-3 hover:opacity-80 transition-opacity"
                             >
-                              <Image
-                                src={u.avatarUrl || AVATAR_PLACEHOLDER}
-                                alt={u.name}
-                                width={40}
-                                height={40}
-                                unoptimized
-                                className="w-10 h-10 rounded-full object-cover shrink-0"
-                              />
-                              <span className="text-base font-medium" style={{ color: "#D1D5DB" }}>{u.name}</span>
+                              <span className="text-base font-medium" style={{ color: "#b19739" }}>{u.name}</span>
                             </Link>
                             {((u.categories && u.categories.length > 0) || (u.folders && u.folders.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
