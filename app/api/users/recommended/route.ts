@@ -10,30 +10,16 @@ export async function GET(request: NextRequest) {
   try {
     const db = getSupabaseAdmin();
 
-    const { data: collections, error } = await db
-      .from("qsets")
-      .select("owner_id")
-      .eq("language", language)
-      .eq("is_public", true)
-      .not("owner_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    // Run initial 3 queries in parallel
+    const [collectionsRes, publicListsRes, publicFolderOwnersRes] = await Promise.all([
+      db.from("qsets").select("owner_id").eq("language", language).eq("is_public", true).not("owner_id", "is", null).order("created_at", { ascending: false }).limit(100),
+      db.from("lists").select("owner_id").eq("is_public", true).not("owner_id", "is", null).order("created_at", { ascending: false }).limit(100),
+      db.from("folders").select("owner_id").eq("is_public", true).not("owner_id", "is", null).order("created_at", { ascending: false }).limit(100),
+    ]);
 
-    const { data: publicLists, error: publicListsError } = await db
-      .from("lists")
-      .select("owner_id")
-      .eq("is_public", true)
-      .not("owner_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    const { data: publicFolderOwners, error: publicFolderOwnerError } = await db
-      .from("folders")
-      .select("owner_id")
-      .eq("is_public", true)
-      .not("owner_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const { data: collections, error } = collectionsRes;
+    const { data: publicLists, error: publicListsError } = publicListsRes;
+    const { data: publicFolderOwners, error: publicFolderOwnerError } = publicFolderOwnersRes;
 
     if (error) {
       console.error("Fetch collections error:", error);
@@ -76,26 +62,34 @@ export async function GET(request: NextRequest) {
       .map((e) => e[0]);
 
     type UserRow = { id: string; name: string; avatar_url: string | null };
-    const { data: users, error: userError } = await db
-      .from("users")
-      .select("id,name,avatar_url")
-      .in("id", topUserIds);
+    // Run user detail queries in parallel
+    const [usersRes, userCategoriesRes, userListsRes, userFoldersRes] = await Promise.all([
+      db.from("users").select("id,name,avatar_url").in("id", topUserIds),
+      db.from("qsets").select("id,name,owner_id,is_public,problems_per_test,shuffle_problems,folder_id").in("owner_id", topUserIds).eq("language", language).eq("is_public", true).order("created_at", { ascending: false }),
+      db.from("lists").select("id,title,owner_id,is_public,folder_id").in("owner_id", topUserIds).eq("is_public", true).order("created_at", { ascending: false }),
+      db.from("folders").select("id,name,owner_id,parent_id,position,is_public").in("owner_id", topUserIds).order("created_at", { ascending: false }),
+    ]);
+
+    const { data: users, error: userError } = usersRes;
+    const { data: userCategories, error: catError } = userCategoriesRes;
+    const { data: userLists, error: listError } = userListsRes;
+    const { data: userFolders, error: folderError } = userFoldersRes;
 
     if (userError || !users) {
       console.error("Fetch users error:", userError);
       return NextResponse.json({ users: [] });
     }
 
-    const { data: userCategories, error: catError } = await db
-      .from("qsets")
-      .select("id,name,owner_id,is_public,problems_per_test,shuffle_problems,folder_id")
-      .in("owner_id", topUserIds)
-      .eq("language", language)
-      .eq("is_public", true)
-      .order("created_at", { ascending: false });
-
     if (catError) {
       console.error("Fetch categories error:", catError);
+    }
+
+    if (listError) {
+      console.error("Fetch lists error:", listError);
+    }
+
+    if (folderError) {
+      console.error("Fetch folders error:", folderError);
     }
 
     const qsetsByOwner = new Map<string, NonNullable<typeof userCategories>>();
@@ -106,27 +100,6 @@ export async function GET(request: NextRequest) {
         }
         qsetsByOwner.get(cat.owner_id)!.push(cat);
       }
-    }
-
-    const { data: userLists, error: listError } = await db
-      .from("lists")
-      .select("id,title,owner_id,is_public,folder_id")
-      .in("owner_id", topUserIds)
-      .eq("is_public", true)
-      .order("created_at", { ascending: false });
-
-    if (listError) {
-      console.error("Fetch lists error:", listError);
-    }
-
-    const { data: userFolders, error: folderError } = await db
-      .from("folders")
-      .select("id,name,owner_id,parent_id,position,is_public")
-      .in("owner_id", topUserIds)
-      .order("created_at", { ascending: false });
-
-    if (folderError) {
-      console.error("Fetch folders error:", folderError);
     }
 
     const listsByOwner = new Map<string, NonNullable<typeof userLists>>();
