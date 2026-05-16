@@ -483,7 +483,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                   <button
                     onClick={handleStay}
                     className="flex-1 py-2.5 rounded-full text-sm font-medium border transition-opacity hover:opacity-80"
-                    style={{ borderColor: "#5fa870", color: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)" }}
+                    style={{ borderColor: "#D1D5DB", color: "#D1D5DB", backgroundColor: "color-mix(in srgb, #D1D5DB 10%, transparent)" }}
                   >
                     {L.continueBtn}
                   </button>
@@ -514,7 +514,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                 document.documentElement.requestFullscreen().catch(() => {});
               }}
               className="px-10 py-3 rounded-full text-base font-medium transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "#5fa870", color: "#fff" }}
+              style={{ backgroundColor: "#D1D5DB", color: "#fff" }}
             >
               {L.start}
             </button>
@@ -639,7 +639,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                         {checkedIdxs.has(idx) && "✓"}
                       </button>
                     )}
-                    {id !== "englishWords" && ordered && <span style={{ color: "#5fa870" }}>#{q.number}</span>}
+                    {id !== "englishWords" && ordered && <span style={{ color: "#D1D5DB" }}>#{q.number}</span>}
                     {qt === "multiple" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.multipleBadge}</span>}
                     {qt === "fill" && <span className="text-xs px-2 py-0.5 rounded-full border border-zinc-400">{L.fillBadge}</span>}
                   </div>
@@ -707,7 +707,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                               qt === "multiple" ? handleMultipleToggleAt(idx, option.label) : handleSingleAnswerAt(idx, option.label);
                             }}
                             className="px-2 py-1.5 text-left text-sm rounded transition-colors"
-                            onMouseEnter={e => { if (!showResults) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(95,168,112,0.15)"; }}
+                            onMouseEnter={e => { if (!showResults) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(209,213,219,0.2)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ""; }}
                             style={{
                               color: "#D1D5DB",
@@ -716,7 +716,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                                 : showCorrectFrameRed
                                 ? "1.5px solid #ef4444"
                                 : isSel
-                                ? "1.5px solid #5fa870"
+                                ? "1.5px solid #D1D5DB"
                                 : "1.5px solid transparent",
                               backgroundColor: undefined,
                               textDecoration: showWrongSel ? "line-through" : undefined,
