@@ -716,7 +716,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                                 : showCorrectFrameRed
                                 ? "1.5px solid #ef4444"
                                 : isSel
-                                ? "1.5px solid #D1D5DB"
+                                ? "1px solid #D1D5DB"
                                 : "1.5px solid transparent",
                               backgroundColor: undefined,
                               textDecoration: showWrongSel ? "line-through" : undefined,

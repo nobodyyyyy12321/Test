@@ -23,8 +23,8 @@ html.formal-quiz-active #mobile-bottom-bar {
 }
 
 .home-search::placeholder {
-  color: #b19739;
-  opacity: 0.6;
+  color: #6b7280;
+  opacity: 1;
 }
 
 .subcategory-row-inner .book-link.bookshelf-btn:hover {

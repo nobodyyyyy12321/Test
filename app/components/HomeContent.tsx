@@ -1111,7 +1111,7 @@ export function HomeContent() {
         <div className="flex items-center gap-2">
           <input
             className="home-search w-[12.5rem] sm:w-[18.75rem] p-2 rounded-full border text-sm outline-none transition-all"
-            style={{ backgroundColor: "var(--zen-bg)", color: "#b19739", borderColor: "#b19739" }}
+            style={{ backgroundColor: "#1a1a1a", color: "#d1d5db", borderColor: "#3a3a3a" }}
             placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpenKeys(new Set()); }}
@@ -1473,7 +1473,7 @@ export function HomeContent() {
         aria-label="意見回饋"
         className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center justify-center w-11 h-11 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2"/>
           <path d="m2 7 10 7 10-7"/>
         </svg>
