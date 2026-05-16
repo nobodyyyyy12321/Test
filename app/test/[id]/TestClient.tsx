@@ -50,12 +50,19 @@ type Props = {
 };
 
 export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit }: Props) {
-  const L = useMemo(() => getTestLabels(language), [language]);
+  const [clientLang, setClientLang] = useState<string | null>(null);
+  useEffect(() => {
+    const m = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]*)/);
+    if (m) setClientLang(m[1]);
+  }, []);
+  const activeLang = clientLang ?? language;
+  const L = useMemo(() => getTestLabels(activeLang), [activeLang]);
   const quizPageSize = limit ?? (id === "englishWords" ? 50 : null);
   const { data: session } = useSession();
   const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [allUserAnswers, setAllUserAnswers] = useState<(string | string[] | null)[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState<number | null>(quizPageSize);
   const originalQuestionsRef = useRef<Question[]>([]);
@@ -191,8 +198,9 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
               setPageIndex(0);
               setPageSize(null);
               setShowResults(true);
+              setIsLoading(false);
             })
-            .catch(() => {});
+            .catch(() => { setIsLoading(false); });
           return;
         }
       } catch {}
@@ -213,9 +221,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         setAllUserAnswers(new Array(shuffled.length).fill(null));
         setPageIndex(0);
         setPageSize(quizPageSize);
+        setIsLoading(false);
         if (!formalMode && timerEnabled) { timerReset(); timerStart(); }
       })
-      .catch(() => {});
+      .catch(() => { setIsLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { setShareText, setShareTitle, setShareScoreCard } = useShare();
 
@@ -435,6 +444,14 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent font-sans dark:bg-black">
+      {isLoading && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ backgroundColor: "var(--zen-bg)" }}>
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 rounded-full animate-spin" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", borderTopColor: "#b19739" }} />
+            <p className="text-sm opacity-60" style={{ color: "var(--zen-ink)" }}>{L.loading}</p>
+          </div>
+        </div>
+      )}
       {showAbandonModal && (
         <>
           <div className="fixed inset-0 z-[100] bg-black/50" onClick={forcedAbandon ? undefined : handleStay} />

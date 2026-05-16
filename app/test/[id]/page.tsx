@@ -7,6 +7,8 @@ import { getAnyCollectionDisplayName } from "../../../lib/user-collections-supab
 import { getTestMetadataDescription } from "../../lib/i18n/test";
 import TestClient from "./TestClient";
 
+export const revalidate = 3600;
+
 // deduplicate within same request (generateMetadata + TestPage both call this)
 const getListByIdCached = cache(getListById);
 
@@ -101,14 +103,12 @@ export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { levels, ordered, listId, replay, autostart, count, lang, language, name } = await searchParams;
   const decodedId = decodeURIComponent(id);
-  const cookieStore = await cookies();
-  const cookieLang = cookieStore.get("siteLanguage")?.value;
   const inferredLang = inferLanguageFromCollectionId(decodedId);
-  const activeLang = lang ?? language ?? inferredLang ?? cookieLang ?? "zh-TW";
+  const serverLang = lang ?? language ?? inferredLang ?? "zh-TW";
 
   const [list, pageTitle] = await Promise.all([
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),
-    resolveTitle(decodedId, levels, activeLang),
+    resolveTitle(decodedId, levels, serverLang),
   ]);
 
   const title = list?.title ?? (name ? decodeURIComponent(name) : pageTitle);
@@ -126,7 +126,7 @@ export default async function TestPage({ params, searchParams }: Props) {
       replayKey={replay ?? null}
       autostart={autostart === "1"}
       limit={limit}
-      language={activeLang}
+      language={serverLang}
     />
   );
 }
