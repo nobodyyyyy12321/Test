@@ -89,8 +89,16 @@ function UploadSuccessMessage({ categoryId, inserted }: { categoryId: string; in
   );
 }
 
+type ImageItem = {
+  id: string;
+  file: File;
+  url: string | null;
+  uploading: boolean;
+  error: string | null;
+};
+
 export default function UploadClient() {
-  const [tab, setTab] = useState<"json" | "single">("json");
+  const [tab, setTab] = useState<"json" | "single" | "images">("json");
 
   const [jsonText, setJsonText] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -105,6 +113,10 @@ export default function UploadClient() {
   const [singleUploading, setSingleUploading] = useState(false);
   const [singleResult, setSingleResult] = useState<UploadResult | null>(null);
   const [singleError, setSingleError] = useState<string | null>(null);
+
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [imageUploading, setImageUploading] = useState(false);
+  const imageFileRef = useRef<HTMLInputElement>(null);
 
   const setMetaField = useCallback(<K extends keyof SingleMeta>(key: K, value: SingleMeta[K]) => {
     setMeta((m) => ({ ...m, [key]: value }));
@@ -267,6 +279,53 @@ export default function UploadClient() {
     setSingleUploading(false);
   };
 
+  const handleImageFiles = (files: File[]) => {
+    const valid: ImageItem[] = [];
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > 10 * 1024 * 1024) continue;
+      valid.push({ id: Math.random().toString(36).slice(2, 8), file, url: null, uploading: false, error: null });
+    }
+    setImages((prev) => [...prev, ...valid]);
+  };
+
+  const uploadImage = async (item: ImageItem): Promise<ImageItem> => {
+    setImageUploading(true);
+    const formData = new FormData();
+    formData.append("file", item.file);
+    try {
+      const res = await fetch("/api/upload/image", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) return { ...item, uploading: false, error: data.error ?? `HTTP ${res.status}` };
+      return { ...item, url: data.url, uploading: false, error: null };
+    } catch (err) {
+      return { ...item, uploading: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  };
+
+  const handleUploadAllImages = async () => {
+    const pending = images.filter((img) => !img.url && !img.uploading && !img.error);
+    if (pending.length === 0) return;
+    setImages((prev) => prev.map((img) => (pending.some((p) => p.id === img.id) ? { ...img, uploading: true } : img)));
+    for (const item of pending) {
+      const updated = await uploadImage(item);
+      setImages((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
+    }
+    setImageUploading(false);
+  };
+
+  const removeImage = (id: string) => {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  const copyUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // fallback
+    }
+  };
+
   const splitJsonObjects = (text: string): string[] => {
     const objects: string[] = [];
     let depth = 0;
@@ -398,7 +457,7 @@ export default function UploadClient() {
       
 
       <div className="flex gap-1 mb-6 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 w-fit">
-        {(["json", "single"] as const).map((t) => (
+        {(["json", "single", "images"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -409,7 +468,7 @@ export default function UploadClient() {
                 : { background: "transparent", color: "var(--zen-ink)" }
             }
           >
-            {t === "json" ? "JSON 批次上傳" : "逐題填寫"}
+            {t === "json" ? "JSON 批次上傳" : t === "single" ? "逐題填寫" : "上傳圖片"}
           </button>
         ))}
       </div>
@@ -651,6 +710,136 @@ export default function UploadClient() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === "images" && (
+        <div className="space-y-4">
+          <div
+            onDrop={(e) => {
+              e.preventDefault();
+              handleImageFiles(Array.from(e.dataTransfer.files));
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onClick={() => imageFileRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl p-8 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <p className="text-sm text-zinc-400">點擊或拖曳圖片至此（可多選，單檔最大 10MB）</p>
+            <p className="text-xs text-zinc-500">支援 JPEG / PNG / WebP / GIF / BMP / SVG</p>
+            <input
+              ref={imageFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                if (files.length > 0) handleImageFiles(files);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          {images.length > 0 && (
+            <>
+              <div className="space-y-2">
+                {images.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2"
+                  >
+                    <img
+                      src={URL.createObjectURL(item.file)}
+                      alt={item.file.name}
+                      className="w-12 h-12 rounded object-cover shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{item.file.name}</p>
+                      <p className="text-xs text-zinc-400">{(item.file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    {item.uploading && (
+                      <span className="text-xs text-zinc-400 shrink-0">上傳中...</span>
+                    )}
+                    {item.url && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-green-600 dark:text-green-400 max-w-[200px] truncate">{item.url}</span>
+                        <button
+                          onClick={() => copyUrl(item.url!)}
+                          className="px-2 py-1 text-xs rounded-md bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors shrink-0"
+                          title="複製 URL"
+                        >
+                          複製
+                        </button>
+                      </div>
+                    )}
+                    {item.error && (
+                      <span className="text-xs text-red-500 shrink-0">{item.error}</span>
+                    )}
+                    {!item.uploading && (
+                      <button
+                        onClick={() => removeImage(item.id)}
+                        className="text-xs text-zinc-400 hover:text-red-500 transition-colors shrink-0"
+                      >
+                        移除
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleUploadAllImages}
+                  disabled={imageUploading || images.every((img) => img.url || img.uploading)}
+                  className="px-5 py-2 text-sm rounded-full disabled:opacity-40 transition-colors"
+                  style={{ background: "#5fa870", color: "#fff" }}
+                >
+                  {imageUploading ? "上傳中..." : `上傳 ${images.filter((img) => !img.url && !img.uploading).length} 張圖片`}
+                </button>
+                <button
+                  onClick={() => setImages([])}
+                  className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                >
+                  清空全部
+                </button>
+              </div>
+
+              {images.some((img) => img.url) && (
+                <details>
+                  <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600 transition-colors">
+                    所有 URL 列表
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    {images.filter((img) => img.url).map((img) => (
+                      <div key={img.id} className="flex items-center gap-2 text-xs font-mono">
+                        <span className="text-zinc-500 truncate flex-1">{img.url}</span>
+                        <button
+                          onClick={() => copyUrl(img.url!)}
+                          className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors shrink-0"
+                        >
+                          複製
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const urls = images.filter((img) => img.url).map((img) => img.url).join("\n");
+                        copyUrl(urls);
+                      }}
+                      className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors pt-1"
+                    >
+                      一鍵複製全部 URL
+                    </button>
+                  </div>
+                </details>
+              )}
+            </>
           )}
         </div>
       )}

@@ -16,6 +16,7 @@ const profileZhTW = {
   tabGroups: "群組",
   tabFollowers: "追蹤者",
   tabFollowing: "追蹤中",
+  tabGallery: "圖片庫",
 
   signOut: "登出",
   follow: "追蹤",
@@ -96,6 +97,7 @@ const profileEn: ProfileDictionary = {
   tabGroups: "Groups",
   tabFollowers: "Followers",
   tabFollowing: "Following",
+  tabGallery: "Image Gallery",
 
   signOut: "Sign Out",
   follow: "Follow",
@@ -173,6 +175,7 @@ const profileZhCN: ProfileDictionary = {
   tabGroups: "群组",
   tabFollowers: "关注者",
   tabFollowing: "关注中",
+  tabGallery: "图片库",
 
   signOut: "登出",
   follow: "关注",

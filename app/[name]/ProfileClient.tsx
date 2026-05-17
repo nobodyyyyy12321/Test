@@ -56,7 +56,7 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared" | "gallery";
 
 type SharedCategory = { id: string; categoryKey: string; categoryName: string; sharedByName?: string };
 
@@ -211,6 +211,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [sharedLoading, setSharedLoading] = useState(false);
   const [sharedCats, setSharedCats] = useState<SharedCategory[]>([]);
 
+  // ── gallery state ──
+  const [galleryLoaded, setGalleryLoaded] = useState(false);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryItems, setGalleryItems] = useState<{ name: string; path: string; url: string; previewUrl: string; created_at: string; size: number | null }[]>([]);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
+
   // ── groups state ──
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [groupsLoading, setGroupsLoading] = useState(false);
@@ -314,7 +320,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (typeof window === "undefined") return;
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
-      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "shared"];
+      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "shared", "gallery"];
       if (t && (valid as string[]).includes(t)) setActiveTab(t as Tab);
     } catch {}
   }, []);
@@ -479,6 +485,32 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       })
       .finally(() => setSharedLoading(false));
   }, [activeTab, sharedLoaded, isOwner]);
+
+  // ── load gallery when tab activated ─────────────────────────────────────
+
+  useEffect(() => {
+    if (activeTab !== "gallery" || galleryLoaded || !isOwner) return;
+    setGalleryLoading(true);
+    fetch("/api/quiz-assets")
+      .then(r => r.json())
+      .then(d => {
+        setGalleryItems(d.items ?? []);
+        setGalleryLoaded(true);
+      })
+      .finally(() => setGalleryLoading(false));
+  }, [activeTab, galleryLoaded, isOwner]);
+
+  const handleDeleteImage = async (path: string) => {
+    setDeletingPath(path);
+    try {
+      const res = await fetch(`/api/quiz-assets?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+      if (res.ok) {
+        setGalleryItems((prev) => prev.filter((img) => img.path !== path));
+      }
+    } finally {
+      setDeletingPath(null);
+    }
+  };
 
   // ── load groups when tab activated ───────────────────────────────────────
 
@@ -902,6 +934,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "shared", label: t("tabShared"), ownerOnly: true },
     { id: "record", label: t("tabRecord"), ownerOnly: true },
     { id: "groups", label: t("tabGroups"), ownerOnly: true },
+    { id: "gallery", label: t("tabGallery"), ownerOnly: true },
     { id: "followers", label: t("tabFollowers") },
     { id: "following", label: t("tabFollowing") },
   ];
@@ -1574,6 +1607,45 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     );
                   });
                 })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── gallery tab ────────────────────────────────────────────────── */}
+        {activeTab === "gallery" && (
+          <div className="pt-[calc(2rem+3cm)]">
+            {galleryLoading ? (
+              <p className="text-sm zen-subtle">{t("loading")}</p>
+            ) : galleryItems.length === 0 ? (
+              <p className="text-sm zen-subtle opacity-50">{t("noRecords")}</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {galleryItems.map((item) => (
+                  <div key={item.name} className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col">
+                    <a href={item.previewUrl} target="_blank" rel="noreferrer" className="block aspect-video bg-zinc-100 dark:bg-zinc-800">
+                      <img src={item.previewUrl} alt={item.name} className="w-full h-full object-cover" />
+                    </a>
+                    <div className="p-3 flex flex-col gap-2">
+                      <p className="text-xs font-mono truncate" title={item.url}>{item.url}</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigator.clipboard.writeText(item.url)}
+                          className="text-xs px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors"
+                        >
+                          複製 URL
+                        </button>
+                        <button
+                          onClick={() => handleDeleteImage(item.path)}
+                          disabled={deletingPath === item.path}
+                          className="text-xs px-2.5 py-1 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
+                        >
+                          {deletingPath === item.path ? "刪除中..." : "刪除"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
