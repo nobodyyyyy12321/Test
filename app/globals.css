@@ -283,6 +283,10 @@ main button.rounded-full.border {
   filter: none;
 }
 
+.book-link.bookshelf-btn:hover {
+  border-color: #D1D5DB;
+}
+
 .home-bookshelf-grid {
   transform: none;
 }

@@ -267,7 +267,7 @@ export function HomeContent() {
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
     const isDropOpen = openDropKey === key;
-    const color = ancestorExpanded || (hasSub && isOpen) || (hasDrop && isDropOpen) ? FOLDER_COLOR : LEAF_COLOR;
+    const color = LEAF_COLOR;
     const btnStyle = { color };
     const pinId = pinIdForNode(node, path);
     const isPinned = loggedIn && pinnedNames.some(p => isPinMatch(p, node, path));
@@ -767,13 +767,18 @@ export function HomeContent() {
 
   const recommendedFolderKey = (ownerId: string, folderId: string): string => `${ownerId}:${folderId}`;
 
-  const toggleRecommendedFolder = (ownerId: string, folderId: string) => {
-    const key = recommendedFolderKey(ownerId, folderId);
+  const toggleRecommendedFolder = (user: UserResult, folderId: string) => {
+    const key = recommendedFolderKey(user.id, folderId);
     setRecommendedOpenFolderKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+      if (prev.has(key)) return new Set();
+      const path: string[] = [];
+      let cur: string | null = folderId;
+      while (cur) {
+        path.unshift(recommendedFolderKey(user.id, cur));
+        const f = user.folders?.find((f) => f.id === cur);
+        cur = f?.parentId ?? null;
+      }
+      return new Set(path);
     });
   };
 
@@ -841,7 +846,7 @@ export function HomeContent() {
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
           style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
           title="公開資料夾"
-          onClick={() => toggleRecommendedFolder(user.id, folder.id)}
+          onClick={() => toggleRecommendedFolder(user, folder.id)}
           onContextMenu={loggedIn ? e => openCtx(e, `rec-folder:${user.id}:${folder.id}`, folder.name, "grid") : undefined}
         >
           📁 {folder.name}
@@ -1127,7 +1132,7 @@ export function HomeContent() {
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-16 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
         <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden max-sm:items-stretch max-sm:min-h-0">
           {/* Left panel — categories */}
-          <div className="w-full sm:w-[42%] shrink-0 max-sm:flex max-sm:flex-col max-sm:h-full max-sm:overflow-hidden">
+          <div className="w-full sm:w-1/2 shrink-0 max-sm:flex max-sm:flex-col max-sm:h-full max-sm:overflow-hidden">
 
             {/* Pinned bar */}
             <div

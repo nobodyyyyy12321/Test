@@ -113,7 +113,8 @@ export function PinnedProfileTabSection({ name, tab, label, onContextMenu }: Pro
         type="button"
         onClick={() => setOpen(o => !o)}
         onContextMenu={onContextMenu}
-        className="flex items-center gap-1 mb-3 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+        className={`flex items-center gap-1 mb-3 text-xs transition-colors ${open ? "" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"}`}
+        style={{ color: open ? "#b19739" : undefined }}
         aria-label={open ? "收合" : "展開"}
       >
         <span>{label}</span>
