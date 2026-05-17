@@ -168,11 +168,11 @@ function ShareButtonInner() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-lg font-medium" style={{ color: "#b19739" }}>分享</span>
+              <span className="text-lg font-medium" style={{ color: "#D1D5DB" }}>分享</span>
               <button
                 onClick={() => { setOpen(false); setCopied(false); setEditText(""); }}
                 className="text-lg leading-none"
-                style={{ color: "#5fa870" }}
+                style={{ color: "#D1D5DB" }}
               >✕</button>
             </div>
             <div className="px-5 py-4 flex flex-col gap-3">
@@ -204,7 +204,7 @@ function ShareButtonInner() {
               <button
                 onClick={handleCopy}
                 className="px-4 py-2 rounded-full text-sm border transition-opacity hover:opacity-80"
-                style={{ borderColor: "#5fa870", color: "#5fa870", background: "transparent" }}
+                style={{ borderColor: "#D1D5DB", color: "#D1D5DB", background: "transparent" }}
               >
                 {copied ? "已複製！" : shareScoreCard ? "複製圖片" : "複製"}
               </button>

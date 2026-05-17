@@ -253,19 +253,19 @@ export default function SettingsMenu() {
         {isMenuOpen && (
           <div className="hidden sm:block absolute right-0 top-full mt-2 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
             <div className="py-1">
-              <Link href="/upload" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
-              <Link href={premiumHref} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+              <Link href="/upload" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
+              <Link href={premiumHref} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
               <button
                 onClick={() => { setIsMenuOpen(false); setShowModeModal(true); }}
                 className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                style={{ color: "#5fa870" }}
+                style={{ color: "#D1D5DB" }}
               >
                 作答模式
               </button>
               <button
                 onClick={() => setShowTimerPanel(v => !v)}
                 className="w-full text-left px-4 py-3 !text-sm !leading-5 font-normal hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                style={{ color: "#5fa870" }}
+                style={{ color: "#D1D5DB" }}
               >
                 計時器{timerActive ? `：${timerFinished ? "時間到" : fmt(timerSeconds)}` : ""}
               </button>
@@ -330,19 +330,19 @@ export default function SettingsMenu() {
                   )}
                 </div>
               )}
-              <Link href={blockedHref} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
+              <Link href={blockedHref} className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
               {googleLinked === false && (
                 <button
                   onClick={() => { setIsMenuOpen(false); handleLinkGoogle(); }}
                   disabled={linkingGoogle}
                   className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
-                  style={{ color: "#5fa870" }}
+                  style={{ color: "#D1D5DB" }}
                 >
                   {linkingGoogle ? "連結中…" : "連結 Google 帳號"}
                 </button>
               )}
               {googleLinked === true && (
-                <span className="block px-4 py-3 text-sm opacity-60" style={{ color: "#5fa870" }}>已連結 Google ✓</span>
+                <span className="block px-4 py-3 text-sm opacity-60" style={{ color: "#D1D5DB" }}>已連結 Google ✓</span>
               )}
             </div>
           </div>
@@ -357,13 +357,13 @@ export default function SettingsMenu() {
             className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[91] w-72 rounded-2xl border shadow-xl p-6 flex flex-col gap-4"
             style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
           >
-            <h2 className="text-sm font-semibold text-center opacity-70" style={{ color: "#5fa870" }}>作答模式</h2>
+            <h2 className="text-sm font-semibold text-center opacity-70" style={{ color: "#D1D5DB" }}>作答模式</h2>
             <button
               onClick={() => selectMode("practice")}
               className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left"
               style={quizMode === "practice"
-                ? { borderColor: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)", color: "#5fa870" }
-                : { borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)", color: "#5fa870" }}
+                ? { borderColor: "#5fa870", backgroundColor: "color-mix(in srgb, #5fa870 10%, transparent)", color: "#D1D5DB" }
+                : { borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)", color: "#D1D5DB" }}
             >
               <span className="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: "#5fa870" }}>
                 {quizMode === "practice" && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#5fa870" }} />}
@@ -374,8 +374,8 @@ export default function SettingsMenu() {
               onClick={() => selectMode("formal")}
               className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left"
               style={quizMode === "formal"
-                ? { borderColor: "#b19739", backgroundColor: "color-mix(in srgb, #b19739 10%, transparent)", color: "#5fa870" }
-                : { borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)", color: "#5fa870" }}
+                ? { borderColor: "#b19739", backgroundColor: "color-mix(in srgb, #b19739 10%, transparent)", color: "#D1D5DB" }
+                : { borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)", color: "#D1D5DB" }}
             >
               <span className="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: "#b19739" }}>
                 {quizMode === "formal" && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#b19739" }} />}
@@ -398,28 +398,28 @@ export default function SettingsMenu() {
             className={`sm:hidden fixed bottom-0 left-0 right-0 z-[80] bg-zen-paper dark:bg-zinc-900 transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
             style={{ boxShadow: '0 -4px 16px rgba(0,0,0,0.10)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
-            <Link href="/upload" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
-            <Link href={premiumHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
+            <Link href="/upload" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>上傳題目</Link>
+            <Link href={premiumHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>Premium</Link>
             <button
               onClick={() => { setIsMenuOpen(false); setShowModeModal(true); }}
               className="w-full text-center px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800"
-              style={{ color: "#5fa870" }}
+              style={{ color: "#D1D5DB" }}
             >
               作答模式
             </button>
-            <Link href={blockedHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#5fa870" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
+            <Link href={blockedHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
             {googleLinked === false && (
               <button
                 onClick={() => { setIsMenuOpen(false); handleLinkGoogle(); }}
                 disabled={linkingGoogle}
                 className="w-full text-center px-5 py-4 text-base hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 border-t border-zinc-100 dark:border-zinc-800"
-                style={{ color: "#5fa870" }}
+                style={{ color: "#D1D5DB" }}
               >
                 {linkingGoogle ? "連結中…" : "連結 Google 帳號"}
               </button>
             )}
             {googleLinked === true && (
-              <span className="block px-5 py-4 text-base text-center opacity-60 border-t border-zinc-100 dark:border-zinc-800" style={{ color: "#5fa870" }}>已連結 Google ✓</span>
+              <span className="block px-5 py-4 text-base text-center opacity-60 border-t border-zinc-100 dark:border-zinc-800" style={{ color: "#D1D5DB" }}>已連結 Google ✓</span>
             )}
           </div>
         </>,

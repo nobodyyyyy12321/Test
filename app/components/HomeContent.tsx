@@ -1054,13 +1054,13 @@ export function HomeContent() {
                         <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                       </div>
                       {shareSharedIds.has(u.id) ? (
-                        <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                        <span className="text-xs" style={{ color: "#D1D5DB" }}>已分享</span>
                       ) : (
                         <button
                           onClick={() => handleShareTo(u)}
                           disabled={shareSending === u.id}
                           className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
-                          style={{ borderColor: "#b19739", color: "#b19739" }}
+                          style={{ borderColor: "#D1D5DB", color: "#D1D5DB" }}
                         >
                           {shareSending === u.id ? "..." : "分享"}
                         </button>
@@ -1078,13 +1078,13 @@ export function HomeContent() {
                       <div key={g.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
                         <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{g.name}</span>
                         {shareSharedIds.has(g.id) ? (
-                          <span className="text-xs" style={{ color: "#5fa870" }}>已分享</span>
+                          <span className="text-xs" style={{ color: "#D1D5DB" }}>已分享</span>
                         ) : (
                           <button
                             onClick={() => handleShareTo({ type: "group", id: g.id, name: g.name })}
                             disabled={shareSending === g.id}
                             className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
-                            style={{ borderColor: "#5fa870", color: "#5fa870" }}
+                            style={{ borderColor: "#D1D5DB", color: "#D1D5DB" }}
                           >
                             {shareSending === g.id ? "..." : "分享"}
                           </button>

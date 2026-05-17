@@ -1064,7 +1064,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               value={uiLang}
               onChange={e => setProfileLanguage(e.target.value as SupportedUILanguage)}
               className="text-xs px-2 py-1 rounded-full border outline-none cursor-pointer transition-colors hover:opacity-80"
-              style={{ borderColor: "#5fa870", color: "#5fa870", background: "var(--zen-bg)" }}
+              style={{ borderColor: "#D1D5DB", color: "#D1D5DB", background: "var(--zen-bg)" }}
               aria-label="Profile page language"
             >
               <option value="zh-TW">中文繁體</option>
@@ -1136,7 +1136,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {activeTab !== "blocked" && (
         <div className="flex gap-1 mb-8 border-b border-zinc-200 dark:border-zinc-700 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleTabs.map((t, i) => {
-            const tabColor = i % 2 === 0 ? "#5fa870" : "#b19739";
+            const tabColor = "#D1D5DB";
             return (
               <button
                 key={t.id}

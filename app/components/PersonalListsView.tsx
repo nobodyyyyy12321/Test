@@ -258,7 +258,7 @@ export function PersonalListsView({
       <a
         href={`/test/list?listId=${list.id}&autostart=1`}
         className="book-link bookshelf-btn"
-        style={{ color: inChain ? "#b19739" : "#5fa870" }}
+        style={{ color: "#D1D5DB" }}
         onContextMenu={(e) => {
           if (!isOwner) return;
           e.preventDefault();
@@ -312,7 +312,7 @@ export function PersonalListsView({
       <a
         href={appendHrefOptions(`/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
         className="book-link bookshelf-btn"
-        style={{ color: inChain ? "#b19739" : "#5fa870" }}
+        style={{ color: "#D1D5DB" }}
         onContextMenu={(e) => {
           if (!isOwner) return;
           e.preventDefault();
@@ -449,7 +449,7 @@ export function PersonalListsView({
             <button
               type="button"
               className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-              style={{ color: isHighlighted ? "#b19739" : "#5fa870" }}
+              style={{ color: "#D1D5DB" }}
               onClick={() => toggleFolderOpen(folder.id)}
               onContextMenu={(e) => {
                 if (!isOwner) return;

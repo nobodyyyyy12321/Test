@@ -15,7 +15,7 @@ const LANGUAGES: { value: LanguageCode; label: string }[] = [
   // { value: "ko", label: "한국어" },
 ];
 
-const MENU_TEXT_COLOR = "#5fa870";
+const MENU_TEXT_COLOR = "#D1D5DB";
 const GLOBE_COLOR = "#b19739";
 
 export default function LanguageSelector() {
