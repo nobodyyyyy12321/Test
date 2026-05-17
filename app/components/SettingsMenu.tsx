@@ -98,6 +98,7 @@ export default function SettingsMenu() {
   const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [showTimerPanel, setShowTimerPanel] = useState(false);
   const [timerMins, setTimerMins] = useState(String(Math.floor(countdownTotal / 60)));
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const prevLoggedInRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -107,11 +108,32 @@ export default function SettingsMenu() {
     if (savedMode === "formal" || savedMode === "practice") setQuizMode(savedMode);
     const cachedName = localStorage.getItem("displayName");
     if (cachedName) setDisplayName(cachedName);
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null;
+    if (savedTheme) setTheme(savedTheme);
   }, []);
 
   useEffect(() => {
     setTimerMins(String(Math.max(1, Math.floor(countdownTotal / 60))));
   }, [countdownTotal]);
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      if (isDark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    };
+    applyTheme();
+    localStorage.setItem("theme", theme);
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handler = () => applyTheme();
+      mediaQuery.addEventListener("change", handler);
+      return () => mediaQuery.removeEventListener("change", handler);
+    }
+  }, [theme]);
 
   useEffect(() => {
     setDomMounted(true);
@@ -269,6 +291,26 @@ export default function SettingsMenu() {
               >
                 計時器{timerActive ? `：${timerFinished ? "時間到" : fmt(timerSeconds)}` : ""}
               </button>
+              <div className="px-4 py-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800">
+                <span className="text-sm" style={{ color: "#D1D5DB" }}>深色模式</span>
+                <button
+                  onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                  className="w-11 h-6 rounded-full border transition-colors flex items-center px-0.5"
+                  style={{
+                    backgroundColor: theme === "dark" ? "#374151" : "#f3f4f6",
+                    borderColor: theme === "dark" ? "#4b5563" : "#d1d5db"
+                  }}
+                >
+                  <span
+                    className="w-5 h-5 rounded-full shadow transition-transform"
+                    style={{
+                      backgroundColor: theme === "dark" ? "#fbbf24" : "#fff",
+                      transform: theme === "dark" ? "translateX(20px)" : "translateX(0)",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+                    }}
+                  />
+                </button>
+              </div>
               {showTimerPanel && (
                 <div className="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                   <div className="flex items-center justify-between mb-3">
@@ -407,6 +449,26 @@ export default function SettingsMenu() {
             >
               作答模式
             </button>
+            <div className="px-5 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
+              <span className="text-base" style={{ color: "#D1D5DB" }}>深色模式</span>
+              <button
+                onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                className="w-12 h-7 rounded-full border transition-colors flex items-center px-0.5"
+                style={{
+                  backgroundColor: theme === "dark" ? "#374151" : "#f3f4f6",
+                  borderColor: theme === "dark" ? "#4b5563" : "#d1d5db"
+                }}
+              >
+                <span
+                  className="w-6 h-6 rounded-full shadow transition-transform"
+                  style={{
+                    backgroundColor: theme === "dark" ? "#fbbf24" : "#fff",
+                    transform: theme === "dark" ? "translateX(22px)" : "translateX(0)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+                  }}
+                />
+              </button>
+            </div>
             <Link href={blockedHref} className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>封鎖名單</Link>
             {googleLinked === false && (
               <button
