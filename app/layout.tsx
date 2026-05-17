@@ -76,7 +76,7 @@ export default function RootLayout({
                 "@context": "https://schema.org",
                 "@type": "Organization",
                 "name": "Exam",
-                "url": "https://testtttt.io",
+                "url": "https://exam.farm",
               }),
             }}
           />

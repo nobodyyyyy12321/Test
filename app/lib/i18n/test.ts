@@ -62,7 +62,7 @@ const testZhTW: TestDictionary = {
   deselectWrong: "取消勾選",
   prevPage: "上一頁",
   nextPage: "下一頁",
-  shareFrom: "from testtttt.io",
+  shareFrom: "from Exam",
   practiceDescriptionSuffix: "練習題",
   loading: "載入中…",
 };
@@ -95,7 +95,7 @@ const testEn: TestDictionary = {
   deselectWrong: "Deselect",
   prevPage: "Previous Page",
   nextPage: "Next Page",
-  shareFrom: "from testtttt.io",
+  shareFrom: "from Exam",
   practiceDescriptionSuffix: "practice questions",
   loading: "Loading…",
 };
@@ -128,7 +128,7 @@ const testZhCN: TestDictionary = {
   deselectWrong: "取消勾选",
   prevPage: "上一页",
   nextPage: "下一页",
-  shareFrom: "from testtttt.io",
+  shareFrom: "from Exam",
   practiceDescriptionSuffix: "练习题",
   loading: "加载中…",
 };

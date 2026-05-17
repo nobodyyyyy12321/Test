@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
 function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
-  if (pathname === "/" || pathname === "") return "Test";
+  if (pathname === "/" || pathname === "") return "Exam";
 
   const segments = pathname.split("/").filter(Boolean);
 
@@ -16,7 +16,7 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
     return id;
   }
 
-  return "Test";
+  return "Exam";
 }
 
 function ShareButtonInner() {
@@ -70,7 +70,7 @@ function ShareButtonInner() {
   const getUrl = () => {
     const isHome = pathname === "/" || pathname === "";
     return isHome
-      ? "https://testtttt.io"
+      ? "https://exam.farm"
       : `${window.location.origin}${pathname}${window.location.search}`;
   };
 
