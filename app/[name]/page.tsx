@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { auth } from "../../auth";
 import { findUserByName, findUserByEmail } from "../../lib/users";
+import { AVATAR_PLACEHOLDER } from "../../lib/asset-version";
 import ProfileClient from "./ProfileClient";
 
 type Props = { params: Promise<{ name: string }> };
@@ -21,13 +22,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `${user.name} — Test`,
       description: user.bio || undefined,
-      images: user.avatarUrl ? [{ url: user.avatarUrl }] : undefined,
+      images: [{ url: user.avatarUrl || AVATAR_PLACEHOLDER }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${user.name} — Test`,
       description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
-      images: user.avatarUrl ? [user.avatarUrl] : undefined,
+      images: [user.avatarUrl || AVATAR_PLACEHOLDER],
     },
   };
 }
