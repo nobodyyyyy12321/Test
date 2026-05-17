@@ -9,12 +9,6 @@ export type ListQuestion = {
   level?: number | null;
 };
 
-export type SharedResult = {
-  answered: number;
-  correct: number;
-  timestamp: string;
-};
-
 export type QuestionList = {
   id: string;
   title: string;
@@ -22,8 +16,6 @@ export type QuestionList = {
   isPublic: boolean;
   createdAt: string;
   questions: ListQuestion[];
-  sharedWith?: string[];
-  sharedResults?: Record<string, SharedResult[]>;
   ownerName?: string;
   parentId: string | null;
 };
@@ -54,8 +46,6 @@ function rowToList(row: any, questions: ListQuestion[]): QuestionList {
     isPublic: row.is_public,
     createdAt: row.created_at,
     questions,
-    sharedWith: row.shared_with ?? [],
-    sharedResults: row.shared_results ?? {},
     parentId: row.folder_id ?? null,
   };
 }
@@ -106,11 +96,9 @@ export async function createList(ownerId: string, title: string): Promise<Questi
     owner_id: ownerId,
     is_public: false,
     created_at: now,
-    shared_with: [],
-    shared_results: {},
   });
   if (error) throw error;
-  return { id, title, ownerId, isPublic: false, createdAt: now, questions: [], sharedWith: [], sharedResults: {}, parentId: null };
+  return { id, title, ownerId, isPublic: false, createdAt: now, questions: [], parentId: null };
 }
 
 export async function updateList(
@@ -221,102 +209,3 @@ export async function reorderQuestionsInList(
   );
 }
 
-export async function getListsSharedWithUser(userName: string): Promise<QuestionList[]> {
-  const db = getSupabaseAdmin();
-  const { data } = await db
-    .from("lists")
-    .select("*")
-    .contains("shared_with", [userName])
-    .order("created_at", { ascending: false });
-  if (!data) return [];
-  return Promise.all(
-    data.map(async (row) => rowToList(row, await fetchQuestions(row.id)))
-  );
-}
-
-export async function copyList(sourceListId: string, newOwnerId: string): Promise<QuestionList> {
-  const source = await getListById(sourceListId);
-  if (!source) throw new Error("List not found");
-  const db = getSupabaseAdmin();
-  const id = uuidv4();
-  const now = new Date().toISOString();
-  const { error } = await db.from("lists").insert({
-    id,
-    title: source.title,
-    owner_id: newOwnerId,
-    is_public: false,
-    created_at: now,
-    shared_with: [],
-    shared_results: {},
-  });
-  if (error) throw error;
-  if (source.questions.length > 0) {
-    const rows = source.questions.map((q, i) => ({
-      list_id: id,
-      question_id: q.questionId,
-      collection_id: q.collectionId,
-      title: q.title,
-      number: q.number,
-      level: q.level ?? null,
-      position: i,
-    }));
-    const { error: qErr } = await db.from("list_questions").insert(rows);
-    if (qErr) throw qErr;
-  }
-  return { id, title: source.title, ownerId: newOwnerId, isPublic: false, createdAt: now, questions: source.questions, sharedWith: [], sharedResults: {}, parentId: null };
-}
-
-export async function addSharedResult(
-  listId: string,
-  userName: string,
-  result: SharedResult
-): Promise<void> {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("lists").select("shared_results").eq("id", listId).maybeSingle();
-  if (!data) throw new Error("List not found");
-  const current: Record<string, SharedResult[]> = data.shared_results ?? {};
-  const prev = current[userName] ?? [];
-  const updated = [...prev, result].slice(-3);
-  const { error } = await db
-    .from("lists")
-    .update({ shared_results: { ...current, [userName]: updated } })
-    .eq("id", listId);
-  if (error) throw error;
-}
-
-export async function shareListWithUser(listId: string, userName: string): Promise<void> {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("lists").select("owner_id,title,shared_with").eq("id", listId).maybeSingle();
-  if (!data) throw new Error("List not found");
-  const r = data as Record<string, unknown>;
-  const current: string[] = (r.shared_with as string[]) ?? [];
-  if (!current.includes(userName)) {
-    const { error } = await db.from("lists").update({ shared_with: [...current, userName] }).eq("id", listId);
-    if (error) throw error;
-  }
-  // mirror into shared_categories so the recipient's inbox sees it
-  const { data: recipientRow } = await db.from("users").select("id").eq("name", userName).maybeSingle();
-  if (recipientRow) {
-    const recipientId = (recipientRow as Record<string, unknown>).id as string;
-    await db.from("shared_categories").upsert(
-      { shared_by_id: r.owner_id as string, recipient_id: recipientId, category_key: `list:${listId}`, category_name: r.title as string },
-      { onConflict: "recipient_id,category_key,shared_by_id" },
-    );
-  }
-}
-
-export async function unshareListWithUser(listId: string, userName: string): Promise<void> {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("lists").select("shared_with").eq("id", listId).maybeSingle();
-  if (!data) throw new Error("List not found");
-  const r = data as Record<string, unknown>;
-  const current: string[] = (r.shared_with as string[]) ?? [];
-  const { error } = await db.from("lists").update({ shared_with: current.filter((n) => n !== userName) }).eq("id", listId);
-  if (error) throw error;
-  // remove from shared_categories mirror
-  const { data: recipientRow } = await db.from("users").select("id").eq("name", userName).maybeSingle();
-  if (recipientRow) {
-    const recipientId = (recipientRow as Record<string, unknown>).id as string;
-    await db.from("shared_categories").delete().eq("recipient_id", recipientId).eq("category_key", `list:${listId}`);
-  }
-}

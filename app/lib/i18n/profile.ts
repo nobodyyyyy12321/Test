@@ -11,7 +11,6 @@ export type SupportedUILanguage =
 const profileZhTW = {
   tabProfile: "個人檔案",
   tabLists: "個人分類",
-  tabShared: "分享給我",
   tabRecord: "紀錄",
   tabGroups: "群組",
   tabFollowers: "追蹤者",
@@ -71,17 +70,11 @@ const profileZhTW = {
   alreadyInGroup: "已在群組",
   invited: "已邀請",
   invite: "邀請",
-  shareListToGroup: "分享試卷給全群組",
-  selectList: "選擇試卷",
-  share: "分享",
-  shareFailed: "分享失敗",
   deleteGroup: "刪除群組",
   leaveGroup: "離開群組",
   groupOwner: "群主",
   membersCountSuffix: "位成員",
-  sharedCountSuffix: "位成員",
 
-  sharedWithMeEmpty: "尚無分享項目",
   removeFromHome: "從首頁移除",
   showOnHome: "顯示在首頁",
 };
@@ -92,7 +85,6 @@ type ProfileDictionary = Record<ProfileTextKey, string>;
 const profileEn: ProfileDictionary = {
   tabProfile: "Profile",
   tabLists: "Personal Categories",
-  tabShared: "Shared with Me",
   tabRecord: "Records",
   tabGroups: "Groups",
   tabFollowers: "Followers",
@@ -152,17 +144,11 @@ const profileEn: ProfileDictionary = {
   alreadyInGroup: "Already in group",
   invited: "Invited",
   invite: "Invite",
-  shareListToGroup: "Share list with group",
-  selectList: "Select a list",
-  share: "Share",
-  shareFailed: "Share failed",
   deleteGroup: "Delete Group",
   leaveGroup: "Leave Group",
   groupOwner: "Owner",
   membersCountSuffix: "members",
-  sharedCountSuffix: "members",
 
-  sharedWithMeEmpty: "No shared items",
   removeFromHome: "Remove from Home",
   showOnHome: "Show on Home",
 };
@@ -170,7 +156,6 @@ const profileEn: ProfileDictionary = {
 const profileZhCN: ProfileDictionary = {
   tabProfile: "个人档案",
   tabLists: "个人分类",
-  tabShared: "分享给我",
   tabRecord: "记录",
   tabGroups: "群组",
   tabFollowers: "关注者",
@@ -230,17 +215,11 @@ const profileZhCN: ProfileDictionary = {
   alreadyInGroup: "已在群组",
   invited: "已邀请",
   invite: "邀请",
-  shareListToGroup: "分享试卷给全群组",
-  selectList: "选择试卷",
-  share: "分享",
-  shareFailed: "分享失败",
   deleteGroup: "删除群组",
   leaveGroup: "离开群组",
   groupOwner: "群主",
   membersCountSuffix: "位成员",
-  sharedCountSuffix: "位成员",
 
-  sharedWithMeEmpty: "暂无分享项目",
   removeFromHome: "从首页移除",
   showOnHome: "显示在首页",
 };

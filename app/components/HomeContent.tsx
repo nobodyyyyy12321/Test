@@ -46,13 +46,8 @@ type CtxMenu = {
   href?: string;
   x: number;
   y: number;
-  from: "pinned" | "grid" | "inbox" | "inbox-pinned" | "list-pinned" | "my-collection-pinned";
+  from: "pinned" | "grid" | "list-pinned" | "my-collection-pinned";
 };
-type Group = { id: string; name: string };
-type ShareTarget = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
-type SharePanelState =
-  | { kind: "category"; categoryKey: string; categoryName: string };
-
 export function HomeContent() {
     // Unified pinned folder rendering (same as recommended creator area)
     function renderPinnedFolder(
@@ -113,16 +108,6 @@ export function HomeContent() {
   const [externalPinnedRefs, setExternalPinnedRefs] = useState<Record<string, ExternalPinnedRef>>({});
   const [openPinnedKeyChain, setOpenPinnedKeyChain] = useState<string[]>([]);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
-  const [sharePanel, setSharePanel] = useState<SharePanelState | null>(null);
-  const [shareInput, setShareInput] = useState("");
-  const [shareSearchResults, setShareSearchResults] = useState<ShareTarget[]>([]);
-  const [shareSearchLoading, setShareSearchLoading] = useState(false);
-  const [shareGroups, setShareGroups] = useState<Group[]>([]);
-  const [shareSharedIds, setShareSharedIds] = useState<Set<string>>(new Set());
-  const [shareSending, setSharingSending] = useState<string | null>(null);
-  const [inboxCats, setInboxCats] = useState<{ id: string; categoryKey: string; categoryName: string; sharedByName?: string }[]>([]);
-  const [inboxLoaded, setInboxLoaded] = useState(false);
-  const [pinnedInboxIds, setPinnedInboxIds] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   type PinnedProfileTab = { name: string; tab: string; label: string };
@@ -136,7 +121,6 @@ export function HomeContent() {
   const [recommendedOpenFolderKeys, setRecommendedOpenFolderKeys] = useState<Set<string>>(new Set());
   const [pinnedRecOpenChain, setPinnedRecOpenChain] = useState<string[]>([]);
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shareDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
   const visiblePinnedProfileTabs = pinnedProfileTabs;
@@ -380,8 +364,6 @@ export function HomeContent() {
       try {
         const stored = localStorage.getItem("pinnedCats");
         if (stored) setPinnedNames(JSON.parse(stored));
-        const storedInbox = localStorage.getItem("pinnedInboxCats");
-        if (storedInbox) setPinnedInboxIds(JSON.parse(storedInbox));
         const storedCols = localStorage.getItem("pinnedCollectionIds");
         if (storedCols) setPinnedCollectionIds(JSON.parse(storedCols));
         const storedLists = localStorage.getItem("pinnedListIds");
@@ -395,7 +377,6 @@ export function HomeContent() {
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d.pinnedCats)) setPinnedNames(d.pinnedCats);
-        if (Array.isArray(d.pinnedInboxCats)) setPinnedInboxIds(d.pinnedInboxCats);
         if (Array.isArray(d.pinnedCollectionIds)) setPinnedCollectionIds(d.pinnedCollectionIds);
         if (Array.isArray(d.pinnedListIds)) setPinnedListIds(d.pinnedListIds);
         if (Array.isArray(d.pinnedProfileTabs)) setPinnedProfileTabs(d.pinnedProfileTabs);
@@ -466,19 +447,18 @@ export function HomeContent() {
     };
   }, []);
 
-  const savePins = (cats: string[], inboxCatIds: string[], colIds: string[], listIds: string[]) => {
+  const savePins = (cats: string[], colIds: string[], listIds: string[]) => {
     if (loggedIn) {
       if (pinsDebounce.current) clearTimeout(pinsDebounce.current);
       pinsDebounce.current = setTimeout(() => {
         fetch("/api/user/pins", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pinnedCats: cats, pinnedInboxCats: inboxCatIds, pinnedCollectionIds: colIds, pinnedListIds: listIds }),
+          body: JSON.stringify({ pinnedCats: cats, pinnedCollectionIds: colIds, pinnedListIds: listIds }),
         }).catch(() => {});
       }, 500);
     } else {
       localStorage.setItem("pinnedCats", JSON.stringify(cats));
-      localStorage.setItem("pinnedInboxCats", JSON.stringify(inboxCatIds));
       localStorage.setItem("pinnedCollectionIds", JSON.stringify(colIds));
       localStorage.setItem("pinnedListIds", JSON.stringify(listIds));
     }
@@ -499,7 +479,7 @@ export function HomeContent() {
     setPinnedNames(prev => {
       if (prev.includes(name)) return prev;
       const next = [...prev, name];
-      savePins(next, pinnedInboxIds, pinnedCollectionIds, pinnedListIds);
+      savePins(next, pinnedCollectionIds, pinnedListIds);
       return next;
     });
   };
@@ -513,24 +493,7 @@ export function HomeContent() {
     });
     setPinnedNames(prev => {
       const next = prev.filter(n => n !== name);
-      savePins(next, pinnedInboxIds, pinnedCollectionIds, pinnedListIds);
-      return next;
-    });
-  };
-
-  const pinInbox = (id: string) => {
-    setPinnedInboxIds(prev => {
-      if (prev.includes(id)) return prev;
-      const next = [id, ...prev];
-      savePins(pinnedNames, next, pinnedCollectionIds, pinnedListIds);
-      return next;
-    });
-  };
-
-  const unpinInbox = (id: string) => {
-    setPinnedInboxIds(prev => {
-      const next = prev.filter(n => n !== id);
-      savePins(pinnedNames, next, pinnedCollectionIds, pinnedListIds);
+      savePins(next, pinnedCollectionIds, pinnedListIds);
       return next;
     });
   };
@@ -538,7 +501,7 @@ export function HomeContent() {
   const unpinCollection = (id: string) => {
     setPinnedCollectionIds(prev => {
       const next = prev.filter(n => n !== id);
-      savePins(pinnedNames, pinnedInboxIds, next, pinnedListIds);
+      savePins(pinnedNames, next, pinnedListIds);
       return next;
     });
   };
@@ -546,7 +509,7 @@ export function HomeContent() {
   const unpinList = (id: string) => {
     setPinnedListIds(prev => {
       const next = prev.filter(n => n !== id);
-      savePins(pinnedNames, pinnedInboxIds, pinnedCollectionIds, next);
+      savePins(pinnedNames, pinnedCollectionIds, next);
       return next;
     });
   };
@@ -565,41 +528,6 @@ export function HomeContent() {
       .then(d => { setHomeLists(d.lists ?? []); setHomeListsLoaded(true); })
       .catch(() => {});
   }, [loggedIn, homeListsLoaded]);
-
-  useEffect(() => {
-    if (!loggedIn || inboxLoaded) return;
-    fetch("/api/categories/shared")
-      .then(r => r.json())
-      .then(d => setInboxCats(d.sharedCategories ?? []))
-      .catch(() => {})
-      .finally(() => setInboxLoaded(true));
-  }, [loggedIn, inboxLoaded]);
-
-  useEffect(() => {
-    if (!sharePanel || !loggedIn) return;
-    fetch("/api/groups")
-      .then(r => r.json())
-      .then(d => {
-        const owned: Group[] = (d.owned ?? []).map((g: Record<string, unknown>) => ({ id: g.id as string, name: g.name as string }));
-        const joined: Group[] = (d.joined ?? []).map((g: Record<string, unknown>) => ({ id: g.id as string, name: g.name as string }));
-        setShareGroups([...owned, ...joined]);
-      })
-      .catch(() => {});
-  }, [sharePanel, loggedIn]);
-
-  useEffect(() => {
-    if (shareDebounce.current) clearTimeout(shareDebounce.current);
-    if (!shareInput.trim()) { setShareSearchResults([]); setShareSearchLoading(false); return; }
-    setShareSearchLoading(true);
-    shareDebounce.current = setTimeout(() => {
-      fetch(`/api/users/search?q=${encodeURIComponent(shareInput.trim())}`)
-        .then(r => r.json())
-        .then(d => setShareSearchResults((d.users ?? []).map((u: Record<string, unknown>) => ({ type: "user" as const, id: u.id as string, name: u.name as string, avatarUrl: u.avatarUrl as string | undefined }))))
-        .catch(() => setShareSearchResults([]))
-        .finally(() => setShareSearchLoading(false));
-    }, 300);
-    return () => { if (shareDebounce.current) clearTimeout(shareDebounce.current); };
-  }, [shareInput]);
 
   useEffect(() => {
     if (!loggedIn) return;
@@ -697,17 +625,6 @@ export function HomeContent() {
     } catch (err) {
       console.error("加入個人分類網路錯誤", err);
     }
-  };
-
-  const handleShareTo = async (target: { type: "user" | "group"; id: string; name: string }) => {
-    if (!sharePanel) return;
-    setSharingSending(target.id);
-    const body = target.type === "user"
-      ? { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, targetUserName: target.name }
-      : { categoryKey: sharePanel.categoryKey, categoryName: sharePanel.categoryName, groupId: target.id };
-    await fetch("/api/categories/share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    setShareSharedIds(prev => new Set(prev).add(target.id));
-    setSharingSending(null);
   };
 
   const renderPinnedDescendants = (
@@ -998,16 +915,6 @@ export function HomeContent() {
               >
                 取消釘選
               </button>
-            ) : ctxMenu.from === "inbox" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { pinInbox(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                釘選
-              </button>
             ) : ctxMenu.from === "my-collection-pinned" ? (
               <button
                 type="button"
@@ -1018,93 +925,7 @@ export function HomeContent() {
               >
                 取消釘選
               </button>
-            ) : (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { unpinInbox(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                取消釘選
-              </button>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* share panel */}
-      {sharePanel && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setSharePanel(null)} />
-          <div
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-80 max-h-[70vh] flex flex-col rounded-2xl border shadow-xl"
-            style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 10%, transparent)" }}>
-              <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>分享「{sharePanel.categoryName}」</span>
-              <button onClick={() => setSharePanel(null)} className="text-lg opacity-40 hover:opacity-70 leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
-            </div>
-            <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto">
-              {/* user search */}
-              <input
-                className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
-                style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                placeholder="搜尋帳號名稱"
-                value={shareInput}
-                onChange={e => setShareInput(e.target.value)}
-              />
-              {shareSearchLoading && <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
-              {shareSearchResults.length > 0 && (
-                <div className="flex flex-col divide-y rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
-                  {shareSearchResults.map(u => (
-                    <div key={u.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
-                      <div className="flex items-center gap-2">
-                        <Image src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
-                        <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                      </div>
-                      {shareSharedIds.has(u.id) ? (
-                        <span className="text-xs" style={{ color: "#D1D5DB" }}>已分享</span>
-                      ) : (
-                        <button
-                          onClick={() => handleShareTo(u)}
-                          disabled={shareSending === u.id}
-                          className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
-                          style={{ borderColor: "#D1D5DB", color: "#D1D5DB" }}
-                        >
-                          {shareSending === u.id ? "..." : "分享"}
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* groups */}
-              {shareGroups.length > 0 && (
-                <>
-                  <p className="text-xs opacity-50 mt-1" style={{ color: "var(--zen-ink)" }}>我的群組</p>
-                  <div className="flex flex-col divide-y rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
-                    {shareGroups.map(g => (
-                      <div key={g.id} className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: "var(--zen-bg)" }}>
-                        <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{g.name}</span>
-                        {shareSharedIds.has(g.id) ? (
-                          <span className="text-xs" style={{ color: "#D1D5DB" }}>已分享</span>
-                        ) : (
-                          <button
-                            onClick={() => handleShareTo({ type: "group", id: g.id, name: g.name })}
-                            disabled={shareSending === g.id}
-                            className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30"
-                            style={{ borderColor: "#D1D5DB", color: "#D1D5DB" }}
-                          >
-                            {shareSending === g.id ? "..." : "分享"}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            ) : null}
           </div>
         </>
       )}
@@ -1139,13 +960,13 @@ export function HomeContent() {
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
             >
-              {loggedIn && !session?.user?.name && pinnedNames.length === 0 && pinnedInboxIds.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && (
+              {loggedIn && !session?.user?.name && pinnedNames.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
                   <line x1="12" y1="17" x2="12" y2="22"/>
                   <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
                 </svg>
               )}
-              {loggedIn && (!!session?.user?.name || pinnedNames.length > 0 || pinnedInboxIds.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0) && (
+              {loggedIn && (!!session?.user?.name || pinnedNames.length > 0 || pinnedCollectionIds.length > 0 || pinnedListIds.length > 0) && (
                 <div className="bookshelf-grid home-bookshelf-grid">
                   {pinnedListIds.map((id, idx) => {
                     const list = homeLists.find(l => l.id === id);
@@ -1174,31 +995,6 @@ export function HomeContent() {
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: col.id, name: col.displayName, x: e.clientX, y: e.clientY, from: "my-collection-pinned" }); }}
                       >
                         {col.displayName}
-                      </a>
-                    );
-                  })}
-                  {pinnedInboxIds.map((id, idx) => {
-                    const cat = inboxCats.find(c => c.id === id);
-                    if (!cat) return null;
-                    const key = cat.categoryKey;
-                    const isList = key.startsWith("list:");
-                    const href = isList
-                      ? `/test/list?listId=${key.slice(5)}&autostart=1`
-                      : key.includes(":")
-                        ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
-                        : `/test/${encodeURIComponent(key)}?autostart=1`;
-                    const color = isList
-                      ? (idx % 2 === 0 ? "#6ea8d8" : "#d87070")
-                      : LEAF_COLOR;
-                    return (
-                      <a
-                        key={id}
-                        href={href}
-                        className="book-link bookshelf-btn"
-                        style={{ color }}
-                        onContextMenu={e => { e.preventDefault(); openCtx(e, id, cat.categoryName, "inbox-pinned"); }}
-                      >
-                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
                       </a>
                     );
                   })}
@@ -1435,7 +1231,7 @@ export function HomeContent() {
                       >
                         <PinnedProfileTabSection
                           name={p.name}
-                          tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
+                          tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
                           label={p.label}
                           onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
                         />
@@ -1467,7 +1263,7 @@ export function HomeContent() {
                 >
                   <PinnedProfileTabSection
                     name={p.name}
-                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared"}
+                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
                     label={p.label}
                     onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
                   />

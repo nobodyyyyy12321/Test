@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 type PinnedProfileTab = { name: string; tab: string; label: string };
 
 // Only these tabs can be pinned to home page
-const PINNABLE_TABS = ["lists", "shared"];
+const PINNABLE_TABS = ["lists"];
 
 function sanitizeProfileTabs(input: unknown): PinnedProfileTab[] | null {
   if (!Array.isArray(input)) return null;
@@ -26,12 +26,11 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.email) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const me = await findUserByEmail(session.user.email);
-  if (!me) return NextResponse.json({ pinnedCats: [], pinnedInboxCats: [], pinnedCollectionIds: [], pinnedListIds: [], pinnedProfileTabs: [] });
+  if (!me) return NextResponse.json({ pinnedCats: [], pinnedCollectionIds: [], pinnedListIds: [], pinnedProfileTabs: [] });
   const db = getSupabaseAdmin();
-  const { data } = await db.from("users").select("pinned_cats,pinned_inbox_cats,pinned_collection_ids,pinned_list_ids,pinned_profile_tabs").eq("id", me.id).maybeSingle();
+  const { data } = await db.from("users").select("pinned_cats,pinned_collection_ids,pinned_list_ids,pinned_profile_tabs").eq("id", me.id).maybeSingle();
   return NextResponse.json({
     pinnedCats: (data?.pinned_cats as string[]) ?? [],
-    pinnedInboxCats: (data?.pinned_inbox_cats as string[]) ?? [],
     pinnedCollectionIds: (data?.pinned_collection_ids as string[]) ?? [],
     pinnedListIds: (data?.pinned_list_ids as string[]) ?? [],
     pinnedProfileTabs: (data?.pinned_profile_tabs as PinnedProfileTab[]) ?? [],
@@ -47,7 +46,6 @@ export async function PATCH(req: NextRequest) {
   const db = getSupabaseAdmin();
   const update: Record<string, unknown> = {};
   if (Array.isArray(body.pinnedCats)) update.pinned_cats = body.pinnedCats;
-  if (Array.isArray(body.pinnedInboxCats)) update.pinned_inbox_cats = body.pinnedInboxCats;
   if (Array.isArray(body.pinnedCollectionIds)) update.pinned_collection_ids = body.pinnedCollectionIds;
   if (Array.isArray(body.pinnedListIds)) update.pinned_list_ids = body.pinnedListIds;
   if (body.pinnedProfileTabs !== undefined) {

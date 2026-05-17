@@ -256,13 +256,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         answers: compactAnswers,
       }),
     }).catch(() => {});
-    if (listId) {
-      fetch(`/api/lists/${listId}/result`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answered: answeredCount, correct: correctCount }),
-      }).catch(() => {});
-    }
   }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, ordered, id, listTitle, levels, listId, pageTitle]);
 
   useEffect(() => {

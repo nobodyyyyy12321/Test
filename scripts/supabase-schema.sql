@@ -118,9 +118,7 @@ create table if not exists lists (
   title          text not null,
   owner_id       text not null references users(id) on delete cascade,
   is_public      boolean default false,
-  created_at     timestamptz not null,
-  shared_with    text[] default '{}',
-  shared_results jsonb default '{}'
+  created_at     timestamptz not null
 );
 
 create index if not exists lists_owner_id_idx on lists(owner_id);
@@ -209,16 +207,7 @@ create table if not exists blocks (
 
 create index if not exists blocks_blocker_id_idx on blocks(blocker_id);
 
--- ── shared_categories ─────────────────────────────────────────────────────────
-create table if not exists shared_categories (
-  id            uuid primary key default gen_random_uuid(),
-  recipient_id  text not null references users(id) on delete cascade,
-  category_key  text not null,
-  category_name text not null,
-  shared_by_id  text not null references users(id) on delete cascade,
-  created_at    timestamptz default now(),
-  unique(recipient_id, category_key, shared_by_id)
-);
-
-create index if not exists shared_categories_recipient_idx on shared_categories(recipient_id);
+-- shared_categories table, lists.shared_with column, and lists.shared_results
+-- column were dropped as part of the share-system rewrite. Run
+-- scripts/drop-share-tables.sql against the production DB to remove them.
 

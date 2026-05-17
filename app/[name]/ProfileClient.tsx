@@ -56,9 +56,8 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared" | "gallery";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery";
 
-type SharedCategory = { id: string; categoryKey: string; categoryName: string; sharedByName?: string };
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
 type Group = { id: string; name: string; ownerId: string; ownerName?: string; ownerAvatarUrl?: string; createdAt: string; memberCount?: number; members?: GroupMember[] };
@@ -176,10 +175,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
-  const [shareOpenId, setShareOpenId] = useState<string | null>(null);
-  const [shareInput, setShareInput] = useState("");
-  const [shareError, setShareError] = useState<string | null>(null);
-  const [shareLoading, setShareLoading] = useState(false);
 
   // ── record state ──
   const [recordLoaded, setRecordLoaded] = useState(false);
@@ -206,10 +201,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [blockedUsers, setBlockedUsers] = useState<FollowUser[]>([]);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
-  // ── shared-with-me state ──
-  const [sharedLoaded, setSharedLoaded] = useState(false);
-  const [sharedLoading, setSharedLoading] = useState(false);
-  const [sharedCats, setSharedCats] = useState<SharedCategory[]>([]);
 
   // ── gallery state ──
   const [galleryLoaded, setGalleryLoaded] = useState(false);
@@ -234,17 +225,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [groupSearchLoading, setGroupSearchLoading] = useState(false);
   const [groupInvitedIds, setGroupInvitedIds] = useState<Set<string>>(new Set());
   const groupSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [groupShareListId, setGroupShareListId] = useState("");
-  const [groupShareLoading, setGroupShareLoading] = useState(false);
-  const [groupShareMsg, setGroupShareMsg] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
-  // share-panel unified search (lists tab)
-  type ShareResult = { type: "user" | "group"; id: string; name: string; avatarUrl?: string; memberCount?: number };
-  const [shareSearchResults, setShareSearchResults] = useState<ShareResult[]>([]);
-  const [shareSearchLoading, setShareSearchLoading] = useState(false);
-  const [shareSharedGroupIds, setShareSharedGroupIds] = useState<Set<string>>(new Set());
-  const shareSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
   const [profileFolders, setProfileFolders] = useState<UserFolder[]>([]);
   const [myCollectionsLoaded, setMyCollectionsLoaded] = useState(false);
@@ -320,7 +302,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (typeof window === "undefined") return;
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
-      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "shared", "gallery"];
+      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery"];
       if (t && (valid as string[]).includes(t)) setActiveTab(t as Tab);
     } catch {}
   }, []);
@@ -333,7 +315,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   }, [tabCtxMenu]);
 
   // Only these tabs can be pinned to home page
-  const PINNABLE_TABS: Tab[] = ["lists", "shared"];
+  const PINNABLE_TABS: Tab[] = ["lists"];
   const isTabPinnable = (tab: Tab) => PINNABLE_TABS.includes(tab);
   const isTabPinned = (tab: Tab) => pinnedTabs.some(p => p.name === urlName && p.tab === tab);
   const persistPinnedTabs = (next: PinnedTab[]) => {
@@ -472,20 +454,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
       .finally(() => setBlockedLoading(false));
   }, [activeTab, blockedLoaded, isOwner]);
 
-  // ── load shared-with-me tab ──────────────────────────────────────────────
-
-  useEffect(() => {
-    if (activeTab !== "shared" || sharedLoaded || !isOwner) return;
-    setSharedLoading(true);
-    fetch("/api/categories/shared")
-      .then(r => r.json())
-      .then(d => {
-        setSharedCats((d.sharedCategories ?? []) as SharedCategory[]);
-        setSharedLoaded(true);
-      })
-      .finally(() => setSharedLoading(false));
-  }, [activeTab, sharedLoaded, isOwner]);
-
   // ── load gallery when tab activated ─────────────────────────────────────
 
   useEffect(() => {
@@ -539,7 +507,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setGroupSearchResults([]);
     setGroupInviteError(null);
     setGroupInvitedIds(new Set());
-    setGroupShareMsg(null);
   };
 
   const loadActiveGroup = (groupId: string) => {
@@ -550,7 +517,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setGroupSearchResults([]);
     setGroupInviteError(null);
     setGroupInvitedIds(new Set());
-    setGroupShareMsg(null);
     fetch(`/api/groups/${groupId}`)
       .then(r => r.json())
       .then(d => setActiveGroup(d.group ?? null))
@@ -621,20 +587,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     loadActiveGroup(activeGroupId);
   };
 
-  const handleShareListToGroup = async () => {
-    if (!groupShareListId || !activeGroupId) return;
-    setGroupShareLoading(true);
-    setGroupShareMsg(null);
-    const res = await fetch(`/api/groups/${activeGroupId}/share-list`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listId: groupShareListId }),
-    });
-    const d = await res.json();
-    setGroupShareMsg(d.ok ? `${t("share")} ${d.shared} ${t("sharedCountSuffix")}` : (d.error ?? t("shareFailed")));
-    setGroupShareLoading(false);
-  };
-
   const handleAcceptInvite = async (groupId: string) => {
     await fetch(`/api/groups/${groupId}/accept`, { method: "POST" });
     setPendingInvites(prev => prev.filter(inv => inv.groupId !== groupId));
@@ -655,17 +607,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setBlockedUsers(prev => prev.filter(u => u.id !== user.id));
     setUnblockingId(null);
   };
-
-  // ── load owned groups when share panel opens (for group-share dropdown) ──
-
-  useEffect(() => {
-    if (!shareOpenId || !isOwner || groupsLoaded) return;
-    setGroupsLoading(true);
-    fetch("/api/groups")
-      .then(r => r.json())
-      .then(d => { setOwnedGroups(d.owned ?? []); setJoinedGroups(d.joined ?? []); setGroupsLoaded(true); })
-      .finally(() => setGroupsLoading(false));
-  }, [shareOpenId, isOwner, groupsLoaded]);
 
   // ── context menu close on Escape ─────────────────────────────────────────
 
@@ -839,40 +780,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     });
   };
 
-  const handleShareSearch = (q: string) => {
-    setShareInput(q);
-    setShareError(null);
-    if (shareSearchTimer.current) clearTimeout(shareSearchTimer.current);
-    if (!q.trim()) { setShareSearchResults([]); return; }
-    shareSearchTimer.current = setTimeout(async () => {
-      setShareSearchLoading(true);
-      const allGroups = [...ownedGroups, ...joinedGroups];
-      const lq = q.toLowerCase();
-      const matchGroups: ShareResult[] = allGroups
-        .filter(g => g.name.toLowerCase().includes(lq))
-        .map(g => ({ type: "group", id: g.id, name: g.name, memberCount: g.memberCount }));
-      try {
-        const r = await fetch(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
-        const d = await r.json();
-        const users: ShareResult[] = (d.users ?? []).map((u: { id: string; name: string; avatarUrl?: string }) => ({ type: "user", id: u.id, name: u.name, avatarUrl: u.avatarUrl }));
-        setShareSearchResults([...matchGroups, ...users]);
-      } finally {
-        setShareSearchLoading(false);
-      }
-    }, 300);
-  };
-
-  const removeShare = async (listId: string, targetName: string) => {
-    await fetch(`/api/lists/${listId}/share`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetName }),
-    });
-    setLists(prev => prev.map(l =>
-      l.id === listId ? { ...l, sharedWith: (l.sharedWith ?? []).filter(n => n !== targetName) } : l
-    ));
-  };
-
   // ── follow / block actions ────────────────────────────────────────────────
 
   const toggleFollow = async () => {
@@ -931,7 +838,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
     { id: "profile", label: t("tabProfile") },
     { id: "lists", label: t("tabLists") },
-    { id: "shared", label: t("tabShared"), ownerOnly: true },
     { id: "record", label: t("tabRecord"), ownerOnly: true },
     { id: "groups", label: t("tabGroups"), ownerOnly: true },
     { id: "gallery", label: t("tabGallery"), ownerOnly: true },
@@ -1030,31 +936,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                   </div>
                 )}
                 {groupInviteError && <p className="text-xs text-red-500 px-1">{groupInviteError}</p>}
-              </div>
-            )}
-
-            {/* share list */}
-            {isGroupOwner && lists.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{t("shareListToGroup")}</p>
-                <div className="flex gap-2">
-                  <select
-                    className="flex-1 px-3 py-2 rounded-xl border text-sm outline-none"
-                    style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                    value={groupShareListId}
-                    onChange={e => { setGroupShareListId(e.target.value); setGroupShareMsg(null); }}
-                  >
-                    <option value="">{t("selectList")}</option>
-                    {lists.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
-                  </select>
-                  <button
-                    onClick={handleShareListToGroup}
-                    disabled={groupShareLoading || !groupShareListId}
-                    className="px-4 py-2 rounded-xl text-sm transition-opacity hover:opacity-80 disabled:opacity-30"
-                    style={{ backgroundColor: "#5fa870", color: "#fff" }}
-                  >{t("share")}</button>
-                </div>
-                {groupShareMsg && <p className="text-xs opacity-70" style={{ color: "var(--zen-ink)" }}>{groupShareMsg}</p>}
               </div>
             )}
 
@@ -1570,44 +1451,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        )}
-
-        {/* ── shared-with-me tab ──────────────────────────────────────────── */}
-        {activeTab === "shared" && (
-          <div>
-            {sharedLoading ? (
-              <p className="text-sm zen-subtle">{t("loading")}</p>
-            ) : sharedCats.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">{t("sharedWithMeEmpty")}</p>
-            ) : (
-              <div className="bookshelf-grid">
-                {(() => {
-                  let listIdx = 0, catIdx = 0;
-                  return sharedCats.map(cat => {
-                    const key = cat.categoryKey;
-                    const isList = key.startsWith("list:");
-                    const href = isList
-                      ? `/test/list?listId=${key.slice(5)}&autostart=1`
-                      : key.includes(":")
-                        ? `/test/${encodeURIComponent(key.split(":")[0])}?levels=${encodeURIComponent(key.split(":")[1])}&autostart=1`
-                        : `/test/${encodeURIComponent(key)}?autostart=1`;
-                    const color = "#5fa870";
-                    if (isList) listIdx++; else catIdx++;
-                    return (
-                      <a
-                        key={cat.id}
-                        href={href}
-                        className="book-link bookshelf-btn"
-                        style={{ color }}
-                      >
-                        {cat.categoryName}{cat.sharedByName ? ` [${cat.sharedByName}]` : ""}
-                      </a>
-                    );
-                  });
-                })()}
-              </div>
             )}
           </div>
         )}

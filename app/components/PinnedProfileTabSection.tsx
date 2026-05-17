@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
 import { PersonalListsView, type MyCollection, type UserFolder } from "./PersonalListsView";
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "shared";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked";
 
 type Props = {
   name: string;
