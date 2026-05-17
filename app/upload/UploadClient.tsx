@@ -267,54 +267,129 @@ export default function UploadClient() {
     setSingleUploading(false);
   };
 
-  const handleFile = (file: File) => {
-    if (!file.name.endsWith(".json")) {
-      setParseError("只接受 .json 檔案");
-      return;
+  const splitJsonObjects = (text: string): string[] => {
+    const objects: string[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    let escape = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0 && start >= 0) {
+          objects.push(text.slice(start, i + 1));
+          start = -1;
+        }
+      }
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      setJsonText(text);
+    return objects;
+  };
+
+  const handleFiles = (files: File[]) => {
+    let pending = files.length;
+    const texts: string[] = new Array(files.length);
+    const errors: string[] = [];
+    files.forEach((file, idx) => {
+      if (!file.name.endsWith(".json")) {
+        errors.push(`${file.name} 不是 .json 檔案`);
+        pending--;
+        if (pending === 0) finalize();
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        texts[idx] = e.target?.result as string;
+        pending--;
+        if (pending === 0) finalize();
+      };
+      reader.onerror = () => {
+        errors.push(`${file.name} 讀取失敗`);
+        pending--;
+        if (pending === 0) finalize();
+      };
+      reader.readAsText(file);
+    });
+    const finalize = () => {
+      if (errors.length > 0) {
+        setParseError(errors.join("；"));
+        return;
+      }
+      const combined = texts.join("\n");
+      setJsonText(combined);
       setParseError(null);
       setResult(null);
-      try {
-        JSON.parse(text);
-      } catch (err) {
-        setParseError("JSON 格式錯誤：" + (err instanceof Error ? err.message : String(err)));
+      const objects = splitJsonObjects(combined);
+      if (objects.length === 0) {
+        setParseError("找不到任何 JSON 物件");
+        return;
+      }
+      for (let i = 0; i < objects.length; i++) {
+        try {
+          JSON.parse(objects[i]);
+        } catch (err) {
+          setParseError(`第 ${i + 1} 個 JSON 格式錯誤：${err instanceof Error ? err.message : String(err)}`);
+          return;
+        }
       }
     };
-    reader.readAsText(file);
   };
 
   const handleUpload = async () => {
     setParseError(null);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonText);
-    } catch (err) {
-      setParseError("JSON 格式錯誤：" + (err instanceof Error ? err.message : String(err)));
+    const objects = splitJsonObjects(jsonText);
+    if (objects.length === 0) {
+      setParseError("找不到任何 JSON 物件");
       return;
+    }
+    for (let i = 0; i < objects.length; i++) {
+      try {
+        JSON.parse(objects[i]);
+      } catch (err) {
+        setParseError(`第 ${i + 1} 個 JSON 格式錯誤：${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
     }
     setUploading(true);
     setResult(null);
-    const data = await submitToApi(parsed as Record<string, unknown>);
-    setResult(data);
+    const results: UploadResult[] = [];
+    for (let i = 0; i < objects.length; i++) {
+      const parsed = JSON.parse(objects[i]) as Record<string, unknown>;
+      const data = await submitToApi(parsed);
+      results.push(data);
+      if (!data.ok) break;
+    }
+    setResult(results.length === 1 ? results[0] : { ok: true as const, categoryId: results.filter(r => r.ok).map(r => (r as Extract<UploadResult, { ok: true }>).categoryId).join(", "), inserted: results.filter(r => r.ok).reduce((s, r) => s + (r as Extract<UploadResult, { ok: true }>).inserted, 0), approvalStatus: "pending" });
     setUploading(false);
   };
 
   const preview = (() => {
     if (!jsonText) return null;
-    try {
-      const p = JSON.parse(jsonText) as { language?: string; name?: string; questions?: unknown[] };
-      const lines: string[] = [];
-      if (p.language) lines.push(`語言：${p.language}`);
-      if (p.name) lines.push(`題庫：${p.name}`);
-      if (Array.isArray(p.questions)) lines.push(`題目：${p.questions.length} 題`);
-      return lines.length ? lines : null;
-    } catch {
-      return null;
+    const objects = splitJsonObjects(jsonText);
+    if (objects.length === 0) return null;
+    const lines: string[] = [];
+    let totalQuestions = 0;
+    for (let i = 0; i < objects.length; i++) {
+      try {
+        const p = JSON.parse(objects[i]) as { language?: string; name?: string; questions?: unknown[] };
+        const tag = `#${i + 1}`;
+        if (p.language) lines.push(`${tag} 語言：${p.language}`);
+        if (p.name) lines.push(`${tag} 題庫：${p.name}`);
+        if (Array.isArray(p.questions)) {
+          lines.push(`${tag} 題目：${p.questions.length} 題`);
+          totalQuestions += p.questions.length;
+        }
+      } catch { return null; }
     }
+    if (objects.length > 1) lines.push(`共 ${objects.length} 個題庫，${totalQuestions} 題`);
+    return lines.length ? lines : null;
   })();
 
   return (
@@ -585,8 +660,8 @@ export default function UploadClient() {
           <div
             onDrop={(e) => {
               e.preventDefault();
-              const f = e.dataTransfer.files[0];
-              if (f) handleFile(f);
+              const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith(".json"));
+              if (files.length > 0) handleFiles(files);
             }}
             onDragOver={(e) => e.preventDefault()}
             onClick={() => fileRef.current?.click()}
@@ -597,15 +672,16 @@ export default function UploadClient() {
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <p className="text-sm text-zinc-400">拖曳或點擊選取 .json 檔案</p>
+            <p className="text-sm text-zinc-400">拖曳或點擊選取 .json 檔案（可拖曳單一或多個檔案）</p>
             <input
               ref={fileRef}
               type="file"
               accept=".json"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
+                const files = Array.from(e.target.files ?? []);
+                if (files.length > 0) handleFiles(files);
               }}
             />
           </div>

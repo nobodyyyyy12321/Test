@@ -23,6 +23,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: user.bio || undefined,
       images: user.avatarUrl ? [{ url: user.avatarUrl }] : undefined,
     },
+    twitter: {
+      card: "summary_large_image",
+      title: `${user.name} — Test`,
+      description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
+      images: user.avatarUrl ? [user.avatarUrl] : undefined,
+    },
   };
 }
 

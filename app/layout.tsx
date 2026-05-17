@@ -7,6 +7,7 @@ import DesktopSettingsButton from "./components/DesktopSettingsButton";
 import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
 import PWARegister from "./components/PWARegister";
+import RotatePrompt from "./components/RotatePrompt";
 import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
@@ -30,13 +31,29 @@ const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "default";
 const FAVICON = `/icons/favicon.png?v=${BUILD_ID}`;
 
 export const metadata: Metadata = {
-  title: "Exam",
+  title: {
+    default: "Exam",
+    template: "%s — Exam",
+  },
   description: "多方位測驗平台",
+  metadataBase: new URL("https://exam.farm"),
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [{ url: FAVICON, type: "image/png" }],
     shortcut: [{ url: FAVICON, type: "image/png" }],
     apple: [{ url: FAVICON, type: "image/png" }],
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Exam",
+    title: "Exam",
+    description: "多方位測驗平台",
+    locale: "zh_TW",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Exam",
+    description: "多方位測驗平台",
   },
 };
 
@@ -93,6 +110,7 @@ export default function RootLayout({
           {/* 手機版底部列 */}
           <MobileBottomBar />
           <PullToRefresh />
+          <RotatePrompt />
           </TimerProvider>
         </Providers>
         <Analytics />

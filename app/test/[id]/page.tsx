@@ -96,6 +96,20 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title: `${title} — Test`,
     description: getTestMetadataDescription(title, activeLang),
+    openGraph: {
+      title: `${title} — Test`,
+      description: getTestMetadataDescription(title, activeLang),
+      images: [{
+        url: `/api/og/test?title=${encodeURIComponent(title)}&lang=${encodeURIComponent(activeLang)}`,
+        width: 1200,
+        height: 630,
+      }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} — Test`,
+      description: getTestMetadataDescription(title, activeLang),
+    },
   };
 }
 
