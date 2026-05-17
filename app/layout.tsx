@@ -30,7 +30,7 @@ const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "default";
 const FAVICON = `/icons/favicon.png?v=${BUILD_ID}`;
 
 export const metadata: Metadata = {
-  title: "Test",
+  title: "Exam",
   description: "多方位測驗平台",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -75,7 +75,7 @@ export default function RootLayout({
               __html: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                "name": "Test",
+                "name": "Exam",
                 "url": "https://testtttt.io",
               }),
             }}

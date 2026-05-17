@@ -76,6 +76,7 @@ type MyCollection = {
   problemsPerTest?: number | null;
   shuffleProblems?: boolean | null;
   approvalStatus?: string;
+  language: string;
 };
 type UserFolder = { id: string; name: string; parentId: string | null; isPublic: boolean };
 
@@ -1299,6 +1300,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               setPinnedListIds={setPinnedListIds}
               pinnedCollectionIds={pinnedCollectionIds}
               setPinnedCollectionIds={setPinnedCollectionIds}
+              activeLanguage={uiLang}
             />
 
           </div>

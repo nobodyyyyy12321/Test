@@ -691,6 +691,7 @@ export function HomeContent() {
             displayName: item.name,
             createdAt: new Date().toISOString(),
             approvalStatus: "pending",
+            language,
           },
         ]);
       }
@@ -1102,8 +1103,8 @@ export function HomeContent() {
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
-          <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Test</h1>
-          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#D1D5DB" }}>testtttt.io</span>
+          <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Exam</h1>
+          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#D1D5DB" }}>exam.farm</span>
           <div className="absolute -top-1 -right-5">
             <LanguageSelector />
           </div>

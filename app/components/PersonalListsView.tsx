@@ -15,6 +15,7 @@ export type MyCollection = {
   problemsPerTest?: number | null;
   shuffleProblems?: boolean | null;
   approvalStatus?: string;
+  language: string;
 };
 
 export type UserFolder = {
@@ -37,6 +38,7 @@ type Props = {
   setPinnedListIds: React.Dispatch<React.SetStateAction<string[]>>;
   pinnedCollectionIds: string[];
   setPinnedCollectionIds: React.Dispatch<React.SetStateAction<string[]>>;
+  activeLanguage?: string;
 };
 
 export function PersonalListsView({
@@ -45,6 +47,7 @@ export function PersonalListsView({
   lists,
   myCollections,
   folders: publicFolders = [],
+  activeLanguage = "zh-TW",
 }: Props) {
   const { status: sessionStatus } = useSession();
   const [folders, setFolders] = useState<UserFolder[]>([]);
@@ -69,8 +72,11 @@ export function PersonalListsView({
   const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
   const [listParentOverride, setListParentOverride] = useState<Record<string, string | null>>({});
 
+  const contentLang = activeLanguage === "zh-CN" ? "zh-TW" : activeLanguage;
   const visibleLists = lists;
-  const visibleCollections = myCollections.filter((c) => c.approvalStatus !== "pending");
+  const visibleCollections = myCollections.filter(
+    (c) => c.approvalStatus !== "pending" && (c.language || "zh-TW") === contentLang
+  );
 
   const applyFoldersResponse = (data: { folders?: unknown }) => {
     setFolders(Array.isArray(data.folders) ? (data.folders as UserFolder[]) : []);
@@ -218,6 +224,11 @@ export function PersonalListsView({
     folders.filter((f) => (f.parentId ?? null) === folderId);
   const listsUnder = (folderId: string | null) =>
     visibleLists.filter((l) => listParent(l) === folderId);
+
+  const folderHasVisibleContent = (folderId: string | null): boolean => {
+    if (collectionsUnder(folderId).length > 0) return true;
+    return foldersUnder(folderId).some((f) => folderHasVisibleContent(f.id));
+  };
 
   const appendHrefOptions = (href?: string | null, problemsPerTest?: number | null, shuffleProblems?: boolean | null): string => {
     const base = href || "#";
@@ -367,7 +378,7 @@ export function PersonalListsView({
     const isOpen = openFolderIds.has(folder.id);
     const isHighlighted = ancestorExpanded || isOpen;
     const isEditing = editingFolderId === folder.id;
-    const childFolders = foldersUnder(folder.id);
+    const childFolders = foldersUnder(folder.id).filter((f) => folderHasVisibleContent(f.id));
     const childCollections = collectionsUnder(folder.id);
     const childLists = listsUnder(folder.id);
 
@@ -519,11 +530,11 @@ export function PersonalListsView({
     );
   };
 
-  const topFolders = foldersUnder(null);
+  const topFolders = foldersUnder(null).filter((f) => folderHasVisibleContent(f.id));
   const topLists = listsUnder(null);
   const topCollections = collectionsUnder(null);
 
-  const isEmpty = visibleLists.length === 0 && topCollections.length === 0 && topFolders.length === 0;
+  const isEmpty = visibleLists.length === 0 && visibleCollections.length === 0 && topFolders.length === 0;
 
   if (!isOwner && isEmpty && !loading) {
     return <p className="text-sm zen-subtle opacity-50">尚無公開試卷</p>;
