@@ -12,17 +12,32 @@ export default function PullToRefresh() {
   const pullingRef = useRef(false);
 
   useEffect(() => {
+    let startY: number | null = null;
+
     const onTouchStart = (e: TouchEvent) => {
-      if (window.scrollY > 0) return;
-      startYRef.current = e.touches[0].clientY;
+      if (window.scrollY > 0) {
+        startY = null;
+        return;
+      }
+      startY = e.touches[0].clientY;
       pullingRef.current = false;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (startYRef.current === null) return;
-      if (window.scrollY > 0) { startYRef.current = null; return; }
-      const dy = e.touches[0].clientY - startYRef.current;
-      if (dy <= 0) return;
+      if (startY === null) return;
+      if (window.scrollY > 0) {
+        startY = null;
+        pullingRef.current = false;
+        setPullY(0);
+        return;
+      }
+      const currentY = e.touches[0].clientY;
+      const dy = currentY - startY;
+      if (dy <= 0) {
+        setPullY(0);
+        pullingRef.current = false;
+        return;
+      }
       pullingRef.current = true;
       e.preventDefault();
       setPullY(Math.min(dy, MAX_PULL));
@@ -36,7 +51,7 @@ export default function PullToRefresh() {
       } else {
         setPullY(0);
       }
-      startYRef.current = null;
+      startY = null;
       pullingRef.current = false;
     };
 
