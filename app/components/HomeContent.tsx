@@ -691,7 +691,6 @@ export function HomeContent() {
             displayName: item.name,
             createdAt: new Date().toISOString(),
             approvalStatus: "pending",
-            language,
           },
         ]);
       }
@@ -787,6 +786,11 @@ export function HomeContent() {
   const recommendedListsUnder = (user: UserResult, folderId: string | null) =>
     (user.lists ?? []).filter((list) => (list.parentId ?? null) === folderId);
 
+  const recommendedFolderHasContent = (user: UserResult, folderId: string | null): boolean => {
+    if (recommendedCategoriesUnder(user, folderId).length > 0) return true;
+    return recommendedFoldersUnder(user, folderId).some((f) => recommendedFolderHasContent(user, f.id));
+  };
+
   const renderRecommendedCategory = (
     user: UserResult,
     cat: NonNullable<UserResult["categories"]>[number],
@@ -843,7 +847,7 @@ export function HomeContent() {
           📁 {folder.name}
         </button>
         {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderRecommendedCategory(user, cat, true))}
-        {isOpen && recommendedFoldersUnder(user, folder.id).map((child) => renderRecommendedFolder(user, child, true))}
+        {isOpen && recommendedFoldersUnder(user, folder.id).filter((f) => recommendedFolderHasContent(user, f.id)).map((child) => renderRecommendedFolder(user, child, true))}
         {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderRecommendedList(list, true))}
       </div>
     );
@@ -915,7 +919,7 @@ export function HomeContent() {
           📁 {folder.name}
         </button>
         {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderPinnedRecCategory(user, cat))}
-        {isOpen && recommendedFoldersUnder(user, folder.id).map((child) => renderPinnedRecFolder(user, child, undefined, [...chain, recommendedFolderKey(user.id, child.id)], true))}
+        {isOpen && recommendedFoldersUnder(user, folder.id).filter((f) => recommendedFolderHasContent(user, f.id)).map((child) => renderPinnedRecFolder(user, child, undefined, [...chain, recommendedFolderKey(user.id, child.id)], true))}
         {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderPinnedRecList(list))}
       </div>
     );
@@ -924,7 +928,7 @@ export function HomeContent() {
   const renderRecommendedCreatorItems = (user: UserResult) => (
     <>
       {recommendedCategoriesUnder(user, null).map((cat) => renderRecommendedCategory(user, cat))}
-      {recommendedFoldersUnder(user, null).map((folder) => renderRecommendedFolder(user, folder))}
+      {recommendedFoldersUnder(user, null).filter((f) => recommendedFolderHasContent(user, f.id)).map((folder) => renderRecommendedFolder(user, folder))}
       {recommendedListsUnder(user, null).map((list) => renderRecommendedList(list))}
     </>
   );
