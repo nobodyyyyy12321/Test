@@ -89,6 +89,9 @@ const profileZhTW = {
   language: "語言",
   uploadQuestions: "上傳題目",
   darkMode: "深色模式",
+  themeSystem: "跟隨系統",
+  themeLight: "淺色",
+  themeDark: "深色",
 };
 
 export type ProfileTextKey = keyof typeof profileZhTW;
@@ -174,7 +177,10 @@ const profileEn: ProfileDictionary = {
   tabSettings: "Settings",
   language: "Language",
   uploadQuestions: "Upload Questions",
-  darkMode: "Dark Mode",
+  darkMode: "Theme",
+  themeSystem: "Follow system",
+  themeLight: "Light",
+  themeDark: "Dark",
 };
 
 const profileZhCN: ProfileDictionary = {
@@ -258,6 +264,9 @@ const profileZhCN: ProfileDictionary = {
   language: "语言",
   uploadQuestions: "上传题目",
   darkMode: "深色模式",
+  themeSystem: "跟随系统",
+  themeLight: "浅色",
+  themeDark: "深色",
 };
 
 const PROFILE_TEXTS: Record<"zh-TW" | "zh-CN" | "en", ProfileDictionary> = {

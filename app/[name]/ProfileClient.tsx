@@ -13,6 +13,7 @@ import AssignmentsTab from "../components/AssignmentsTab";
 import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import { getProfileText, normalizeProfileLanguage, type SupportedUILanguage } from "../lib/i18n/profile";
+import { getStoredTheme, setTheme as setThemeMode, type ThemeMode, THEME_CHANGE_EVENT } from "../lib/theme";
 
 // ── locale helpers ────────────────────────────────────────────────────────────
 
@@ -146,18 +147,21 @@ type Props = {
 export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile }: Props) {
   const { data: session, status } = useSession();
   const [uiLang, setUiLang] = useState<SupportedUILanguage>("zh-TW");
-  const [isDark, setIsDark] = useState(false);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
 
   useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
+    setThemeModeState(getStoredTheme());
+    const onThemeChanged = (e: Event) => {
+      const m = (e as CustomEvent).detail?.mode as ThemeMode | undefined;
+      if (m) setThemeModeState(m);
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, onThemeChanged);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, onThemeChanged);
   }, []);
 
-  const toggleDarkMode = () => {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-    try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
+  const handleThemeChange = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    setThemeMode(mode);
   };
 
   const isOwner = React.useMemo(() => {
@@ -1603,28 +1607,19 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </select>
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{t("darkMode")}</span>
-              <button
-                type="button"
-                onClick={toggleDarkMode}
-                className="w-11 h-6 rounded-full border transition-colors flex items-center px-0.5"
-                style={{
-                  backgroundColor: isDark ? "#374151" : "#f3f4f6",
-                  borderColor: isDark ? "#4b5563" : "#d1d5db",
-                }}
-                aria-pressed={isDark}
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">{t("darkMode")}</label>
+              <select
+                value={themeMode}
+                onChange={e => handleThemeChange(e.target.value as ThemeMode)}
+                className="text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-colors hover:opacity-80"
+                style={{ borderColor: "#D1D5DB", color: "var(--zen-ink)", background: "var(--zen-bg)" }}
                 aria-label={t("darkMode")}
               >
-                <span
-                  className="w-5 h-5 rounded-full shadow transition-transform"
-                  style={{
-                    backgroundColor: isDark ? "#fbbf24" : "#fff",
-                    transform: isDark ? "translateX(20px)" : "translateX(0)",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                  }}
-                />
-              </button>
+                <option value="system">{t("themeSystem")}</option>
+                <option value="light">{t("themeLight")}</option>
+                <option value="dark">{t("themeDark")}</option>
+              </select>
             </div>
           </div>
         )}

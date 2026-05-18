@@ -12,6 +12,7 @@ import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
 import ShareButton from "./components/ShareButton";
+import ThemeWatcher from "./components/ThemeWatcher";
 import { TimerProvider } from "./providers/TimerContext";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
@@ -64,14 +65,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'&&t!=='system')t='system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${notoSerif.variable} antialiased`}
       >
         <Providers>
           <TimerProvider>
+          <ThemeWatcher />
           <aside className="hidden sm:flex fixed right-4 top-4 z-40 flex-row items-center gap-2">
             <Link href="/" aria-label="回到首頁" className="inline-flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
                 <path d="M9 21V12h6v9" />
               </svg>

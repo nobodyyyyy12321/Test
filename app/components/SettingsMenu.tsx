@@ -98,7 +98,6 @@ export default function SettingsMenu() {
   const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [showTimerPanel, setShowTimerPanel] = useState(false);
   const [timerMins, setTimerMins] = useState(String(Math.floor(countdownTotal / 60)));
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const prevLoggedInRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -108,32 +107,11 @@ export default function SettingsMenu() {
     if (savedMode === "formal" || savedMode === "practice") setQuizMode(savedMode);
     const cachedName = localStorage.getItem("displayName");
     if (cachedName) setDisplayName(cachedName);
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null;
-    if (savedTheme) setTheme(savedTheme);
   }, []);
 
   useEffect(() => {
     setTimerMins(String(Math.max(1, Math.floor(countdownTotal / 60))));
   }, [countdownTotal]);
-
-  useEffect(() => {
-    const applyTheme = () => {
-      const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-      if (isDark) {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    };
-    applyTheme();
-    localStorage.setItem("theme", theme);
-    if (theme === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => applyTheme();
-      mediaQuery.addEventListener("change", handler);
-      return () => mediaQuery.removeEventListener("change", handler);
-    }
-  }, [theme]);
 
   useEffect(() => {
     setDomMounted(true);
@@ -264,7 +242,7 @@ export default function SettingsMenu() {
           className="flex items-center"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
