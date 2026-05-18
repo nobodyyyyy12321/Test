@@ -18,7 +18,6 @@ create table assignments (
   -- window (store UTC; render local)
   start_at        timestamptz not null,
   end_at          timestamptz not null,
-  message         text,
   created_at      timestamptz not null default now(),
   -- submission (NULL until Submit); format: { "題號": 答案 } where answer is
   --   single/true_false → string ("A"), multiple → string[] (["A","C"]), fill → string
@@ -51,8 +50,6 @@ No `status` column — state is derived from the timestamps. Revoke hard-deletes
 | **Submit** | UPSERT `answers`, bump `submitted_at` (last-write-wins) | caller is assignee, `start_at ≤ now() ≤ end_at` |
 | **Revoke** | DELETE row | caller is assigner, `submitted_at IS NULL` |
 | **Grade** (lazy) | UPDATE `score`, `total`, `graded_at` | server-internal on any read where `submitted_at IS NOT NULL AND graded_at IS NULL AND now() > end_at` |
-| **Export CSV** (per-qset) | Returns CSV for assignments created from a qset; triggers lazy grading | caller owns the qset |
-| **Export CSV** (own) | Returns CSV of own rows (both assigner and assignee); triggers lazy grading | caller is logged in |
 
 ### Lazy grading
 
@@ -67,10 +64,6 @@ Concurrent first-reads compute the same score deterministically; the conditional
 ### Retention
 
 Each user may be listed as assigner or assignee in at most **60** assignment rows at any time. When a new Assignment INSERT would push the user past the cap, the oldest row in a terminal state (`completed` or `expired`) for that user is automatically **DELETE**d as a side-effect of the same transaction. Non-terminal rows (`submitted_at IS NOT NULL AND graded_at IS NULL`) are never evicted. Checked on both `assigner_id` and `assignee_id` independently — a single assignment counts toward both users' caps. The eviction target is the row with the earliest `end_at` among terminal rows for the affected user.
-
-### CSV row schema
-
-Columns: `assigner`, `assignee`, `assign_type`, `title`, `start_at`, `end_at`, effective state, `submitted_at`, `score`, `total`, `score_pct`, `message`. Body starts with a UTF-8 BOM (Excel-on-Windows + Chinese names).
 
 ## Policy: assignable resources
 
@@ -93,8 +86,6 @@ GET    /api/assignments/outbox                       rows where I'm assigner
 GET    /api/assignments/:id                          full row; questions only ≥ start_at; answer key only > end_at
 POST   /api/assignments/:id/submit                   gatekept; UPDATE answers + submitted_at
 DELETE /api/assignments/:id                          gatekept; hard-DELETE
-GET    /api/qsets/:qsetId/assignment-scores.csv      CSV export (assigner, per-qset)
-GET    /api/assignments/export.csv                   CSV export (own; both roles)
 ```
 
 Gatekeeper checks are listed in the Operations table.
@@ -141,9 +132,30 @@ _(none — all resolved)_
 - Submission history / per-attempt audit trail.
 - Extending `end_at` after creation.
 
+## UI — profile tabs
+
+Two separate tabs in the user profile:
+
+| Tab | API | Content |
+|-----|-----|---------|
+| **指派紀錄** | `GET /api/assignments/outbox` | Assigner sees their outbox: list of assignments they created, each showing assignee, title, window, status |
+| **繳交紀錄** | `GET /api/assignments/inbox` | Assignee sees their inbox: list of assignments assigned to them, each showing assigner, title, deadline, status, score (if completed) |
+
+**繳交紀錄** 再分兩個子頁籤：
+
+| 子頁籤 | 條件 |
+|--------|------|
+| **待繳交** | `submitted_at IS NULL AND now() ≤ end_at`（未提交，仍在 window 內） |
+| **已繳交** | `submitted_at IS NOT NULL`（有提交紀錄，含已批改和等待批改） |
+
+Each tab entry supports:
+- **未到 `start_at`**：顯示「尚未開始」
+- **`start_at` ~ `end_at`**：顯示「作答中」（inbox）/ 「等待提交」（outbox），點擊進入作答
+- **已過 `end_at`**：顯示分數（如已批改）或「等待批改」
+- **未提交且已過期**：顯示「已逾期」
+
 ## Action items
 
-1. Resolve open questions.
-2. Build table + 7 endpoints.
-3. UI: assigner dashboard (create form, outbox), assignee inbox, take-quiz screen (reuse `TestClient`, populate from server-side `answers` if present), results screen (3 states: not-yet-submitted / submitted-pre-`end_at` / post-`end_at` graded).
-4. Notification (in-app badge first; opt-in email at creation and window-open).
+1. Build table + 7 endpoints.
+2. UI: profile tabs（我指派的 / 指派給我的）, take-quiz screen (reuse `TestClient` with `mode='assignment'`), results screen.
+3. Notification (in-app badge first; opt-in email at creation and window-open).

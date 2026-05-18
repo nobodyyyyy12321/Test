@@ -8,6 +8,7 @@ import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
 import { PersonalListsView } from "../components/PersonalListsView";
+import AssignmentsTab from "../components/AssignmentsTab";
 import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import { getProfileText, normalizeProfileLanguage, type SupportedUILanguage } from "../lib/i18n/profile";
@@ -56,7 +57,7 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignOutbox" | "assignInbox";
 
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
@@ -302,7 +303,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (typeof window === "undefined") return;
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
-      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery"];
+      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignOutbox", "assignInbox"];
       if (t && (valid as string[]).includes(t)) setActiveTab(t as Tab);
     } catch {}
   }, []);
@@ -843,6 +844,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "gallery", label: t("tabGallery"), ownerOnly: true },
     { id: "followers", label: t("tabFollowers") },
     { id: "following", label: t("tabFollowing") },
+    { id: "assignOutbox", label: t("tabAssignOutbox"), ownerOnly: true },
+    { id: "assignInbox", label: t("tabAssignInbox"), ownerOnly: true },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
@@ -1492,6 +1495,16 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               </div>
             )}
           </div>
+        )}
+
+        {/* ── assign outbox tab ─────────────────────────────────────────── */}
+        {activeTab === "assignOutbox" && (
+          <AssignmentsTab variant="outbox" isOwner={isOwner} t={(k: string) => t(k as any)} dateLocale={dateLocale} />
+        )}
+
+        {/* ── assign inbox tab ──────────────────────────────────────────── */}
+        {activeTab === "assignInbox" && (
+          <AssignmentsTab variant="inbox" isOwner={isOwner} t={(k: string) => t(k as any)} dateLocale={dateLocale} />
         )}
 
         {/* ── blocked tab ─────────────────────────────────────────────────── */}

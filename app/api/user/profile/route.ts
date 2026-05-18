@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByEmail, findUserByName, updateUser } from "../../../../lib/users";
+import { findUserByEmail, findUserByName, findUserById, updateUser } from "../../../../lib/users";
 import type { Session } from "next-auth";
 import { auth } from "../../../../auth";
 
@@ -7,6 +7,17 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const nameParam = searchParams.get("name");
+    const idParam = searchParams.get("id");
+
+    // If id parameter is provided, fetch that user's profile by id
+    if (idParam) {
+      const user = await findUserById(idParam);
+      if (!user) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      const { id, name, email, bio, avatarUrl, socialLinks } = user;
+      return NextResponse.json({ ok: true, user: { id, name, email, bio, avatarUrl, socialLinks } });
+    }
 
     // If name parameter is provided, fetch that user's public profile
     if (nameParam) {

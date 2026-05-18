@@ -47,9 +47,12 @@ type Props = {
   replayKey?: string | null;
   autostart?: boolean;
   limit?: number | null;
+  mode?: "practice" | "assignment";
+  assignmentId?: string;
+  initialQuestions?: Question[];
 };
 
-export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit }: Props) {
+export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit, mode = "practice", assignmentId, initialQuestions }: Props) {
   const [clientLang, setClientLang] = useState<string | null>(null);
   useEffect(() => {
     const m = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]*)/);
@@ -175,6 +178,20 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   }, [formalMode, started, showResults]);
 
   useEffect(() => {
+    // assignment mode: use pre-loaded questions
+    if (mode === "assignment" && initialQuestions && initialQuestions.length > 0) {
+      const sorted = [...initialQuestions].sort((a, b) => a.number - b.number);
+      originalQuestionsRef.current = sorted;
+      const hasGroups = sorted.some(q => q.type === "group");
+      const shuffled = (ordered || hasGroups) ? sorted : shuffle(sorted);
+      setAllQuestions(shuffled);
+      setAllUserAnswers(new Array(shuffled.length).fill(null));
+      setPageIndex(0);
+      setPageSize(quizPageSize);
+      setIsLoading(false);
+      return;
+    }
+
     // replay mode: load stored answers, fetch questions to match
     if (replayKey) {
       try {
@@ -229,6 +246,22 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const { setShareText, setShareTitle, setShareScoreCard } = useShare();
 
   const checkAnswers = useCallback(() => {
+    // Assignment mode: submit answers to API instead of grading locally
+    if (mode === "assignment" && assignmentId) {
+      const answers: Record<string, string | string[] | null> = {};
+      questions.forEach((q, idx) => {
+        if (q.type === "group") return;
+        answers[String(q.number)] = userAnswers[idx] ?? null;
+      });
+      fetch(`/api/assignments/${assignmentId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      }).catch(() => {});
+      setShowResults(true);
+      return;
+    }
+
     setShowResults(true);
     if (timerEnabled && timerRunning) timerStop();
     const answeredCount = userAnswers.filter((a, idx) => questions[idx]?.type !== "group" && a !== null).length;
@@ -256,7 +289,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         answers: compactAnswers,
       }),
     }).catch(() => {});
-  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, ordered, id, listTitle, levels, listId, pageTitle]);
+  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, ordered, id, listTitle, levels, listId, pageTitle, mode, assignmentId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -517,7 +550,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-24 sm:pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2" style={{ backgroundColor: "var(--zen-bg)" }}>
           <h1 className="text-2xl font-bold zen-title">
-            {showResults && <span>{L.score(correctCount, answeredCount)}</span>}
+            {showResults && mode === "assignment" && <span>已提交</span>}
+            {showResults && mode !== "assignment" && <span>{L.score(correctCount, answeredCount)}</span>}
           </h1>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             <div className="flex items-center gap-2">
@@ -563,12 +597,12 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                 className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
                 style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
               >
-                {L.submit}
+                {mode === "assignment" ? "提交" : L.submit}
               </button>
               </>
             ) : (
               <>
-              {session && (
+              {mode !== "assignment" && session && (
                 <button
                   onClick={retryWrong}
                   disabled={questions.every((q, idx) => q.type === "group" || userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
@@ -582,7 +616,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                 onClick={resetQuiz}
                 className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
               >
-                {L.restart}
+                {mode === "assignment" ? "重新作答" : L.restart}
               </button>
               </>
             )}
@@ -595,7 +629,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
             const ans = userAnswers[idx];
             // GSAT legacy: groupContent field on question itself
             const showGroupContent = qt !== "group" && q.groupContent && (idx === 0 || questions[idx - 1]?.groupContent !== q.groupContent);
-            const isWrongResult = showResults && qt !== "group" && !gradeAnswer(q, ans);
+            const isWrongResult = showResults && mode !== "assignment" && qt !== "group" && !gradeAnswer(q, ans);
             return (
               <React.Fragment key={idx}>
                 {showGroupContent && (
@@ -665,7 +699,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                       />
                         );
                       })()}
-                      {showResults && ans !== null && !isWrongResult && (
+                      {showResults && mode !== "assignment" && ans !== null && !isWrongResult && (
                         <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 text-sm font-semibold rounded" style={{ border: "1.5px solid #16a34a", color: "#16a34a" }}>
                           <span aria-hidden="true">✓</span>
                           <span>{L.correct}</span>
@@ -688,10 +722,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                           : q.answer === option.label;
                         const isUnanswered = showResults && ans === null;
                         // After submit, correct options are green when answered; red when unanswered.
-                        const showCorrectFrameGreen = showResults && isCorrectOpt && !isUnanswered;
-                        const showCorrectFrameRed = showResults && isCorrectOpt && isUnanswered;
+                        const showCorrectFrameGreen = showResults && mode !== "assignment" && isCorrectOpt && !isUnanswered;
+                        const showCorrectFrameRed = showResults && mode !== "assignment" && isCorrectOpt && isUnanswered;
                         // After submit, wrong selected options get red background only.
-                        const showWrongSel = showResults && isSel && !isCorrectOpt;
+                        const showWrongSel = showResults && mode !== "assignment" && isSel && !isCorrectOpt;
                         return (
                           <button
                             key={option.label}
@@ -731,7 +765,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
             );
           })}
         </div>
-        {showResults && (
+        {showResults && mode !== "assignment" && (
           <div className="flex justify-end items-center gap-2 mt-6 w-full">
             {(() => {
               const answeredIdxs = questions.map((q, i) => ({ q, i })).filter(({ q, i }) => q.type !== "group" && userAnswers[i] !== null).map(({ i }) => i);

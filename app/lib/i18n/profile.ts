@@ -16,6 +16,10 @@ const profileZhTW = {
   tabFollowers: "追蹤者",
   tabFollowing: "追蹤中",
   tabGallery: "圖片庫",
+  tabAssignOutbox: "指派紀錄",
+  tabAssignInbox: "繳交紀錄",
+  assignInboxPending: "待繳交",
+  assignInboxSubmitted: "已繳交",
 
   signOut: "登出",
   follow: "追蹤",
@@ -90,6 +94,10 @@ const profileEn: ProfileDictionary = {
   tabFollowers: "Followers",
   tabFollowing: "Following",
   tabGallery: "Image Gallery",
+  tabAssignOutbox: "Assignments",
+  tabAssignInbox: "Submitted",
+  assignInboxPending: "Pending",
+  assignInboxSubmitted: "Completed",
 
   signOut: "Sign Out",
   follow: "Follow",
@@ -161,6 +169,10 @@ const profileZhCN: ProfileDictionary = {
   tabFollowers: "关注者",
   tabFollowing: "关注中",
   tabGallery: "图片库",
+  tabAssignOutbox: "指派纪录",
+  tabAssignInbox: "缴交纪录",
+  assignInboxPending: "待缴交",
+  assignInboxSubmitted: "已缴交",
 
   signOut: "登出",
   follow: "关注",
