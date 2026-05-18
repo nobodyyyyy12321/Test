@@ -65,6 +65,8 @@ export function HomeContent() {
             className={`book-link bookshelf-btn ${isExpanded ? "active-category" : ""}`.trim()}
             style={{ color: FOLDER_COLOR }}
             title="資料夾"
+            draggable
+            onDragStart={e => handleDragStart(e, pinId, node.name, node.href, 'pinned')}
             onClick={() => toggleOpenPinnedKey(pinId, chain)}
             onContextMenu={e => openCtx(e, pinId, node.name, "pinned", node.href)}
           >
@@ -82,6 +84,8 @@ export function HomeContent() {
                 href={hrefWithOptions(child)}
                 className="book-link bookshelf-btn"
                 style={{ color: LEAF_COLOR }}
+                draggable
+                onDragStart={e => handleDragStart(e, childPinId, child.name, child.href, 'pinned')}
                 onContextMenu={e => openCtx(e, childPinId, child.name, "pinned", child.href)}
               >
                 {child.name}
@@ -125,12 +129,66 @@ export function HomeContent() {
   const loggedIn = !!session?.user;
   const visiblePinnedProfileTabs = pinnedProfileTabs;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragItemRef = useRef<{pinId: string; name: string; href?: string; from: string} | null>(null);
+  const dragDropHandledRef = useRef(false);
+  const dragStartPosRef = useRef<{x: number; y: number} | null>(null);
   const subjects = useFilteredCategories(categories, query);
 
   const FOLDER_COLOR = "#b19739"; // gold — nodes with children or dropdown
   const LEAF_COLOR = "#D1D5DB";   // off-white — leaf items (link directly to a test)
   const colorOf = (n: CategoryNode): string =>
     (n.children?.length || n.dropdown?.length) ? FOLDER_COLOR : LEAF_COLOR;
+
+  const handleDragStart = (
+    e: React.DragEvent,
+    pinId: string,
+    name: string,
+    href: string | undefined,
+    from: 'grid' | 'pinned' | 'list-pinned' | 'my-collection-pinned' | 'profile-tab-pinned'
+  ) => {
+    e.dataTransfer.clearData();
+    e.dataTransfer.effectAllowed = 'move';
+    dragItemRef.current = { pinId, name, href, from };
+    dragDropHandledRef.current = false;
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePinnedBarDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDropHandledRef.current = true;
+    const item = dragItemRef.current;
+    if (item && item.from === 'grid') {
+      pin(item.pinId, { name: item.name, href: item.href });
+    }
+  };
+
+  const handlePinnedBarDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handlePinnedBarDragEnd = (e: React.DragEvent) => {
+    const item = dragItemRef.current;
+    if (item && item.from !== 'grid') {
+      const startPos = dragStartPosRef.current;
+      const dx = e.clientX - (startPos?.x ?? e.clientX);
+      const dy = e.clientY - (startPos?.y ?? e.clientY);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (!dragDropHandledRef.current && distance > 5) {
+        if (item.from === 'pinned') unpin(item.pinId);
+        else if (item.from === 'list-pinned') unpinList(item.pinId);
+        else if (item.from === 'my-collection-pinned') unpinCollection(item.pinId);
+        else if (item.from === 'profile-tab-pinned') {
+          const parts = item.pinId.split('\t');
+          if (parts.length === 2) unpinProfileTab(parts[0], parts[1]);
+        }
+      }
+    }
+    dragItemRef.current = null;
+    dragDropHandledRef.current = false;
+    dragStartPosRef.current = null;
+  };
+
   const itemClassForDepth = (depth: number): string => {
     if (depth <= 0) return "book-link bookshelf-btn";
     if (depth === 1) return "book-link bookshelf-btn sub-item";
@@ -269,6 +327,8 @@ export function HomeContent() {
               className={`${itemClass} ${isOpen ? "active-category" : ""}`.trim()}
               style={btnStyle}
               onClick={() => toggleOpenKey(key, depth)}
+              draggable
+              onDragStart={e => handleDragStart(e, pinId, node.name, node.href, 'grid')}
             >
               <span className="mr-1">📁</span>{node.name}
             </button>
@@ -281,12 +341,14 @@ export function HomeContent() {
                 setOpenDropKey(isDropOpen ? null : key);
                 if (isDropOpen) setOpenYearKey(null);
               }}
+              draggable
+              onDragStart={e => handleDragStart(e, pinId, node.name, node.href, 'grid')}
             >
               <span className="mr-1">📁</span>{node.name}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isDropOpen ? "rotate(180deg)" : "rotate(0deg)" }}><path d="m6 9 6 6 6-6"/></svg>
             </button>
           ) : (
-            <Link href={hrefWithOptions(node)} className={itemClass} style={btnStyle}>
+            <Link href={hrefWithOptions(node)} className={itemClass} style={btnStyle} draggable onDragStart={e => handleDragStart(e, pinId, node.name, node.href, 'grid')}>
               {node.name}
             </Link>
           )}
@@ -727,6 +789,8 @@ export function HomeContent() {
         href={recommendedHref}
         className="book-link bookshelf-btn"
         style={{ color: inChain ? FOLDER_COLOR : LEAF_COLOR }}
+        draggable
+        onDragStart={e => handleDragStart(e, pinId, cat.name, recommendedHref, 'grid')}
         onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
       >
         {cat.name}
@@ -763,6 +827,8 @@ export function HomeContent() {
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
           style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
           title="公開資料夾"
+          draggable
+          onDragStart={e => handleDragStart(e, `rec-folder:${user.id}:${folder.id}`, folder.name, undefined, 'grid')}
           onClick={() => toggleRecommendedFolder(user, folder.id)}
           onContextMenu={loggedIn ? e => openCtx(e, `rec-folder:${user.id}:${folder.id}`, folder.name, "grid") : undefined}
         >
@@ -796,6 +862,8 @@ export function HomeContent() {
         href={recommendedHref}
         className="book-link bookshelf-btn"
         style={{ color: FOLDER_COLOR }}
+        draggable
+        onDragStart={e => handleDragStart(e, pinId, cat.name, recommendedHref, isPinned ? 'pinned' : 'grid')}
         onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
       >
         {cat.name}
@@ -811,6 +879,8 @@ export function HomeContent() {
       href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
       className="book-link bookshelf-btn"
       style={{ color: FOLDER_COLOR }}
+      draggable
+      onDragStart={e => handleDragStart(e, `rec-list:${list.id}`, list.title, undefined, 'pinned')}
     >
       {list.title}
     </a>
@@ -835,6 +905,8 @@ export function HomeContent() {
           className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
           style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
           title="公開資料夾"
+          draggable
+          onDragStart={e => handleDragStart(e, ctxId, folder.name, undefined, pinValue ? 'pinned' : 'grid')}
           onClick={() => togglePinnedRecFolder(key, chain)}
           onContextMenu={loggedIn ? e => openCtx(e, ctxId, folder.name, ctxFrom) : undefined}
         >
@@ -959,6 +1031,9 @@ export function HomeContent() {
             <div
               className="relative min-h-[5.5rem] px-2 py-2 border-b transition-colors max-sm:shrink-0"
               style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
+              onDrop={handlePinnedBarDrop}
+              onDragOver={handlePinnedBarDragOver}
+              onDragEnd={handlePinnedBarDragEnd}
             >
               {loggedIn && !session?.user?.name && pinnedNames.length === 0 && pinnedCollectionIds.length === 0 && pinnedListIds.length === 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 select-none" style={{ color: "var(--zen-ink)" }}>
@@ -977,6 +1052,8 @@ export function HomeContent() {
                         href={`/test/list?listId=${list.id}&autostart=1`}
                         className="book-link bookshelf-btn"
                         style={{ color: "#D1D5DB" }}
+                        draggable
+                        onDragStart={e => handleDragStart(e, list.id, list.title, undefined, 'list-pinned')}
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list-pinned" }); }}
                       >
                         {list.title}
@@ -992,6 +1069,8 @@ export function HomeContent() {
                         href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
                         className="book-link bookshelf-btn"
                         style={{ color: LEAF_COLOR }}
+                        draggable
+                        onDragStart={e => handleDragStart(e, col.id, col.displayName, undefined, 'my-collection-pinned')}
                         onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: col.id, name: col.displayName, x: e.clientX, y: e.clientY, from: "my-collection-pinned" }); }}
                       >
                         {col.displayName}
@@ -1019,6 +1098,8 @@ export function HomeContent() {
                           className="book-link bookshelf-btn"
                           style={{ color: FOLDER_COLOR }}
                           title="公開資料夾"
+                          draggable
+                          onDragStart={e => handleDragStart(e, pinValue, displayName, undefined, 'pinned')}
                           onContextMenu={e => openCtx(e, pinValue, displayName, "pinned")}
                         >
                           📁 {displayName}
@@ -1036,6 +1117,8 @@ export function HomeContent() {
                           href={fallbackHref}
                           className="book-link bookshelf-btn"
                           style={{ color: LEAF_COLOR }}
+                          draggable
+                          onDragStart={e => handleDragStart(e, pinValue, external?.name ?? keyToLabel(pinValue), fallbackHref, 'pinned')}
                           onContextMenu={e => openCtx(e, pinValue, external?.name ?? keyToLabel(pinValue), "pinned", fallbackHref)}
                         >
                           {external?.name ?? keyToLabel(pinValue)}
@@ -1052,6 +1135,8 @@ export function HomeContent() {
                         href={hrefWithOptions(subject)}
                         className="book-link bookshelf-btn"
                         style={{ color: LEAF_COLOR }}
+                        draggable
+                        onDragStart={e => handleDragStart(e, pinId, subject.name, subject.href, 'pinned')}
                         onContextMenu={e => openCtx(e, pinId, subject.name, "pinned", subject.href)}
                       >
                         {subject.name}
@@ -1132,22 +1217,24 @@ export function HomeContent() {
                             <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{ownerName ?? ownerId}</span>
                           </Link>
                           <div className="bookshelf-grid">
-                            {cats.map(cat => {
-                              const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
-                              const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${ownerId}:${cat.id}`;
-                              const isPinned = loggedIn && pinnedNames.includes(pinId);
-                              return (
-                                <a
-                                  key={cat.id}
-                                  href={recommendedHref}
-                                  className="book-link bookshelf-btn"
-                                  style={{ color: LEAF_COLOR }}
-                                  onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
-                                >
-                                  {cat.name}
-                                </a>
-                              );
-                            })}
+                              {cats.map(cat => {
+                                const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
+                                const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${ownerId}:${cat.id}`;
+                                const isPinned = loggedIn && pinnedNames.includes(pinId);
+                                return (
+                                  <a
+                                    key={cat.id}
+                                    href={recommendedHref}
+                                    className="book-link bookshelf-btn"
+                                    style={{ color: LEAF_COLOR }}
+                                    draggable
+                                    onDragStart={e => handleDragStart(e, pinId, cat.name, recommendedHref, 'grid')}
+                                    onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
+                                  >
+                                    {cat.name}
+                                  </a>
+                                );
+                              })}
                           </div>
                         </li>
                       ))}
@@ -1221,10 +1308,10 @@ export function HomeContent() {
                       <div
                         key={`mobile-${p.name}-${p.tab}`}
                         draggable
-                        onDragStart={e => { setDragTabIndex(idx); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragStart={e => { setDragTabIndex(idx); handleDragStart(e, `${p.name}\t${p.tab}`, p.label, undefined, 'profile-tab-pinned'); }}
                         onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverTabIndex !== idx) setDragOverTabIndex(idx); }}
                         onDragLeave={() => { if (dragOverTabIndex === idx) setDragOverTabIndex(null); }}
-                        onDrop={e => { e.preventDefault(); if (dragTabIndex !== null) reorderProfileTab(dragTabIndex, idx); setDragTabIndex(null); setDragOverTabIndex(null); }}
+                        onDrop={e => { e.preventDefault(); dragDropHandledRef.current = true; if (dragTabIndex !== null) reorderProfileTab(dragTabIndex, idx); setDragTabIndex(null); setDragOverTabIndex(null); }}
                         onDragEnd={() => { setDragTabIndex(null); setDragOverTabIndex(null); }}
                         className={`transition-opacity ${dragTabIndex === idx ? "opacity-40" : ""} ${dragOverTabIndex === idx && dragTabIndex !== idx ? "border-t-2 border-dashed" : ""}`}
                         style={{ borderColor: dragOverTabIndex === idx && dragTabIndex !== idx ? "#5fa870" : "transparent" }}
@@ -1253,10 +1340,10 @@ export function HomeContent() {
                 <div
                   key={`desktop-${p.name}-${p.tab}`}
                   draggable
-                  onDragStart={e => { setDragTabIndex(idx); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragStart={e => { setDragTabIndex(idx); handleDragStart(e, `${p.name}\t${p.tab}`, p.label, undefined, 'profile-tab-pinned'); }}
                   onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverTabIndex !== idx) setDragOverTabIndex(idx); }}
                   onDragLeave={() => { if (dragOverTabIndex === idx) setDragOverTabIndex(null); }}
-                  onDrop={e => { e.preventDefault(); if (dragTabIndex !== null) reorderProfileTab(dragTabIndex, idx); setDragTabIndex(null); setDragOverTabIndex(null); }}
+                  onDrop={e => { e.preventDefault(); dragDropHandledRef.current = true; if (dragTabIndex !== null) reorderProfileTab(dragTabIndex, idx); setDragTabIndex(null); setDragOverTabIndex(null); }}
                   onDragEnd={() => { setDragTabIndex(null); setDragOverTabIndex(null); }}
                   className={`transition-opacity ${dragTabIndex === idx ? "opacity-40" : ""} ${dragOverTabIndex === idx && dragTabIndex !== idx ? "border-t-2 border-dashed" : ""}`}
                   style={{ borderColor: dragOverTabIndex === idx && dragTabIndex !== idx ? "#5fa870" : "transparent" }}

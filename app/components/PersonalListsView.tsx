@@ -5,6 +5,60 @@ import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
 import NextImage from "next/image";
 import { AVATAR_PLACEHOLDER } from "../../app/lib/asset-version";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+
+type DragKind = "list" | "collection" | "folder";
+type DragData = { kind: DragKind; id: string; name: string };
+
+function DraggableItem({ kind, id, name, children }: { kind: DragKind; id: string; name: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `${kind}:${id}`,
+    data: { kind, id, name } satisfies DragData,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        opacity: isDragging ? 0.4 : 1,
+        touchAction: "none",
+        cursor: "grab",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableArea({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={className}
+      style={{
+        outline: isOver ? "2px dashed var(--zen-accent)" : "2px dashed transparent",
+        outlineOffset: 2,
+        borderRadius: 8,
+        transition: "outline-color 0.12s ease",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export type MyCollection = {
   id: string;
@@ -69,6 +123,12 @@ export function PersonalListsView({
   const [folderCtxMenuId, setFolderCtxMenuId] = useState<string | null>(null);
   const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
   const [movePicker, setMovePicker] = useState<{ kind: "collection" | "folder" | "list"; id: string; name: string; x: number; y: number } | null>(null);
+  const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  );
 
   // ── assignment creation ──
   const [assignModal, setAssignModal] = useState<{ collectionId: string; displayName: string } | null>(null);
@@ -195,6 +255,52 @@ export function PersonalListsView({
     await patchFolder({ op: "moveFolder", folderId, parentId });
   };
 
+  const isDescendantFolder = (folderId: string, candidateAncestorId: string): boolean => {
+    let cur: string | null = folderId;
+    const seen = new Set<string>();
+    while (cur) {
+      if (cur === candidateAncestorId) return true;
+      if (seen.has(cur)) return false;
+      seen.add(cur);
+      cur = folders.find((f) => f.id === cur)?.parentId ?? null;
+    }
+    return false;
+  };
+
+  const handleDragStart = (e: DragStartEvent) => {
+    const data = e.active.data.current as DragData | undefined;
+    if (data) setActiveDrag(data);
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    setActiveDrag(null);
+    const data = e.active.data.current as DragData | undefined;
+    const overId = e.over?.id;
+    if (!data || overId == null) return;
+    const target = String(overId);
+    const targetFolderId: string | null = target === "root" ? null : target.startsWith("folder:") ? target.slice("folder:".length) : null;
+    if (target !== "root" && targetFolderId === null) return;
+
+    // dropping onto the same parent → no-op
+    if (data.kind === "list") {
+      const cur = listParent(visibleLists.find((l) => l.id === data.id) as DisplayList) ?? null;
+      if (cur === targetFolderId) return;
+      void moveList(data.id, targetFolderId);
+    } else if (data.kind === "collection") {
+      const c = visibleCollections.find((x) => x.id === data.id);
+      if (!c) return;
+      const cur = collectionParent(c) ?? null;
+      if (cur === targetFolderId) return;
+      void moveCollection(data.id, targetFolderId);
+    } else if (data.kind === "folder") {
+      if (targetFolderId === data.id) return;
+      if (targetFolderId && isDescendantFolder(targetFolderId, data.id)) return; // cycle
+      const cur = folders.find((f) => f.id === data.id)?.parentId ?? null;
+      if (cur === targetFolderId) return;
+      void moveFolder(data.id, targetFolderId);
+    }
+  };
+
   const toggleFolderOpen = (id: string) => {
     const pathToFolder = (folderId: string): string[] => {
       const path: string[] = [];
@@ -269,12 +375,13 @@ export function PersonalListsView({
     ];
   };
 
-  const renderListItem = (list: DisplayList, inChain: boolean = false): React.ReactNode => (
-    <div key={list.id} className="relative">
+  const renderListItem = (list: DisplayList, inChain: boolean = false): React.ReactNode => {
+    const inner = (
       <a
         href={`/test/list?listId=${list.id}&autostart=1`}
         className="book-link bookshelf-btn"
         style={{ color: inChain ? "#b19739" : "var(--zen-ink)" }}
+        draggable={false}
         onContextMenu={(e) => {
           if (!isOwner) return;
           e.preventDefault();
@@ -286,6 +393,10 @@ export function PersonalListsView({
       >
         {list.title}
       </a>
+    );
+    return (
+    <div key={list.id} className="relative">
+      {isOwner ? <DraggableItem kind="list" id={list.id} name={list.title}>{inner}</DraggableItem> : inner}
       {isOwner && listCtxMenuId === list.id && (
         <>
           <div className="fixed inset-0 z-40" onMouseDown={() => setListCtxMenuId(null)} />
@@ -321,14 +432,16 @@ export function PersonalListsView({
         </>
       )}
     </div>
-  );
+    );
+  };
 
-  const renderCollectionItem = (col: MyCollection, inChain: boolean = false): React.ReactNode => (
-    <div key={`my-${col.id}`} className="relative">
+  const renderCollectionItem = (col: MyCollection, inChain: boolean = false): React.ReactNode => {
+    const inner = (
       <a
         href={appendHrefOptions(`/test/${encodeURIComponent(col.collectionId)}?autostart=1`, col.problemsPerTest, col.shuffleProblems)}
         className="book-link bookshelf-btn"
         style={{ color: inChain ? "#b19739" : "var(--zen-ink)" }}
+        draggable={false}
         onContextMenu={(e) => {
           if (!isOwner) return;
           e.preventDefault();
@@ -340,6 +453,10 @@ export function PersonalListsView({
       >
         {col.displayName}
       </a>
+    );
+    return (
+    <div key={`my-${col.id}`} className="relative">
+      {isOwner ? <DraggableItem kind="collection" id={col.id} name={col.displayName}>{inner}</DraggableItem> : inner}
       {isOwner && colCtxMenuId === col.id && (
         <>
           <div className="fixed inset-0 z-40" onMouseDown={() => setColCtxMenuId(null)} />
@@ -401,7 +518,8 @@ export function PersonalListsView({
         </>
       )}
     </div>
-  );
+    );
+  };
 
   const renderFolder = (folder: UserFolder, ancestorExpanded: boolean = false): React.ReactNode => {
     const isOpen = openFolderIds.has(folder.id);
@@ -486,22 +604,33 @@ export function PersonalListsView({
           </div>
         ) : (
           <div className="relative">
-            <button
-              type="button"
-              className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-              style={{ color: isHighlighted ? "#b19739" : "var(--zen-ink)" }}
-              onClick={() => toggleFolderOpen(folder.id)}
-              onContextMenu={(e) => {
-                if (!isOwner) return;
-                e.preventDefault();
-                setFolderCtxMenuId(folder.id);
-                setFolderCtxMenuPos({ x: e.clientX, y: e.clientY });
-                setColCtxMenuId(null);
-                setListCtxMenuId(null);
-              }}
-            >
-              📁 {folder.name}
-            </button>
+            {(() => {
+              const btn = (
+                <button
+                  type="button"
+                  className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
+                  style={{ color: isHighlighted ? "#b19739" : "var(--zen-ink)" }}
+                  onClick={() => toggleFolderOpen(folder.id)}
+                  draggable={false}
+                  onContextMenu={(e) => {
+                    if (!isOwner) return;
+                    e.preventDefault();
+                    setFolderCtxMenuId(folder.id);
+                    setFolderCtxMenuPos({ x: e.clientX, y: e.clientY });
+                    setColCtxMenuId(null);
+                    setListCtxMenuId(null);
+                  }}
+                >
+                  📁 {folder.name}
+                </button>
+              );
+              if (!isOwner) return btn;
+              return (
+                <DroppableArea id={`folder:${folder.id}`}>
+                  <DraggableItem kind="folder" id={folder.id} name={folder.name}>{btn}</DraggableItem>
+                </DroppableArea>
+              );
+            })()}
             {isOwner && folderCtxMenuId === folder.id && (
               <>
                 <div className="fixed inset-0 z-40" onMouseDown={() => setFolderCtxMenuId(null)} />
@@ -569,8 +698,26 @@ export function PersonalListsView({
     return <p className="text-sm zen-subtle opacity-50">尚無公開試卷</p>;
   }
 
-  return (
-    <div className="bookshelf-grid">
+  const RootDropWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: "root" });
+    return (
+      <div
+        ref={setNodeRef}
+        className="bookshelf-grid"
+        style={{
+          outline: isOver && activeDrag ? "2px dashed var(--zen-accent)" : "2px dashed transparent",
+          outlineOffset: 4,
+          borderRadius: 8,
+          transition: "outline-color 0.12s ease",
+        }}
+      >
+        {children}
+      </div>
+    );
+  };
+
+  const gridContent = (
+    <>
       {loading && (
         <p className="text-sm zen-subtle col-span-full">載入中...</p>
       )}
@@ -795,6 +942,26 @@ export function PersonalListsView({
           </div>
         </>
       )}
-    </div>
+    </>
+  );
+
+  if (!isOwner) {
+    return <div className="bookshelf-grid">{gridContent}</div>;
+  }
+
+  return (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveDrag(null)}>
+      <RootDropWrapper>{gridContent}</RootDropWrapper>
+      <DragOverlay dropAnimation={null}>
+        {activeDrag ? (
+          <div
+            className="book-link bookshelf-btn"
+            style={{ color: "var(--zen-ink)", backgroundColor: "var(--zen-paper)", boxShadow: "0 8px 24px rgba(0,0,0,0.18)", cursor: "grabbing" }}
+          >
+            {activeDrag.kind === "folder" ? `📁 ${activeDrag.name}` : activeDrag.name}
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
