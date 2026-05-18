@@ -122,7 +122,6 @@ export function PersonalListsView({
   const [colCtxMenuPos, setColCtxMenuPos] = useState({ x: 0, y: 0 });
   const [folderCtxMenuId, setFolderCtxMenuId] = useState<string | null>(null);
   const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
-  const [movePicker, setMovePicker] = useState<{ kind: "collection" | "folder" | "list"; id: string; name: string; x: number; y: number } | null>(null);
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
 
   const sensors = useSensors(
@@ -351,30 +350,6 @@ export function PersonalListsView({
     return base + (base.includes("?") ? "&" : "?") + extra.join("&");
   };
 
-  const pickableFolders = (excludeFolderId?: string): { id: string | null; label: string }[] => {
-    const exclude = new Set<string>();
-    if (excludeFolderId) {
-      const collect = (fid: string) => {
-        exclude.add(fid);
-        for (const f of folders) {
-          if (f.parentId === fid && !exclude.has(f.id)) collect(f.id);
-        }
-      };
-      collect(excludeFolderId);
-    }
-    const labelOf = (id: string): string => {
-      const f = folders.find((x) => x.id === id);
-      if (!f) return "";
-      return f.parentId ? `${labelOf(f.parentId)} / ${f.name}` : f.name;
-    };
-    return [
-      { id: null, label: "根目錄" },
-      ...folders
-        .filter((f) => !exclude.has(f.id))
-        .map((f) => ({ id: f.id, label: labelOf(f.id) })),
-    ];
-  };
-
   const renderListItem = (list: DisplayList, inChain: boolean = false): React.ReactNode => {
     const inner = (
       <a
@@ -415,18 +390,6 @@ export function PersonalListsView({
               style={{ color: "var(--zen-ink)" }}
             >
               編輯
-            </button>
-            <button
-              type="button"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                setListCtxMenuId(null);
-                setMovePicker({ kind: "list", id: list.id, name: list.title, x: e.clientX, y: e.clientY });
-              }}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              style={{ color: "var(--zen-ink)" }}
-            >
-              移到資料夾
             </button>
           </div>
         </>
@@ -478,18 +441,6 @@ export function PersonalListsView({
                 編輯
               </button>
             )}
-            <button
-              type="button"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                setColCtxMenuId(null);
-                setMovePicker({ kind: "collection", id: col.id, name: col.displayName, x: e.clientX, y: e.clientY });
-              }}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              style={{ color: "var(--zen-ink)" }}
-            >
-              移到資料夾
-            </button>
             {!col.isPublic && (
               <button
                 type="button"
@@ -655,18 +606,6 @@ export function PersonalListsView({
                   <button
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      setFolderCtxMenuId(null);
-                      setMovePicker({ kind: "folder", id: folder.id, name: folder.name, x: e.clientX, y: e.clientY });
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                    style={{ color: "var(--zen-ink)" }}
-                  >
-                    移到資料夾
-                  </button>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={() => {
                       void deleteFolder(folder.id);
                       setFolderCtxMenuId(null);
@@ -765,41 +704,6 @@ export function PersonalListsView({
           className="book-link bookshelf-btn px-2 py-0.5 outline-none border border-zinc-300 dark:border-zinc-600"
           style={{ backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
         />
-      )}
-
-      {movePicker && (
-        <>
-          <div className="fixed inset-0 z-40" onMouseDown={() => setMovePicker(null)} />
-          <div
-            className="fixed z-50 max-w-xs max-h-[60vh] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-            style={{ left: movePicker.x, top: movePicker.y, minWidth: "10rem" }}
-          >
-            <div className="px-3 py-2 text-xs opacity-50 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "var(--zen-ink)" }}>
-              移動「{movePicker.name}」到…
-            </div>
-            {pickableFolders(movePicker.kind === "folder" ? movePicker.id : undefined).map((opt) => (
-              <button
-                key={String(opt.id)}
-                type="button"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={async () => {
-                  if (movePicker.kind === "collection") {
-                    await moveCollection(movePicker.id, opt.id);
-                  } else if (movePicker.kind === "list") {
-                    await moveList(movePicker.id, opt.id);
-                  } else {
-                    await moveFolder(movePicker.id, opt.id);
-                  }
-                  setMovePicker(null);
-                }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </>
       )}
 
       {/* ── assignment creation modal ── */}
