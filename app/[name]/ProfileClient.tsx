@@ -863,8 +863,8 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   // ── tabs config ───────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
-    { id: "profile", label: t("tabProfile") },
     { id: "lists", label: t("tabLists") },
+    { id: "profile", label: t("tabProfile") },
     { id: "record", label: t("tabRecord"), ownerOnly: true },
     { id: "assignOutbox", label: t("tabAssignOutbox"), ownerOnly: true },
     { id: "assignInbox", label: t("tabAssignInbox"), ownerOnly: true },

@@ -136,7 +136,7 @@ export default function AuthNav() {
   const encodedName = encodeURIComponent(name);
 
   return (
-    <Link href={`/${encodedName}`} aria-label="個人頁面" className="flex items-center">
+    <Link href={`/${encodedName}?tab=lists`} aria-label="個人頁面" className="flex items-center">
       {avatarUrl ? (
         <Image src={avatarUrl} alt="avatar" width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover" />
       ) : (
