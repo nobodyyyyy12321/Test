@@ -20,6 +20,8 @@ type IncomingQuestion = {
   answer?: string | null;
   level?: number | null;
   explanation?: string | null;
+  points?: number | null;
+  scoring?: string | null;
 };
 
 type Payload = {
@@ -88,6 +90,8 @@ export async function POST(request: Request) {
       answer: q.answer ?? null,
       level: q.level ?? null,
       explanation: q.explanation ?? null,
+      points: q.points ?? 1,
+      scoring: q.scoring ?? null,
     });
   }
 

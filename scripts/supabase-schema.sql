@@ -80,9 +80,15 @@ CREATE TABLE if not exists questions (
     answer jsonb,                -- 正確答案，例如: {"id": "A"}
     explanation text,                     -- 解析
     level int,
+    points  int default 1,                -- 配分
+    scoring text,                         -- 計分策略 (null = all-or-nothing, 'partial' = 部分給分)
     created_at     timestamptz default now(),
     updated_at     timestamptz default now()
 );
+
+-- migration for existing databases:
+-- alter table questions add column if not exists points  int default 1;
+-- alter table questions add column if not exists scoring text;
 
 -- ── quiz_records ────────────────────────────────────────────────────────────
 create table if not exists quiz_records (
