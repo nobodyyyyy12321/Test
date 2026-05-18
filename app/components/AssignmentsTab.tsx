@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import NextImage from "next/image";
-import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 
 type Assignment = {
   id: string;
@@ -121,45 +119,47 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
           {variant === "outbox" ? "尚無指派記錄" : inboxSubTab === "pending" ? "尚無待繳交的指派" : "尚無已繳交的指派"}
         </p>
       )}
-      {filtered.map(a => (
-        <div
-          key={a.id}
-          className="flex items-center justify-between px-4 py-3 rounded-xl border transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <NextImage
-              src={(users[variant === "outbox" ? a.assigneeId : a.assignerId]?.avatarUrl) || AVATAR_PLACEHOLDER}
-              alt={users[variant === "outbox" ? a.assigneeId : a.assignerId]?.name ?? ""}
-              width={32} height={32} unoptimized
-              className="w-8 h-8 rounded-full object-cover shrink-0"
-            />
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium truncate" style={{ color: "var(--zen-ink)" }}>
-                {users[variant === "outbox" ? a.assigneeId : a.assignerId]?.name ?? (variant === "outbox" ? "對象" : "指派者")}
-              </span>
-              <span className="text-xs opacity-50 truncate" style={{ color: "var(--zen-ink)" }}>
-                {a.title}
-              </span>
-              <span className="text-xs opacity-30" style={{ color: "var(--zen-ink)" }}>
-                {formatDate(a.startAt)} ~ {formatDate(a.endAt)}
-              </span>
+      {filtered.map(a => {
+        const isReviewable = a.gradedAt !== null;
+        const reviewUrl = `/test/assignment/${encodeURIComponent(a.id)}?review=1`;
+        const card = (
+          <div
+            className="flex items-center justify-between px-4 py-3 rounded-xl border transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium truncate" style={{ color: "var(--zen-ink)" }}>
+                  {users[variant === "outbox" ? a.assigneeId : a.assignerId]?.name ?? (variant === "outbox" ? "對象" : "指派者")}
+                </span>
+                <span className="text-xs opacity-50 truncate" style={{ color: "var(--zen-ink)" }}>
+                  {a.title}
+                </span>
+                <span className="text-xs opacity-30" style={{ color: "var(--zen-ink)" }}>
+                  {formatDate(a.startAt)} ~ {formatDate(a.endAt)}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {renderStatus(a)}
+              {variant === "inbox" && a.submittedAt === null && now >= new Date(a.startAt).getTime() && now <= new Date(a.endAt).getTime() && (
+                <a
+                  href={`/test/assignment/${encodeURIComponent(a.id)}`}
+                  className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
+                  style={{ borderColor: "#b19739", color: "#b19739" }}
+                >
+                  作答
+                </a>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {renderStatus(a)}
-            {variant === "inbox" && a.submittedAt === null && now >= new Date(a.startAt).getTime() && now <= new Date(a.endAt).getTime() && (
-              <a
-                href={`/test/assignment/${encodeURIComponent(a.id)}`}
-                className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
-                style={{ borderColor: "#b19739", color: "#b19739" }}
-              >
-                作答
-              </a>
-            )}
-          </div>
-        </div>
-      ))}
+        );
+        return isReviewable ? (
+          <a key={a.id} href={reviewUrl} className="block no-underline">
+            {card}
+          </a>
+        ) : <React.Fragment key={a.id}>{card}</React.Fragment>;
+      })}
     </div>
   );
 }

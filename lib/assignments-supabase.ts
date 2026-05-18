@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "./supabase-admin";
+import { fetchQuestions } from "./questions";
 
 export type Assignment = {
   id: string;
@@ -128,35 +129,36 @@ export async function gradeAssignment(id: string): Promise<boolean> {
   const answers = row.answers as Record<string, unknown> | null;
   if (!answers) return false;
 
-  const { data: questions } = await sb
-    .from("questions")
-    .select("number, answer, points, q_type")
-    .eq("qsets_id", qsetId);
+  const questions = await fetchQuestions({ id: qsetId });
   if (!questions || questions.length === 0) return false;
+
+  // Build answer map keyed by question number
+  const answerMap: Record<number, unknown> = {};
+  for (const [k, v] of Object.entries(answers)) {
+    answerMap[Number(k)] = v;
+  }
 
   let score = 0;
   let total = 0;
-  for (const q of questions as Array<Record<string, unknown>>) {
-    const points = (q.points as number) ?? 1;
+  for (const q of questions) {
+    if (q.type === "group") continue;
+    const points = 1;
     total += points;
 
-    const qNumber = String(q.number as number);
-    const userAnswer = answers[qNumber];
-    if (userAnswer === undefined || userAnswer === null) continue;
+    const userAnswer = answerMap[q.number];
+    if (userAnswer === undefined) continue;
 
-    const qType = q.q_type as string;
-    const correct = q.answer;
-
-    let isCorrect = false;
-    if (qType === "fill") {
-      isCorrect = String(userAnswer).trim() === String(correct).trim();
-    } else if (qType === "multiple") {
-      const correctArr = Array.isArray(correct) ? (correct as unknown[]).map(String).sort() : [];
-      const userArr = Array.isArray(userAnswer) ? (userAnswer as unknown[]).map(String).sort() : [];
-      isCorrect = correctArr.length === userArr.length && correctArr.every((v, i) => v === userArr[i]);
-    } else {
-      isCorrect = String(userAnswer) === String(correct);
-    }
+    const isCorrect = (() => {
+      if (q.type === "fill") {
+        return String(userAnswer).trim() === String(q.answer).trim();
+      }
+      if (q.type === "multiple") {
+        const correct = [...(q.answer as string[])].sort();
+        const user = [...(userAnswer as string[])].sort();
+        return correct.length === user.length && correct.every((v, i) => v === user[i]);
+      }
+      return String(userAnswer) === String(q.answer);
+    })();
 
     if (isCorrect) score += points;
   }
@@ -165,7 +167,7 @@ export async function gradeAssignment(id: string): Promise<boolean> {
     .from("assignments")
     .update({ score, total, graded_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("graded_at", null);
+    .is("graded_at", null);
   return !error;
 }
 

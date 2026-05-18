@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { createAssignment, getAssignmentsByAssignee, getAssignmentsByAssigner, evictOldestTerminal } from "@/lib/assignments-supabase";
+import { createAssignment, getAssignmentsByAssignee, getAssignmentsByAssigner, evictOldestTerminal, gradeAssignment } from "@/lib/assignments-supabase";
 
 async function getUser() {
   const session = await auth();
@@ -74,15 +74,28 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const scope = searchParams.get("scope");
 
+  let assignments: Awaited<ReturnType<typeof getAssignmentsByAssignee>>;
   if (scope === "inbox") {
-    const assignments = await getAssignmentsByAssignee(user.id);
-    return NextResponse.json({ assignments });
+    assignments = await getAssignmentsByAssignee(user.id);
+  } else if (scope === "outbox") {
+    assignments = await getAssignmentsByAssigner(user.id);
+  } else {
+    return NextResponse.json({ error: "scope required (inbox or outbox)" }, { status: 400 });
   }
 
-  if (scope === "outbox") {
-    const assignments = await getAssignmentsByAssigner(user.id);
-    return NextResponse.json({ assignments });
+  // Lazy grade eligible rows before returning
+  const now = Date.now();
+  await Promise.all(
+    assignments
+      .filter(a => a.submittedAt && !a.gradedAt && new Date(a.endAt).getTime() < now)
+      .map(a => gradeAssignment(a.id))
+  );
+  // Re-fetch to get updated scores
+  if (scope === "inbox") {
+    assignments = await getAssignmentsByAssignee(user.id);
+  } else {
+    assignments = await getAssignmentsByAssigner(user.id);
   }
 
-  return NextResponse.json({ error: "scope required (inbox or outbox)" }, { status: 400 });
+  return NextResponse.json({ assignments });
 }
