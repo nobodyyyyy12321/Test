@@ -100,14 +100,6 @@ type ExternalPinnedRef = {
   name: string;
   href?: string;
 };
-type CtxMenu = {
-  id: string;
-  name: string;
-  href?: string;
-  x: number;
-  y: number;
-  from: "pinned" | "grid" | "list-pinned" | "my-collection-pinned";
-};
 export function HomeContent() {
     // Unified pinned folder rendering (same as recommended creator area)
     function renderPinnedFolder(
@@ -128,7 +120,6 @@ export function HomeContent() {
               title="資料夾"
               draggable={false}
               onClick={() => toggleOpenPinnedKey(pinId, chain)}
-              onContextMenu={e => openCtx(e, pinId, node.name, "pinned", node.href)}
             >
               📁 {node.name}
             </button>
@@ -146,7 +137,6 @@ export function HomeContent() {
                   className="book-link bookshelf-btn"
                   style={{ color: LEAF_COLOR }}
                   draggable={false}
-                  onContextMenu={e => openCtx(e, childPinId, child.name, "pinned", child.href)}
                 >
                   {child.name}
                 </Link>
@@ -172,7 +162,6 @@ export function HomeContent() {
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [externalPinnedRefs, setExternalPinnedRefs] = useState<Record<string, ExternalPinnedRef>>({});
   const [openPinnedKeyChain, setOpenPinnedKeyChain] = useState<string[]>([]);
-  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
   type PinnedProfileTab = { name: string; tab: string; label: string };
@@ -359,7 +348,6 @@ export function HomeContent() {
       <div key={key} className="contents">
         <div
           className={hasDrop ? "relative" : undefined}
-          onContextMenu={loggedIn ? e => openCtx(e, pinId, node.name, isPinned ? "pinned" : "grid", node.href) : undefined}
         >
           {hasSub ? (
             <PinDraggable pinId={pinId} name={node.name} href={node.href} from="grid">
@@ -606,13 +594,6 @@ export function HomeContent() {
   };
 
   useEffect(() => {
-    if (!ctxMenu) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCtxMenu(null); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [ctxMenu]);
-
-  useEffect(() => {
     if (!loggedIn || homeListsLoaded) return;
     fetch("/api/lists")
       .then(r => r.json())
@@ -670,24 +651,13 @@ export function HomeContent() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, language]);
 
-  const openCtx = (
-    e: React.MouseEvent,
-    id: string,
-    name: string,
-    from: CtxMenu["from"],
-    href?: string
-  ) => {
-    e.preventDefault();
-    setCtxMenu({ id, name, href, x: e.clientX, y: e.clientY, from });
-  };
-
   const hrefToCategoryKey = (href: string): string => {
     const m = href.match(/\/test\/([^?]+)(?:\?.*?levels=([^&]+))?/);
     if (!m) return href;
     return m[2] ? `${m[1]}:${m[2]}` : m[1];
   };
 
-  const addCategoryRef = async (item: CtxMenu) => {
+  const addCategoryRef = async (item: { id: string; name: string; href?: string }) => {
     if (!item.href) return;
     const key = hrefToCategoryKey(item.href);
     const collectionId = key.split(":")[0];
@@ -737,7 +707,7 @@ export function HomeContent() {
 
     return (
       <div key={pinId} className="contents">
-        <div onContextMenu={e => openCtx(e, pinId, node.name, childPinned ? "pinned" : "grid", node.href)}>
+        <div>
           {hasSub || hasDrop ? (
             <button
               type="button"
@@ -819,7 +789,6 @@ export function HomeContent() {
           className="book-link bookshelf-btn"
           style={{ color: inChain ? FOLDER_COLOR : LEAF_COLOR }}
           draggable={false}
-          onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
         >
           {cat.name}
         </a>
@@ -859,7 +828,6 @@ export function HomeContent() {
             title="公開資料夾"
             draggable={false}
             onClick={() => toggleRecommendedFolder(user, folder.id)}
-            onContextMenu={loggedIn ? e => openCtx(e, `rec-folder:${user.id}:${folder.id}`, folder.name, "grid") : undefined}
           >
             📁 {folder.name}
           </button>
@@ -899,7 +867,6 @@ export function HomeContent() {
           className="book-link bookshelf-btn"
           style={{ color: FOLDER_COLOR }}
           draggable={false}
-          onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
         >
           {cat.name}
         </a>
@@ -938,7 +905,6 @@ export function HomeContent() {
     const isOpen = pinnedRecOpenChain.includes(key);
     const isHighlighted = ancestorExpanded || isOpen;
     const ctxId = pinValue ?? `rec-folder:${user.id}:${folder.id}`;
-    const ctxFrom: CtxMenu["from"] = pinValue ? "pinned" : "grid";
     return (
       <div key={`pinned-folder-${user.id}-${folder.id}`} className="contents">
         <PinDraggable pinId={ctxId} name={folder.name} from={pinValue ? "pinned" : "grid"}>
@@ -949,7 +915,6 @@ export function HomeContent() {
             title="公開資料夾"
             draggable={false}
             onClick={() => togglePinnedRecFolder(key, chain)}
-            onContextMenu={loggedIn ? e => openCtx(e, ctxId, folder.name, ctxFrom) : undefined}
           >
             📁 {folder.name}
           </button>
@@ -992,59 +957,6 @@ export function HomeContent() {
           </div>
         </>
       )}
-      {/* context menu */}
-      {ctxMenu && (
-        <>
-          <div className="fixed inset-0 z-40" onMouseDown={() => setCtxMenu(null)} />
-          <div
-            className="fixed z-50 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-            style={{ left: ctxMenu.x, top: ctxMenu.y, minWidth: "5rem" }}
-          >
-            {ctxMenu.from === "list-pinned" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { unpinList(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                取消釘選
-              </button>
-            ) : ctxMenu.from === "grid" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { pin(ctxMenu.id, { name: ctxMenu.name, href: ctxMenu.href }); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                釘選
-              </button>
-            ) : ctxMenu.from === "pinned" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { unpin(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                取消釘選
-              </button>
-            ) : ctxMenu.from === "my-collection-pinned" ? (
-              <button
-                type="button"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { unpinCollection(ctxMenu.id); setCtxMenu(null); }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                取消釘選
-              </button>
-            ) : null}
-          </div>
-        </>
-      )}
-
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
@@ -1093,7 +1005,6 @@ export function HomeContent() {
                           className="book-link bookshelf-btn"
                           style={{ color: "#D1D5DB" }}
                           draggable={false}
-                          onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: list.id, name: list.title, x: e.clientX, y: e.clientY, from: "list-pinned" }); }}
                         >
                           {list.title}
                         </a>
@@ -1110,7 +1021,6 @@ export function HomeContent() {
                           className="book-link bookshelf-btn"
                           style={{ color: LEAF_COLOR }}
                           draggable={false}
-                          onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: col.id, name: col.displayName, x: e.clientX, y: e.clientY, from: "my-collection-pinned" }); }}
                         >
                           {col.displayName}
                         </a>
@@ -1139,7 +1049,6 @@ export function HomeContent() {
                             style={{ color: FOLDER_COLOR }}
                             title="公開資料夾"
                             draggable={false}
-                            onContextMenu={e => openCtx(e, pinValue, displayName, "pinned")}
                           >
                             📁 {displayName}
                           </button>
@@ -1159,7 +1068,6 @@ export function HomeContent() {
                             className="book-link bookshelf-btn"
                             style={{ color: LEAF_COLOR }}
                             draggable={false}
-                            onContextMenu={e => openCtx(e, pinValue, label, "pinned", fallbackHref)}
                           >
                             {label}
                           </a>
@@ -1177,7 +1085,6 @@ export function HomeContent() {
                           className="book-link bookshelf-btn"
                           style={{ color: LEAF_COLOR }}
                           draggable={false}
-                          onContextMenu={e => openCtx(e, pinId, subject.name, "pinned", subject.href)}
                         >
                           {subject.name}
                         </Link>
@@ -1269,7 +1176,6 @@ export function HomeContent() {
                                       className="book-link bookshelf-btn"
                                       style={{ color: LEAF_COLOR }}
                                       draggable={false}
-                                      onContextMenu={loggedIn ? e => openCtx(e, pinId, cat.name, isPinned ? "pinned" : "grid", recommendedHref) : undefined}
                                     >
                                       {cat.name}
                                     </a>
@@ -1345,21 +1251,29 @@ export function HomeContent() {
                 {/* pinned profile tabs — mobile only */}
                 {loggedIn && visiblePinnedProfileTabs.length > 0 && (
                   <div className="sm:hidden mt-6">
-                    {visiblePinnedProfileTabs.map((p) => (
-                      <PinDraggable
-                        key={`mobile-${p.name}-${p.tab}`}
-                        pinId={`${p.name}\t${p.tab}`}
-                        name={p.label}
-                        from="profile-tab-pinned"
-                      >
+                    {visiblePinnedProfileTabs.map((p) => {
+                      const section = (
                         <PinnedProfileTabSection
                           name={p.name}
                           tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
                           label={p.label}
                           onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
                         />
-                      </PinDraggable>
-                    ))}
+                      );
+                      if (p.tab === "lists") {
+                        return <div key={`mobile-${p.name}-${p.tab}`}>{section}</div>;
+                      }
+                      return (
+                        <PinDraggable
+                          key={`mobile-${p.name}-${p.tab}`}
+                          pinId={`${p.name}\t${p.tab}`}
+                          name={p.label}
+                          from="profile-tab-pinned"
+                        >
+                          {section}
+                        </PinDraggable>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1372,21 +1286,29 @@ export function HomeContent() {
           {/* Right panel — pinned profile tabs (desktop) */}
           {loggedIn && visiblePinnedProfileTabs.length > 0 && (
             <div className="hidden sm:block flex-1 pt-2 px-2">
-              {visiblePinnedProfileTabs.map((p) => (
-                <PinDraggable
-                  key={`desktop-${p.name}-${p.tab}`}
-                  pinId={`${p.name}\t${p.tab}`}
-                  name={p.label}
-                  from="profile-tab-pinned"
-                >
+              {visiblePinnedProfileTabs.map((p) => {
+                const section = (
                   <PinnedProfileTabSection
                     name={p.name}
                     tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
                     label={p.label}
                     onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
                   />
-                </PinDraggable>
-              ))}
+                );
+                if (p.tab === "lists") {
+                  return <div key={`desktop-${p.name}-${p.tab}`}>{section}</div>;
+                }
+                return (
+                  <PinDraggable
+                    key={`desktop-${p.name}-${p.tab}`}
+                    pinId={`${p.name}\t${p.tab}`}
+                    name={p.label}
+                    from="profile-tab-pinned"
+                  >
+                    {section}
+                  </PinDraggable>
+                );
+              })}
             </div>
           )}
         </div>
