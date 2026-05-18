@@ -1067,7 +1067,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             <>
               <button
                 onClick={() => handleSidebarTabClick("settings")}
-                className="text-left px-4 py-2.5 text-sm transition-colors mt-2"
+                className="text-left px-4 py-2.5 text-sm transition-colors"
                 style={{
                   color: "var(--zen-ink)",
                   opacity: activeTab === "settings" ? 1 : 0.6,
