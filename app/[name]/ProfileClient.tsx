@@ -978,7 +978,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   };
 
   return (
-    <div className={`flex min-h-screen items-start justify-center bg-transparent dark:bg-black transition-[padding] duration-200 ${sidebarOpen ? "md:pl-64" : ""}`}>
+    <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
       {/* sidebar toggle (visible when sidebar is closed) */}
       {!sidebarOpen && (
         <button
