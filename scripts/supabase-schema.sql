@@ -90,6 +90,35 @@ CREATE TABLE if not exists questions (
 -- alter table questions add column if not exists points  int default 1;
 -- alter table questions add column if not exists scoring text;
 
+-- ── assignments ──────────────────────────────────────────────────────────────
+create table if not exists assignments (
+  id              uuid primary key default gen_random_uuid(),
+  assigner_id     text not null references users(id) on delete cascade,
+  assignee_id     text not null references users(id) on delete cascade,
+  assign_type     text not null default 'exam',
+  source_resource_type  text not null,
+  source_resource_id    text not null,
+  title           text not null,
+  start_at        timestamptz not null,
+  end_at          timestamptz not null,
+  created_at      timestamptz not null default now(),
+  answers         jsonb,
+  submitted_at    timestamptz,
+  score           int,
+  total           int,
+  graded_at       timestamptz,
+  check (assign_type = 'exam'),
+  check (source_resource_type = 'qset'),
+  check (end_at - start_at >= interval '1 minute'),
+  check ((answers is null) = (submitted_at is null)),
+  check ((score is null) = (graded_at is null)),
+  check ((total is null) = (graded_at is null)),
+  check (graded_at is null or submitted_at is not null)
+);
+create index if not exists assignments_assignee_idx on assignments(assignee_id);
+create index if not exists assignments_assigner_idx on assignments(assigner_id);
+create index if not exists assignments_window_idx   on assignments(end_at);
+
 -- ── quiz_records ────────────────────────────────────────────────────────────
 create table if not exists quiz_records (
   id         uuid primary key default gen_random_uuid(),

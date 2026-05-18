@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { QuestionList } from "../../lib/lists-supabase";
+import NextImage from "next/image";
+import { AVATAR_PLACEHOLDER } from "../../app/lib/asset-version";
 
 export type MyCollection = {
   id: string;
@@ -15,6 +17,7 @@ export type MyCollection = {
   problemsPerTest?: number | null;
   shuffleProblems?: boolean | null;
   approvalStatus?: string;
+  isPublic?: boolean;
 };
 
 export type UserFolder = {
@@ -66,6 +69,19 @@ export function PersonalListsView({
   const [folderCtxMenuId, setFolderCtxMenuId] = useState<string | null>(null);
   const [folderCtxMenuPos, setFolderCtxMenuPos] = useState({ x: 0, y: 0 });
   const [movePicker, setMovePicker] = useState<{ kind: "collection" | "folder" | "list"; id: string; name: string; x: number; y: number } | null>(null);
+
+  // ── assignment creation ──
+  const [assignModal, setAssignModal] = useState<{ collectionId: string; displayName: string } | null>(null);
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assignSearchResults, setAssignSearchResults] = useState<{ id: string; name: string; avatarUrl?: string }[]>([]);
+  const [assignSearchLoading, setAssignSearchLoading] = useState(false);
+  const [assignSearchTimer, setAssignSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [assigneeName, setAssigneeName] = useState("");
+  const [assignStart, setAssignStart] = useState("");
+  const [assignEnd, setAssignEnd] = useState("");
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
   const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
   const [listParentOverride, setListParentOverride] = useState<Record<string, string | null>>({});
 
@@ -357,6 +373,30 @@ export function PersonalListsView({
             >
               移到資料夾
             </button>
+            {!col.isPublic && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setColCtxMenuId(null);
+                  const now = new Date();
+                  const startLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  const endLocal = new Date(now.getTime() + 3600000 - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  setAssignSearch("");
+                  setAssignSearchResults([]);
+                  setAssigneeId(null);
+                  setAssigneeName("");
+                  setAssignStart(startLocal);
+                  setAssignEnd(endLocal);
+                  setAssignError(null);
+                  setAssignModal({ collectionId: col.collectionId, displayName: col.displayName });
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                指派
+              </button>
+            )}
           </div>
         </>
       )}
@@ -611,6 +651,147 @@ export function PersonalListsView({
                 {opt.label}
               </button>
             ))}
+          </div>
+        </>
+      )}
+
+      {/* ── assignment creation modal ── */}
+      {assignModal && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40" onMouseDown={() => setAssignModal(null)} />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md rounded-2xl border shadow-xl p-6 flex flex-col gap-5"
+            style={{ backgroundColor: "var(--zen-bg)", borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold" style={{ color: "var(--zen-ink)" }}>建立指派</h3>
+              <button onClick={() => setAssignModal(null)} className="w-7 h-7 flex items-center justify-center rounded-full opacity-40 hover:opacity-70 text-sm" style={{ color: "var(--zen-ink)" }}>✕</button>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <p className="text-base font-semibold" style={{ color: "#b19739" }}>{assignModal.displayName}</p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>指派對象</label>
+              {assigneeId ? (
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)" }}>
+                  <div className="flex items-center gap-2">
+                    <NextImage src={AVATAR_PLACEHOLDER} alt={assigneeName} width={24} height={24} unoptimized className="w-6 h-6 rounded-full object-cover shrink-0" />
+                    <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{assigneeName}</span>
+                  </div>
+                  <button onClick={() => { setAssigneeId(null); setAssigneeName(""); }} className="text-xs opacity-40 hover:opacity-70" style={{ color: "var(--zen-ink)" }}>移除</button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <input
+                    className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                    style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                    placeholder="搜尋帳號名稱"
+                    value={assignSearch}
+                    onChange={e => {
+                      const q = e.target.value;
+                      setAssignSearch(q);
+                      if (assignSearchTimer) clearTimeout(assignSearchTimer);
+                      if (!q.trim()) { setAssignSearchResults([]); return; }
+                      const timer = setTimeout(async () => {
+                        setAssignSearchLoading(true);
+                        try {
+                          const r = await fetch(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
+                          const d = await r.json();
+                          setAssignSearchResults(d.users ?? []);
+                        } finally {
+                          setAssignSearchLoading(false);
+                        }
+                      }, 300);
+                      setAssignSearchTimer(timer);
+                    }}
+                  />
+                  {assignSearchLoading && <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
+                  {!assignSearchLoading && assignSearch.trim() && assignSearchResults.length === 0 && (
+                    <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>找不到使用者</p>
+                  )}
+                  {assignSearchResults.length > 0 && (
+                    <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
+                      {assignSearchResults.map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          className="flex items-center gap-2 px-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                          onClick={() => {
+                            setAssigneeId(u.id);
+                            setAssigneeName(u.name);
+                            setAssignSearch("");
+                            setAssignSearchResults([]);
+                          }}
+                        >
+                          <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                          <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>開始時間</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                  value={assignStart}
+                  onChange={e => setAssignStart(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>結束時間</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                  value={assignEnd}
+                  onChange={e => setAssignEnd(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {assignError && <p className="text-xs text-red-500">{assignError}</p>}
+
+            <button
+              disabled={assignSubmitting || !assigneeId || !assignStart || !assignEnd}
+              onClick={async () => {
+                setAssignSubmitting(true);
+                setAssignError(null);
+                try {
+                  const r = await fetch("/api/assignments", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      sourceResourceId: assignModal.collectionId,
+                      assigneeId,
+                      title: assignModal.displayName.trim(),
+                      startAt: new Date(assignStart).toISOString(),
+                      endAt: new Date(assignEnd).toISOString(),
+                    }),
+                  });
+                  const d = await r.json();
+                  if (!r.ok) {
+                    setAssignError(d.error ?? "建立失敗");
+                    return;
+                  }
+                  setAssignModal(null);
+                } finally {
+                  setAssignSubmitting(false);
+                }
+              }}
+              className="w-full py-2.5 rounded-full text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-30"
+              style={{ backgroundColor: "#b19739", color: "#fff" }}
+            >
+              {assignSubmitting ? "建立中..." : "建立指派"}
+            </button>
           </div>
         </>
       )}
