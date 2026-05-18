@@ -81,6 +81,9 @@ const profileZhTW = {
 
   removeFromHome: "從首頁移除",
   showOnHome: "顯示在首頁",
+
+  openSidebar: "開啟側邊欄",
+  closeSidebar: "收合側邊欄",
 };
 
 export type ProfileTextKey = keyof typeof profileZhTW;
@@ -159,6 +162,9 @@ const profileEn: ProfileDictionary = {
 
   removeFromHome: "Remove from Home",
   showOnHome: "Show on Home",
+
+  openSidebar: "Open sidebar",
+  closeSidebar: "Close sidebar",
 };
 
 const profileZhCN: ProfileDictionary = {
@@ -234,6 +240,9 @@ const profileZhCN: ProfileDictionary = {
 
   removeFromHome: "从首页移除",
   showOnHome: "显示在首页",
+
+  openSidebar: "开启侧边栏",
+  closeSidebar: "收合侧边栏",
 };
 
 const PROFILE_TEXTS: Record<"zh-TW" | "zh-CN" | "en", ProfileDictionary> = {

@@ -17,6 +17,7 @@ export type MyCollection = {
   problemsPerTest?: number | null;
   shuffleProblems?: boolean | null;
   approvalStatus?: string;
+  isPublic?: boolean;
 };
 
 export type UserFolder = {
@@ -372,28 +373,30 @@ export function PersonalListsView({
             >
               移到資料夾
             </button>
-            <button
-              type="button"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => {
-                setColCtxMenuId(null);
-                const now = new Date();
-                const startLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                const endLocal = new Date(now.getTime() + 3600000 - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                setAssignSearch("");
-                setAssignSearchResults([]);
-                setAssigneeId(null);
-                setAssigneeName("");
-                setAssignStart(startLocal);
-                setAssignEnd(endLocal);
-                setAssignError(null);
-                setAssignModal({ collectionId: col.collectionId, displayName: col.displayName });
-              }}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              style={{ color: "#b19739" }}
-            >
-              指派
-            </button>
+            {!col.isPublic && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setColCtxMenuId(null);
+                  const now = new Date();
+                  const startLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  const endLocal = new Date(now.getTime() + 3600000 - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  setAssignSearch("");
+                  setAssignSearchResults([]);
+                  setAssigneeId(null);
+                  setAssigneeName("");
+                  setAssignStart(startLocal);
+                  setAssignEnd(endLocal);
+                  setAssignError(null);
+                  setAssignModal({ collectionId: col.collectionId, displayName: col.displayName });
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                指派
+              </button>
+            )}
           </div>
         </>
       )}
@@ -666,7 +669,7 @@ export function PersonalListsView({
             </div>
 
             <div className="flex flex-col gap-1">
-              <p className="text-sm" style={{ color: "#b19739" }}>{assignModal.displayName}</p>
+              <p className="text-base font-semibold" style={{ color: "#b19739" }}>{assignModal.displayName}</p>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -732,8 +735,8 @@ export function PersonalListsView({
               )}
             </div>
 
-            <div className="flex gap-3">
-              <div className="flex-1 flex flex-col gap-1">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
                 <label className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>開始時間</label>
                 <input
                   type="datetime-local"
@@ -743,7 +746,7 @@ export function PersonalListsView({
                   onChange={e => setAssignStart(e.target.value)}
                 />
               </div>
-              <div className="flex-1 flex flex-col gap-1">
+              <div className="flex flex-col gap-1">
                 <label className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>結束時間</label>
                 <input
                   type="datetime-local"
