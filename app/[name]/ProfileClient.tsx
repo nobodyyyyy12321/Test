@@ -994,19 +994,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         </svg>
       </button>
 
-      {/* fixed account header (next to hamburger, always visible) */}
+      {/* fixed account name (next to hamburger, always visible) */}
       <div
-        className="fixed top-2 left-16 z-50 h-14 flex items-center gap-3 pl-2 pr-3 pointer-events-none"
+        className="fixed top-4 left-16 z-50 h-10 flex items-center px-2 pointer-events-none"
         style={{ maxWidth: "calc(100vw - 5rem)" }}
       >
-        <NextImage
-          src={avatarUrl || AVATAR_PLACEHOLDER}
-          alt=""
-          width={44}
-          height={44}
-          unoptimized
-          className="w-11 h-11 rounded-full object-cover shrink-0"
-        />
         <span className="text-lg font-semibold truncate" style={{ color: "var(--zen-ink)" }}>{urlName}</span>
       </div>
 
