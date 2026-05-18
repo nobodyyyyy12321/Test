@@ -84,6 +84,11 @@ const profileZhTW = {
 
   openSidebar: "開啟側邊欄",
   closeSidebar: "收合側邊欄",
+
+  tabSettings: "設定",
+  language: "語言",
+  uploadQuestions: "上傳題目",
+  darkMode: "深色模式",
 };
 
 export type ProfileTextKey = keyof typeof profileZhTW;
@@ -165,6 +170,11 @@ const profileEn: ProfileDictionary = {
 
   openSidebar: "Open sidebar",
   closeSidebar: "Close sidebar",
+
+  tabSettings: "Settings",
+  language: "Language",
+  uploadQuestions: "Upload Questions",
+  darkMode: "Dark Mode",
 };
 
 const profileZhCN: ProfileDictionary = {
@@ -243,6 +253,11 @@ const profileZhCN: ProfileDictionary = {
 
   openSidebar: "开启侧边栏",
   closeSidebar: "收合侧边栏",
+
+  tabSettings: "设定",
+  language: "语言",
+  uploadQuestions: "上传题目",
+  darkMode: "深色模式",
 };
 
 const PROFILE_TEXTS: Record<"zh-TW" | "zh-CN" | "en", ProfileDictionary> = {

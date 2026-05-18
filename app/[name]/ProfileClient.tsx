@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import NextImage from "next/image";
+import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
 import type { CategoryNode } from "../components/CategoryNode";
@@ -57,7 +58,7 @@ function getCollectionLabel(collectionId: string, level?: number | null): string
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignOutbox" | "assignInbox";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignOutbox" | "assignInbox" | "settings" | "upload";
 
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
@@ -145,6 +146,19 @@ type Props = {
 export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile }: Props) {
   const { data: session, status } = useSession();
   const [uiLang, setUiLang] = useState<SupportedUILanguage>("zh-TW");
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  const toggleDarkMode = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+    try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
+  };
 
   const isOwner = React.useMemo(() => {
     if (initialIsOwner) return true;
@@ -1021,20 +1035,56 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         <div className="h-[60px]" />
         <nav className={`flex flex-col py-2 ${sidebarOpen ? "pointer-events-auto" : ""}`}>
           {visibleTabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleSidebarTabClick(tab.id)}
-              onContextMenu={e => { e.preventDefault(); if (isOwner) setTabCtxMenu({ tab: tab.id, label: tab.label, x: e.clientX, y: e.clientY }); }}
-              className="text-left px-4 py-2.5 text-sm transition-colors"
-              style={{
-                color: "var(--zen-ink)",
-                opacity: activeTab === tab.id ? 1 : 0.6,
-                fontWeight: activeTab === tab.id ? 600 : 400,
-              }}
-            >
-              {tab.label}
-            </button>
+            <React.Fragment key={tab.id}>
+              <button
+                onClick={() => handleSidebarTabClick(tab.id)}
+                onContextMenu={e => { e.preventDefault(); if (isOwner) setTabCtxMenu({ tab: tab.id, label: tab.label, x: e.clientX, y: e.clientY }); }}
+                className="text-left px-4 py-2.5 text-sm transition-colors"
+                style={{
+                  color: "var(--zen-ink)",
+                  opacity: activeTab === tab.id ? 1 : 0.6,
+                  fontWeight: activeTab === tab.id ? 600 : 400,
+                }}
+              >
+                {tab.label}
+              </button>
+              {tab.id === "assignInbox" && isOwner && (
+                <button
+                  onClick={() => handleSidebarTabClick("upload")}
+                  className="text-left px-4 py-2.5 text-sm transition-colors"
+                  style={{
+                    color: "var(--zen-ink)",
+                    opacity: activeTab === "upload" ? 1 : 0.6,
+                    fontWeight: activeTab === "upload" ? 600 : 400,
+                  }}
+                >
+                  {t("uploadQuestions")}
+                </button>
+              )}
+            </React.Fragment>
           ))}
+          {isOwner && (
+            <>
+              <button
+                onClick={() => handleSidebarTabClick("settings")}
+                className="text-left px-4 py-2.5 text-sm transition-colors mt-2"
+                style={{
+                  color: "var(--zen-ink)",
+                  opacity: activeTab === "settings" ? 1 : 0.6,
+                  fontWeight: activeTab === "settings" ? 600 : 400,
+                }}
+              >
+                {t("tabSettings")}
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="text-left px-4 py-2.5 text-sm transition-colors"
+                style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
+              >
+                {t("signOut")}
+              </button>
+            </>
+          )}
         </nav>
       </aside>
 
@@ -1044,27 +1094,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {activeTab !== "blocked" && (
         <div className="flex items-center justify-end mb-6">
           <div className="flex items-center gap-2">
-            {/* profile-page language selector */}
-            <select
-              value={uiLang}
-              onChange={e => setProfileLanguage(e.target.value as SupportedUILanguage)}
-              className="text-xs px-2 py-1 rounded-full border outline-none cursor-pointer transition-colors hover:opacity-80"
-              style={{ borderColor: "#D1D5DB", color: "#D1D5DB", background: "var(--zen-bg)" }}
-              aria-label="Profile page language"
-            >
-              <option value="zh-TW">中文繁體</option>
-              <option value="zh-CN">中文简体</option>
-              <option value="en">English</option>
-            </select>
-            {isOwner && (
-              <button
-                onClick={handleSignOut}
-                className="text-xs px-3 py-1.5 rounded-full border transition-colors"
-                style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
-              >
-                {t("signOut")}
-              </button>
-            )}
             {!isOwner && session?.user && (
               <>
                 <button
@@ -1549,6 +1578,55 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* ── assign inbox tab ──────────────────────────────────────────── */}
         {activeTab === "assignInbox" && (
           <AssignmentsTab variant="inbox" isOwner={isOwner} t={(k: string) => t(k as any)} dateLocale={dateLocale} />
+        )}
+
+        {/* ── upload tab (owner only) ───────────────────────────────────── */}
+        {activeTab === "upload" && isOwner && (
+          <UploadClient />
+        )}
+
+        {/* ── settings tab (owner only) ─────────────────────────────────── */}
+        {activeTab === "settings" && isOwner && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">{t("language")}</label>
+              <select
+                value={uiLang}
+                onChange={e => setProfileLanguage(e.target.value as SupportedUILanguage)}
+                className="text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-colors hover:opacity-80"
+                style={{ borderColor: "#D1D5DB", color: "var(--zen-ink)", background: "var(--zen-bg)" }}
+                aria-label={t("language")}
+              >
+                <option value="zh-TW">中文繁體</option>
+                <option value="zh-CN">中文简体</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{t("darkMode")}</span>
+              <button
+                type="button"
+                onClick={toggleDarkMode}
+                className="w-11 h-6 rounded-full border transition-colors flex items-center px-0.5"
+                style={{
+                  backgroundColor: isDark ? "#374151" : "#f3f4f6",
+                  borderColor: isDark ? "#4b5563" : "#d1d5db",
+                }}
+                aria-pressed={isDark}
+                aria-label={t("darkMode")}
+              >
+                <span
+                  className="w-5 h-5 rounded-full shadow transition-transform"
+                  style={{
+                    backgroundColor: isDark ? "#fbbf24" : "#fff",
+                    transform: isDark ? "translateX(20px)" : "translateX(0)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }}
+                />
+              </button>
+            </div>
+          </div>
         )}
 
         {/* ── blocked tab ─────────────────────────────────────────────────── */}
