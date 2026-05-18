@@ -11,7 +11,7 @@ export type SupportedUILanguage =
 const profileZhTW = {
   tabProfile: "個人檔案",
   tabLists: "個人分類",
-  tabRecord: "紀錄",
+  tabRecord: "練習紀錄",
   tabGroups: "群組",
   tabFollowers: "追蹤者",
   tabFollowing: "追蹤中",
@@ -92,7 +92,7 @@ type ProfileDictionary = Record<ProfileTextKey, string>;
 const profileEn: ProfileDictionary = {
   tabProfile: "Profile",
   tabLists: "Personal Categories",
-  tabRecord: "Records",
+  tabRecord: "Practice Records",
   tabGroups: "Groups",
   tabFollowers: "Followers",
   tabFollowing: "Following",
@@ -170,7 +170,7 @@ const profileEn: ProfileDictionary = {
 const profileZhCN: ProfileDictionary = {
   tabProfile: "个人档案",
   tabLists: "个人分类",
-  tabRecord: "记录",
+  tabRecord: "练习记录",
   tabGroups: "群组",
   tabFollowers: "关注者",
   tabFollowing: "关注中",

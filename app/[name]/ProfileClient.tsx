@@ -852,12 +852,12 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "profile", label: t("tabProfile") },
     { id: "lists", label: t("tabLists") },
     { id: "record", label: t("tabRecord"), ownerOnly: true },
+    { id: "assignOutbox", label: t("tabAssignOutbox"), ownerOnly: true },
+    { id: "assignInbox", label: t("tabAssignInbox"), ownerOnly: true },
     { id: "groups", label: t("tabGroups"), ownerOnly: true },
     { id: "gallery", label: t("tabGallery"), ownerOnly: true },
     { id: "followers", label: t("tabFollowers") },
     { id: "following", label: t("tabFollowing") },
-    { id: "assignOutbox", label: t("tabAssignOutbox"), ownerOnly: true },
-    { id: "assignInbox", label: t("tabAssignInbox"), ownerOnly: true },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
