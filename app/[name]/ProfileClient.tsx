@@ -1029,9 +1029,9 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         />
       )}
 
-      {/* sidebar drawer (text only, no card background) */}
+      {/* sidebar drawer — opaque card on mobile, text-only on desktop */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 z-40 overflow-y-auto pointer-events-none transition-opacity duration-75 ${
+        className={`fixed left-0 top-0 h-screen w-40 md:w-64 z-40 overflow-y-auto pointer-events-none transition-opacity duration-75 bg-[var(--zen-bg)] shadow-xl md:bg-transparent md:shadow-none ${
           sidebarOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-hidden={!sidebarOpen}
@@ -1155,7 +1155,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           <div>
             <div className="flex flex-col gap-4">
               {/* avatar (always visible on profile tab) */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 justify-center sm:justify-start">
                 <NextImage src={avatarUrl || AVATAR_PLACEHOLDER} alt="avatar" width={144} height={144} unoptimized className="w-36 h-36 rounded-full object-cover" />
                 {editing && (
                   <div>
