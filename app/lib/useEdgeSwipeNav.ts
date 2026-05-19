@@ -34,8 +34,11 @@ export function useEdgeSwipeNav({
     let valid = false;
 
     const onStart = (e: TouchEvent) => {
-      if (window.innerWidth >= maxWidth) { valid = false; return; }
-      if (e.touches.length !== 1) { valid = false; return; }
+      valid = false;
+      if (window.innerWidth >= maxWidth) return;
+      if (e.touches.length !== 1) return;
+      const target = e.target as Element | null;
+      if (target?.closest("a, button, input, textarea, select, label, [role='button'], [role='link'], [contenteditable='true']")) return;
       const t = e.touches[0];
       startX = t.clientX;
       startY = t.clientY;

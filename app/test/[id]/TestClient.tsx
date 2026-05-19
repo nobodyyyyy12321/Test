@@ -15,6 +15,7 @@ const QUIZ_GUARD_STATE = { __quizGuard: true };
 
 function gradeAnswer(question: Question, userAns: string | string[] | null): boolean {
   if (userAns === null) return false;
+  if (question.answer == null) return false;
   const qtype = question.type ?? "single";
   if (qtype === "fill") {
     return (userAns as string).trim() === (question.answer as string).trim();
@@ -718,8 +719,8 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                           ? ((ans as string[] | null) ?? []).includes(option.label)
                           : ans === option.label;
                         const isCorrectOpt = qt === "multiple"
-                          ? (q.answer as string[]).includes(option.label)
-                          : q.answer === option.label;
+                          ? Array.isArray(q.answer) && (q.answer as string[]).includes(option.label)
+                          : q.answer != null && q.answer === option.label;
                         const isUnanswered = showResults && ans === null;
                         // After submit, correct options are green when answered; red when unanswered.
                         const showCorrectFrameGreen = showResults && mode !== "assignment" && isCorrectOpt && !isUnanswered;
