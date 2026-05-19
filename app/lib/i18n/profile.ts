@@ -92,6 +92,13 @@ const profileZhTW = {
   themeSystem: "跟隨系統",
   themeLight: "淺色",
   themeDark: "深色",
+  quizMode: "作答模式",
+  quizModePractice: "練習模式",
+  quizModeFormal: "正式模式",
+  blockedList: "封鎖名單",
+  linkGoogle: "連結 Google 帳號",
+  linkingGoogle: "連結中…",
+  googleLinked: "已連結 Google ✓",
 };
 
 export type ProfileTextKey = keyof typeof profileZhTW;
@@ -181,6 +188,13 @@ const profileEn: ProfileDictionary = {
   themeSystem: "Follow system",
   themeLight: "Light",
   themeDark: "Dark",
+  quizMode: "Quiz Mode",
+  quizModePractice: "Practice",
+  quizModeFormal: "Formal",
+  blockedList: "Blocked List",
+  linkGoogle: "Link Google Account",
+  linkingGoogle: "Linking…",
+  googleLinked: "Google Linked ✓",
 };
 
 const profileZhCN: ProfileDictionary = {
@@ -267,6 +281,13 @@ const profileZhCN: ProfileDictionary = {
   themeSystem: "跟随系统",
   themeLight: "浅色",
   themeDark: "深色",
+  quizMode: "答题模式",
+  quizModePractice: "练习模式",
+  quizModeFormal: "正式模式",
+  blockedList: "封锁名单",
+  linkGoogle: "连结 Google 帐号",
+  linkingGoogle: "连结中…",
+  googleLinked: "已连结 Google ✓",
 };
 
 const PROFILE_TEXTS: Record<"zh-TW" | "zh-CN" | "en", ProfileDictionary> = {

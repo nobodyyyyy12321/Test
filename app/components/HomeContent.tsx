@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
@@ -177,6 +179,14 @@ export function HomeContent() {
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
+  const router = useRouter();
+  useEdgeSwipeNav({
+    direction: "right",
+    onSwipe: () => {
+      const userName = (session?.user as { name?: string } | undefined)?.name;
+      router.push(userName ? `/${encodeURIComponent(userName)}` : "/auth/login");
+    },
+  });
   const visiblePinnedProfileTabs = pinnedProfileTabs;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeDrag, setActiveDrag] = useState<PinDragData | null>(null);

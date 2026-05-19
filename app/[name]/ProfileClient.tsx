@@ -3,7 +3,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import NextImage from "next/image";
+import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
@@ -146,6 +148,11 @@ type Props = {
 
 export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile }: Props) {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  useEdgeSwipeNav({
+    direction: "left",
+    onSwipe: () => router.push("/"),
+  });
   const [uiLang, setUiLang] = useState<SupportedUILanguage>("zh-TW");
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
 
@@ -162,6 +169,48 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const handleThemeChange = (mode: ThemeMode) => {
     setThemeModeState(mode);
     setThemeMode(mode);
+  };
+
+  const [quizMode, setQuizModeState] = useState<"practice" | "formal">("practice");
+  const [googleLinked, setGoogleLinked] = useState<boolean | null>(null);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("quizMode");
+      if (v === "practice" || v === "formal") setQuizModeState(v);
+    } catch {}
+  }, []);
+
+  const handleQuizModeChange = (m: "practice" | "formal") => {
+    setQuizModeState(m);
+    try { localStorage.setItem("quizMode", m); } catch {}
+  };
+
+  useEffect(() => {
+    if (!initialIsOwner || !session?.user) return;
+    let mounted = true;
+    fetch("/api/auth/link-google/status")
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (j && mounted) setGoogleLinked(j.linked ?? null); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [initialIsOwner, session]);
+
+  const handleLinkGoogle = async () => {
+    setLinkingGoogle(true);
+    try {
+      const res = await fetch("/api/auth/link-google/start", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok || !j?.ok) {
+        if (j?.message === "already_linked") { setGoogleLinked(true); return; }
+        return;
+      }
+      const { signIn } = await import("next-auth/react");
+      await signIn("google", { callbackUrl: window.location.href });
+    } finally {
+      setLinkingGoogle(false);
+    }
   };
 
   const isOwner = React.useMemo(() => {
@@ -1620,6 +1669,47 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 <option value="light">{t("themeLight")}</option>
                 <option value="dark">{t("themeDark")}</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">{t("quizMode")}</label>
+              <select
+                value={quizMode}
+                onChange={e => handleQuizModeChange(e.target.value as "practice" | "formal")}
+                className="text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-colors hover:opacity-80"
+                style={{ borderColor: "#D1D5DB", color: "var(--zen-ink)", background: "var(--zen-bg)" }}
+                aria-label={t("quizMode")}
+              >
+                <option value="practice">{t("quizModePractice")}</option>
+                <option value="formal">{t("quizModeFormal")}</option>
+              </select>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => handleSidebarTabClick("blocked")}
+                className="text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-colors hover:opacity-80"
+                style={{ borderColor: "#D1D5DB", color: "var(--zen-ink)", background: "var(--zen-bg)" }}
+              >
+                {t("blockedList")}
+              </button>
+            </div>
+
+            <div>
+              {googleLinked === true ? (
+                <span className="text-sm" style={{ color: "var(--zen-ink)", opacity: 0.6 }}>{t("googleLinked")}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLinkGoogle}
+                  disabled={linkingGoogle}
+                  className="text-sm px-3 py-2 rounded-lg border outline-none cursor-pointer transition-colors hover:opacity-80 disabled:opacity-50"
+                  style={{ borderColor: "#D1D5DB", color: "var(--zen-ink)", background: "var(--zen-bg)" }}
+                >
+                  {linkingGoogle ? t("linkingGoogle") : t("linkGoogle")}
+                </button>
+              )}
             </div>
           </div>
         )}
