@@ -260,14 +260,19 @@ export async function appendQuizRecord(
   });
   if (error) throw error;
 
-  const { data: allIds } = await db
+  const { data: idsToDelete, error: fetchError } = await db
     .from("quiz_records")
     .select("id")
     .eq("user_id", u.id)
-    .order("timestamp", { ascending: false });
-  if (allIds && allIds.length > 10) {
-    const idsToDelete = allIds.slice(10).map((r) => r.id);
-    await db.from("quiz_records").delete().in("id", idsToDelete);
+    .order("timestamp", { ascending: false })
+    .range(10, 9999999);
+  if (fetchError) throw fetchError;
+  if (idsToDelete && idsToDelete.length > 0) {
+    const { error: delError } = await db
+      .from("quiz_records")
+      .delete()
+      .in("id", idsToDelete.map((r) => r.id));
+    if (delError) throw delError;
   }
 }
 
