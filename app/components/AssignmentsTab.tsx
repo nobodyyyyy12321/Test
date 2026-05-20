@@ -104,6 +104,9 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
 
   return (
     <div className="flex flex-col gap-4">
+      {variant === "outbox" && (
+        <p className="text-xs text-zinc-400">保留六十筆指派紀錄</p>
+      )}
       {loading && <p className="text-sm zen-subtle">載入中...</p>}
       {!loading && loaded && assignments.length === 0 && (
         <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>

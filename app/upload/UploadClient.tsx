@@ -716,6 +716,7 @@ export default function UploadClient() {
 
       {tab === "images" && (
         <div className="space-y-4">
+          <p className="text-xs text-zinc-400">上限十張圖片</p>
           <div
             onDrop={(e) => {
               e.preventDefault();
