@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import NextImage from "next/image";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
+import { useExcelSelection } from "../lib/useExcelSelection";
 import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import zhTW from "../../public/locale/zh-TW.js";
@@ -260,6 +261,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [recordLoaded, setRecordLoaded] = useState(false);
   const [recordLoading, setRecordLoading] = useState(false);
   const [quizRecords, setQuizRecords] = useState<QuizRecord[]>(initialProfile.records || []);
+  const recordSel = useExcelSelection({ resetKey: quizRecords.length });
 
   // ── follow state ──
   const [followersLoaded, setFollowersLoaded] = useState(false);
@@ -1356,46 +1358,51 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             ) : quizRecords.length === 0 ? (
               <p className="text-sm zen-subtle opacity-50">{t("noRecords")}</p>
             ) : (
-              <div className="space-y-3">
-                {[...quizRecords]
-                  .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-                  .slice(-10).reverse()
-                  .map((item, index) => {
-                    const replayKey = item.answers ? item.timestamp : undefined;
-                    if (replayKey && item.answers) {
-                      try { sessionStorage.setItem(`quiz_replay_${replayKey}`, JSON.stringify({ answers: item.answers })); } catch {}
-                    }
-                    const url = recordToUrl(item.set, replayKey);
-                    const inner = (
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm" style={{ color: "var(--zen-ink)" }}>
-                            {recordDisplaySet(item.set)}
-                          </span>
-                          <span className="inline-block px-2 py-0.5 rounded text-xs border border-zinc-300 dark:border-zinc-600" style={{ color: "var(--zen-ink)" }}>
-                            {item.category === "詩文背誦"
-                              ? (item.success ? t("recitationSuccess") : t("recitationFail"))
-                              : `${item.correct}/${item.answered}`}
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-400">
-                          {new Date(item.timestamp).toLocaleDateString(dateLocale, {
-                            year: "numeric", month: "2-digit", day: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    );
-                    return url ? (
-                      <a key={index} href={url} className="block border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                        {inner}
-                      </a>
-                    ) : (
-                      <div key={index} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
-                        {inner}
-                      </div>
-                    );
-                  })}
-
+              <div className="overflow-x-auto">
+                <table
+                  ref={recordSel.tableRef}
+                  onMouseDown={recordSel.onMouseDown}
+                  onMouseOver={recordSel.onMouseOver}
+                  className="w-full text-sm border-collapse border border-zinc-200 dark:border-zinc-700 select-none"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  <thead>
+                    <tr className="text-left text-xs opacity-50 divide-x divide-zinc-200 dark:divide-zinc-700">
+                      <th data-row={0} data-col={0} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${recordSel.cellBg(0,0)}`}>題目集</th>
+                      <th data-row={0} data-col={1} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${recordSel.cellBg(0,1)}`}>分數</th>
+                      <th data-row={0} data-col={2} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${recordSel.cellBg(0,2)}`}>日期</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...quizRecords]
+                      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                      .slice(-10).reverse()
+                      .map((item, index) => {
+                        const replayKey = item.answers ? item.timestamp : undefined;
+                        if (replayKey && item.answers) {
+                          try { sessionStorage.setItem(`quiz_replay_${replayKey}`, JSON.stringify({ answers: item.answers })); } catch {}
+                        }
+                        const url = recordToUrl(item.set, replayKey);
+                        const setLabel = recordDisplaySet(item.set);
+                        const scoreText = item.category === "詩文背誦"
+                          ? (item.success ? t("recitationSuccess") : t("recitationFail"))
+                          : `${item.correct}/${item.answered}`;
+                        const dateText = new Date(item.timestamp).toLocaleDateString(dateLocale, {
+                          year: "numeric", month: "2-digit", day: "2-digit",
+                        });
+                        const r = index + 1;
+                        return (
+                          <tr key={index} className="border-b border-zinc-100 dark:border-zinc-800 divide-x divide-zinc-200 dark:divide-zinc-700">
+                            <td data-row={r} data-col={0} className={`px-3 py-2 ${recordSel.cellBg(r,0)}`}>
+                              {url ? <a href={url} className="hover:underline">{setLabel}</a> : setLabel}
+                            </td>
+                            <td data-row={r} data-col={1} className={`px-3 py-2 ${recordSel.cellBg(r,1)}`}>{scoreText}</td>
+                            <td data-row={r} data-col={2} className={`px-3 py-2 text-xs text-zinc-400 ${recordSel.cellBg(r,2)}`}>{dateText}</td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

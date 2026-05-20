@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useExcelSelection } from "../lib/useExcelSelection";
 
 type Assignment = {
   id: string;
@@ -68,20 +69,22 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
       ? assignments.filter(a => !a.submittedAt && new Date(a.endAt).getTime() >= Date.now())
       : assignments.filter(a => a.submittedAt);
 
+  const sel = useExcelSelection({ resetKey: `${variant}|${inboxSubTab}|${filtered.length}` });
+
   const now = Date.now();
 
-  const renderStatus = (a: Assignment) => {
+  const renderStatus = (a: Assignment): { text: string; color?: string } => {
     const start = new Date(a.startAt).getTime();
     const end = new Date(a.endAt).getTime();
 
-    if (now < start) return <span className="text-xs opacity-40" style={{ color: "var(--zen-ink)" }}>尚未開始</span>;
+    if (now < start) return { text: "尚未開始" };
     if (now > end) {
-      if (!a.submittedAt) return <span className="text-xs" style={{ color: "#ef4444" }}>已逾期</span>;
-      if (a.gradedAt) return <span className="text-xs" style={{ color: "#5fa870" }}>{a.score}/{a.total}</span>;
-      return <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>等待批改</span>;
+      if (!a.submittedAt) return { text: "已逾期", color: "#ef4444" };
+      if (a.gradedAt) return { text: `${a.score}/${a.total}`, color: "#5fa870" };
+      return { text: "等待批改" };
     }
-    if (a.submittedAt) return <span className="text-xs" style={{ color: "#5fa870" }}>已提交</span>;
-    return <span className="text-xs" style={{ color: "#b19739" }}>作答中</span>;
+    if (a.submittedAt) return { text: "已提交", color: "#5fa870" };
+    return { text: "作答中", color: "#b19739" };
   };
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString(dateLocale, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -119,47 +122,77 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
           {variant === "outbox" ? "尚無指派記錄" : inboxSubTab === "pending" ? "尚無待繳交的指派" : "尚無已繳交的指派"}
         </p>
       )}
-      {filtered.map(a => {
-        const isReviewable = a.gradedAt !== null;
-        const reviewUrl = `/test/assignment/${encodeURIComponent(a.id)}?review=1`;
-        const card = (
-          <div
-            className="flex items-center justify-between px-4 py-3 rounded-xl border transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
-            style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 15%, transparent)" }}
+      {!loading && loaded && filtered.length > 0 && (
+        <div className="overflow-x-auto">
+          <table
+            ref={sel.tableRef}
+            onMouseDown={sel.onMouseDown}
+            onMouseOver={sel.onMouseOver}
+            className="w-full text-sm border-collapse border border-zinc-200 dark:border-zinc-700 select-none"
+            style={{ color: "var(--zen-ink)" }}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium truncate" style={{ color: "var(--zen-ink)" }}>
-                  {users[variant === "outbox" ? a.assigneeId : a.assignerId]?.name ?? (variant === "outbox" ? "對象" : "指派者")}
-                </span>
-                <span className="text-xs opacity-50 truncate" style={{ color: "var(--zen-ink)" }}>
-                  {a.title}
-                </span>
-                <span className="text-xs opacity-30" style={{ color: "var(--zen-ink)" }}>
-                  {formatDate(a.startAt)} ~ {formatDate(a.endAt)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {renderStatus(a)}
-              {variant === "inbox" && a.submittedAt === null && now >= new Date(a.startAt).getTime() && now <= new Date(a.endAt).getTime() && (
-                <a
-                  href={`/test/assignment/${encodeURIComponent(a.id)}`}
-                  className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
-                  style={{ borderColor: "#b19739", color: "#b19739" }}
-                >
-                  作答
-                </a>
-              )}
-            </div>
-          </div>
-        );
-        return isReviewable ? (
-          <a key={a.id} href={reviewUrl} className="block no-underline">
-            {card}
-          </a>
-        ) : <React.Fragment key={a.id}>{card}</React.Fragment>;
-      })}
+            <thead>
+              <tr className="text-left text-xs opacity-50 divide-x divide-zinc-200 dark:divide-zinc-700">
+                <th data-row={0} data-col={0} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,0)}`}>
+                  {variant === "outbox" ? "對象" : "指派者"}
+                </th>
+                <th data-row={0} data-col={1} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${sel.cellBg(0,1)}`}>標題</th>
+                <th data-row={0} data-col={2} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,2)}`}>開始</th>
+                <th data-row={0} data-col={3} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,3)}`}>結束</th>
+                <th data-row={0} data-col={4} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,4)}`}>狀態</th>
+                {variant === "inbox" && (
+                  <th data-row={0} data-col={5} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,5)}`}>操作</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((a, index) => {
+                const isReviewable = a.gradedAt !== null;
+                const reviewUrl = `/test/assignment/${encodeURIComponent(a.id)}?review=1`;
+                const peerName = users[variant === "outbox" ? a.assigneeId : a.assignerId]?.name
+                  ?? (variant === "outbox" ? "對象" : "指派者");
+                const status = renderStatus(a);
+                const canAnswer = variant === "inbox"
+                  && a.submittedAt === null
+                  && now >= new Date(a.startAt).getTime()
+                  && now <= new Date(a.endAt).getTime();
+                const rowClass = "border-b border-zinc-100 dark:border-zinc-800 divide-x divide-zinc-200 dark:divide-zinc-700";
+                const r = index + 1;
+                return (
+                  <tr key={a.id} className={rowClass}>
+                    <td data-row={r} data-col={0} className={`px-3 py-2 whitespace-nowrap ${sel.cellBg(r,0)}`}>{peerName}</td>
+                    <td data-row={r} data-col={1} className={`px-3 py-2 ${sel.cellBg(r,1)}`}>
+                      {isReviewable ? (
+                        <a href={reviewUrl} className="hover:underline">{a.title}</a>
+                      ) : a.title}
+                    </td>
+                    <td data-row={r} data-col={2} className={`px-3 py-2 text-xs opacity-60 whitespace-nowrap ${sel.cellBg(r,2)}`}>{formatDate(a.startAt)}</td>
+                    <td data-row={r} data-col={3} className={`px-3 py-2 text-xs opacity-60 whitespace-nowrap ${sel.cellBg(r,3)}`}>{formatDate(a.endAt)}</td>
+                    <td data-row={r} data-col={4} className={`px-3 py-2 text-xs whitespace-nowrap ${sel.cellBg(r,4)}`}>
+                      <span style={status.color ? { color: status.color } : { opacity: 0.5, color: "var(--zen-ink)" }}>
+                        {status.text}
+                      </span>
+                    </td>
+                    {variant === "inbox" && (
+                      <td data-row={r} data-col={5} data-copy-text="" className={`px-3 py-2 whitespace-nowrap ${sel.cellBg(r,5)}`}>
+                        {canAnswer && (
+                          <a
+                            href={`/test/assignment/${encodeURIComponent(a.id)}`}
+                            className="text-xs px-3 py-1 rounded-full border transition-opacity hover:opacity-80"
+                            style={{ borderColor: "#b19739", color: "#b19739" }}
+                          >
+                            作答
+                          </a>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
