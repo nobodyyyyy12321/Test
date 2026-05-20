@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
-import { appendQuizRecord, appendRecitation } from "../../../../lib/users";
+import { appendRecitation } from "../../../../lib/users";
 import { incrementArticleCounters } from "../../../../lib/articles-supabase";
 
 export async function POST(request: Request) {
@@ -19,21 +19,13 @@ export async function POST(request: Request) {
     // Save user records to Supabase
     if (session?.user?.email) {
       try {
-        await Promise.all([
-          appendQuizRecord(session.user.email, {
-            answered: 1,
-            correct: success ? 1 : 0,
-            set: title,
-            category: "詩文背誦",
-          }),
-          appendRecitation(session.user.email, {
-            articleId,
-            articleNumber,
-            title,
-            success,
-            timestamp: ts,
-          }),
-        ]);
+        await appendRecitation(session.user.email, {
+          articleId,
+          articleNumber,
+          title,
+          success,
+          timestamp: ts,
+        });
       } catch (e) {
         console.error("Failed to save recitation to Supabase:", e);
       }

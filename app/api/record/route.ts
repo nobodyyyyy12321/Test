@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { appendQuizRecord } from "@/lib/users";
+import { appendPractice } from "@/lib/users";
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid data" }, { status: 400 });
     }
 
-    await appendQuizRecord(session.user.email, {
+    await appendPractice(session.user.email, {
       answered,
       correct,
       set,

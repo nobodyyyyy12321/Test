@@ -1,5 +1,5 @@
-// One-time cleanup: keep only the 10 most recent quiz_records per user.
-// Run: npx tsx scripts/prune-quiz-records.ts
+// One-time cleanup: keep only the 10 most recent practices per user.
+// Run: npx tsx scripts/prune-practices.ts
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, existsSync } from "fs";
 
@@ -27,19 +27,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function main() {
   const { data: users, error: userErr } = await supabase
-    .from("quiz_records")
+    .from("practices")
     .select("user_id")
     .order("user_id");
   if (userErr) throw userErr;
 
   const userIds = [...new Set((users ?? []).map((r) => r.user_id))];
-  console.log(`Found ${userIds.length} users with quiz_records`);
+  console.log(`Found ${userIds.length} users with practices`);
 
   let totalDeleted = 0;
 
   for (const userId of userIds) {
     const { data: ids, error: fetchErr } = await supabase
-      .from("quiz_records")
+      .from("practices")
       .select("id")
       .eq("user_id", userId)
       .order("timestamp", { ascending: false });
@@ -49,7 +49,7 @@ async function main() {
 
     const idsToDelete = ids.slice(10).map((r) => r.id);
     const { error: delErr } = await supabase
-      .from("quiz_records")
+      .from("practices")
       .delete()
       .in("id", idsToDelete);
     if (delErr) throw delErr;

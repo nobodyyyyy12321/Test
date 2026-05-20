@@ -8,6 +8,6 @@ export {
   saveUser,
   updateUser,
   searchUsersByName,
-  appendQuizRecord,
+  appendPractice,
   appendRecitation,
 } from "./users-supabase";

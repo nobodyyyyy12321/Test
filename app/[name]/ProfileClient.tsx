@@ -47,8 +47,6 @@ type QuizRecord = {
   correct: number;
   set: string;
   timestamp: string;
-  category?: string;
-  success?: boolean;
   answers?: { n: number; u: string | string[] | null }[];
 };
 
@@ -1345,9 +1343,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                         }
                         const url = recordToUrl(item.set, replayKey);
                         const setLabel = recordDisplaySet(item.set);
-                        const scoreText = item.category === "詩文背誦"
-                          ? (item.success ? t("recitationSuccess") : t("recitationFail"))
-                          : `${item.correct}/${item.answered}`;
+                        const scoreText = `${item.correct}/${item.answered}`;
                         const dateText = new Date(item.timestamp).toLocaleDateString(dateLocale, {
                           year: "numeric", month: "2-digit", day: "2-digit",
                         });

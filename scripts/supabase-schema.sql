@@ -118,21 +118,20 @@ create index if not exists assignments_assignee_idx on assignments(assignee_id);
 create index if not exists assignments_assigner_idx on assignments(assigner_id);
 create index if not exists assignments_window_idx   on assignments(end_at);
 
--- ── quiz_records ────────────────────────────────────────────────────────────
+-- ── practices ──────────────────────────────────────────────────────────────
 -- Practice attempts only. Assignment answers live on assignments.answers.
-create table if not exists quiz_records (
+create table if not exists practices (
   id            uuid primary key default gen_random_uuid(),
   user_id       text not null references users(id) on delete cascade,
   answered      int not null,
   correct       int,
   set           text not null,
   timestamp     timestamptz not null,
-  category      text,
   answers       jsonb
 );
 
-create index if not exists quiz_records_user_id_idx on quiz_records(user_id);
-create index if not exists quiz_records_timestamp_idx on quiz_records(user_id, timestamp desc);
+create index if not exists practices_user_id_idx on practices(user_id);
+create index if not exists practices_timestamp_idx on practices(user_id, timestamp desc);
 
 -- ── recitations ─────────────────────────────────────────────────────────────
 create table if not exists recitations (

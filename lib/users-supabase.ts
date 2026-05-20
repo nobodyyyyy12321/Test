@@ -33,7 +33,6 @@ export type User = {
     correct: number;
     set: string;
     timestamp: string;
-    category: string | null;
     answers?: { n: number; u: string | string[] | null }[];
   }>;
 };
@@ -64,8 +63,8 @@ async function attachRecordsAndRecitations(user: User): Promise<User> {
   const db = getSupabaseAdmin();
   const [recRows, recitRows] = await Promise.all([
     db
-      .from("quiz_records")
-      .select("answered,correct,set,timestamp,category,answers")
+      .from("practices")
+      .select("answered,correct,set,timestamp,answers")
       .eq("user_id", user.id)
       .order("timestamp", { ascending: false })
       .limit(50),
@@ -78,7 +77,7 @@ async function attachRecordsAndRecitations(user: User): Promise<User> {
 
   const allRecords = (recRows.data ?? []) as Array<{
     answered: number; correct: number; set: string;
-    timestamp: string; category: string | null; answers: unknown;
+    timestamp: string; answers: unknown;
   }>;
 
   user.records = allRecords.map((r) => ({
@@ -86,7 +85,6 @@ async function attachRecordsAndRecitations(user: User): Promise<User> {
     correct: r.correct,
     set: r.set,
     timestamp: r.timestamp,
-    category: r.category,
     answers: r.answers as { n: number; u: string | string[] | null }[] | undefined,
   }));
 
@@ -229,15 +227,14 @@ export async function updateUser(
   return (await findUserById(id)) ?? null;
 }
 
-// ── quiz record helpers (called by record API routes) ────────────────────────
+// ── practice helpers (called by record API routes) ──────────────────────────
 
-export async function appendQuizRecord(
+export async function appendPractice(
   userEmail: string,
   record: {
     answered: number;
     correct: number;
     set: string;
-    category?: string;
     answers?: unknown[];
   }
 ): Promise<void> {
@@ -249,30 +246,29 @@ export async function appendQuizRecord(
     .maybeSingle();
   if (!u) throw new Error("User not found");
 
-  const { error } = await db.from("quiz_records").insert({
+  const { error } = await db.from("practices").insert({
     user_id: u.id,
     answered: record.answered,
     correct: record.correct,
     set: record.set,
     timestamp: new Date().toISOString(),
-    category: record.category ?? "",
     answers: record.answers ?? null,
   });
   if (error) throw error;
 
   const { data: all, error: fetchError } = await db
-    .from("quiz_records")
+    .from("practices")
     .select("id")
     .eq("user_id", u.id)
     .order("timestamp", { ascending: false });
-  if (fetchError) { console.error("fetch quiz_records error", fetchError); throw fetchError; }
+  if (fetchError) { console.error("fetch practices error", fetchError); throw fetchError; }
   if (all && all.length > 10) {
     const idsToDelete = all.slice(10).map((r) => r.id);
     const { error: delError } = await db
-      .from("quiz_records")
+      .from("practices")
       .delete()
       .in("id", idsToDelete);
-    if (delError) { console.error("delete quiz_records error", delError); throw delError; }
+    if (delError) { console.error("delete practices error", delError); throw delError; }
   }
 }
 
