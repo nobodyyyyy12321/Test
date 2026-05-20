@@ -103,7 +103,7 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
           >
             <thead>
               <tr className="text-left text-xs opacity-50 divide-x divide-zinc-200 dark:divide-zinc-700">
-                <th data-row={0} data-col={0} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${sel.cellBg(0,0)}`}>標題</th>
+                <th data-row={0} data-col={0} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,0)}`}>標題</th>
                 <th data-row={0} data-col={1} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,1)}`}>
                   {variant === "outbox" ? "對象" : "指派者"}
                 </th>
@@ -130,7 +130,7 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
                 const r = index + 1;
                 return (
                   <tr key={a.id} className={rowClass}>
-                    <td data-row={r} data-col={0} className={`px-3 py-2 ${sel.cellBg(r,0)}`}>
+                    <td data-row={r} data-col={0} className={`px-3 py-2 whitespace-nowrap ${sel.cellBg(r,0)}`}>
                       {isReviewable ? (
                         <a href={reviewUrl} className="hover:underline">{a.title}</a>
                       ) : a.title}
