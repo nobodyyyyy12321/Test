@@ -130,17 +130,22 @@ export function PersonalListsView({
   );
 
   // ── assignment creation ──
+  type AssignUser = { id: string; name: string; avatarUrl?: string };
+  type AssignGroup = { id: string; name: string; memberCount?: number };
   const [assignModal, setAssignModal] = useState<{ collectionId: string; displayName: string } | null>(null);
   const [assignSearch, setAssignSearch] = useState("");
-  const [assignSearchResults, setAssignSearchResults] = useState<{ id: string; name: string; avatarUrl?: string }[]>([]);
+  const [assignSearchResults, setAssignSearchResults] = useState<AssignUser[]>([]);
   const [assignSearchLoading, setAssignSearchLoading] = useState(false);
   const [assignSearchTimer, setAssignSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [assigneeId, setAssigneeId] = useState<string | null>(null);
-  const [assigneeName, setAssigneeName] = useState("");
+  const [selectedAssignees, setSelectedAssignees] = useState<AssignUser[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<AssignGroup[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<AssignGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [assignStart, setAssignStart] = useState("");
   const [assignEnd, setAssignEnd] = useState("");
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignResultMsg, setAssignResultMsg] = useState<string | null>(null);
   const [collectionParentOverride, setCollectionParentOverride] = useState<Record<string, string | null>>({});
   const [listParentOverride, setListParentOverride] = useState<Record<string, string | null>>({});
 
@@ -452,12 +457,25 @@ export function PersonalListsView({
                   const endLocal = new Date(now.getTime() + 3600000 - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
                   setAssignSearch("");
                   setAssignSearchResults([]);
-                  setAssigneeId(null);
-                  setAssigneeName("");
+                  setSelectedAssignees([]);
+                  setSelectedGroups([]);
                   setAssignStart(startLocal);
                   setAssignEnd(endLocal);
                   setAssignError(null);
+                  setAssignResultMsg(null);
                   setAssignModal({ collectionId: col.collectionId, displayName: col.displayName });
+                  // Lazy-load groups for the picker
+                  setGroupsLoading(true);
+                  fetch("/api/groups")
+                    .then(r => r.ok ? r.json() : { owned: [], joined: [] })
+                    .then((data: { owned?: AssignGroup[]; joined?: AssignGroup[] }) => {
+                      const all = [...(data.owned ?? []), ...(data.joined ?? [])];
+                      const seen = new Set<string>();
+                      const deduped = all.filter(g => !seen.has(g.id) && seen.add(g.id));
+                      setAvailableGroups(deduped);
+                    })
+                    .catch(() => setAvailableGroups([]))
+                    .finally(() => setGroupsLoading(false));
                 }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 style={{ color: "var(--zen-ink)" }}
@@ -723,67 +741,126 @@ export function PersonalListsView({
               <p className="text-base font-semibold" style={{ color: "#b19739" }}>{assignModal.displayName}</p>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <label className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>指派對象</label>
-              {assigneeId ? (
-                <div className="flex items-center justify-between px-3 py-2 rounded-xl border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)" }}>
-                  <div className="flex items-center gap-2">
-                    <NextImage src={AVATAR_PLACEHOLDER} alt={assigneeName} width={24} height={24} unoptimized className="w-6 h-6 rounded-full object-cover shrink-0" />
-                    <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{assigneeName}</span>
-                  </div>
-                  <button onClick={() => { setAssigneeId(null); setAssigneeName(""); }} className="text-xs opacity-40 hover:opacity-70" style={{ color: "var(--zen-ink)" }}>移除</button>
-                </div>
-              ) : (
+
+              {/* selected lines (one per row) */}
+              {(selectedAssignees.length > 0 || selectedGroups.length > 0) && (
                 <div className="flex flex-col gap-1">
-                  <input
-                    className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
-                    style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
-                    placeholder="搜尋帳號名稱"
-                    value={assignSearch}
-                    onChange={e => {
-                      const q = e.target.value;
-                      setAssignSearch(q);
-                      if (assignSearchTimer) clearTimeout(assignSearchTimer);
-                      if (!q.trim()) { setAssignSearchResults([]); return; }
-                      const timer = setTimeout(async () => {
-                        setAssignSearchLoading(true);
-                        try {
-                          const r = await fetch(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
-                          const d = await r.json();
-                          setAssignSearchResults(d.users ?? []);
-                        } finally {
-                          setAssignSearchLoading(false);
-                        }
-                      }, 300);
-                      setAssignSearchTimer(timer);
-                    }}
-                  />
-                  {assignSearchLoading && <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>}
-                  {!assignSearchLoading && assignSearch.trim() && assignSearchResults.length === 0 && (
-                    <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>找不到使用者</p>
-                  )}
-                  {assignSearchResults.length > 0 && (
-                    <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl overflow-hidden border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
-                      {assignSearchResults.map(u => (
-                        <button
-                          key={u.id}
-                          type="button"
-                          className="flex items-center gap-2 px-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                          onClick={() => {
-                            setAssigneeId(u.id);
-                            setAssigneeName(u.name);
-                            setAssignSearch("");
-                            setAssignSearchResults([]);
-                          }}
-                        >
-                          <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
-                          <span className="text-sm" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                        </button>
-                      ))}
+                  {selectedAssignees.map(u => (
+                    <div key={`u:${u.id}`} className="flex items-center justify-between px-3 py-2 rounded-xl border" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)" }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={24} height={24} unoptimized className="w-6 h-6 rounded-full object-cover shrink-0" />
+                        <span className="text-sm truncate" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                      </div>
+                      <button type="button" onClick={() => setSelectedAssignees(prev => prev.filter(p => p.id !== u.id))} className="text-xs opacity-40 hover:opacity-70 shrink-0" style={{ color: "var(--zen-ink)" }} aria-label="移除">移除</button>
                     </div>
-                  )}
+                  ))}
+                  {selectedGroups.map(g => (
+                    <div key={`g:${g.id}`} className="flex items-center justify-between px-3 py-2 rounded-xl border" style={{ borderColor: "color-mix(in srgb, #b19739 50%, transparent)" }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span aria-hidden className="w-6 h-6 flex items-center justify-center rounded-full text-xs shrink-0" style={{ backgroundColor: "color-mix(in srgb, #b19739 20%, transparent)", color: "#b19739" }}>👥</span>
+                        <span className="text-sm truncate" style={{ color: "#b19739" }}>
+                          {g.name}{g.memberCount != null && ` (${g.memberCount} 人)`}
+                        </span>
+                      </div>
+                      <button type="button" onClick={() => setSelectedGroups(prev => prev.filter(p => p.id !== g.id))} className="text-xs opacity-60 hover:opacity-100 shrink-0" style={{ color: "#b19739" }} aria-label="移除">移除</button>
+                    </div>
+                  ))}
                 </div>
               )}
+
+              {/* combined search: users (remote) + groups (local filter) */}
+              <div className="flex flex-col gap-1">
+                <input
+                  className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", backgroundColor: "var(--zen-bg)", color: "var(--zen-ink)" }}
+                  placeholder="輸入帳號或群組名稱"
+                  value={assignSearch}
+                  onChange={e => {
+                    const q = e.target.value;
+                    setAssignSearch(q);
+                    if (assignSearchTimer) clearTimeout(assignSearchTimer);
+                    if (!q.trim()) { setAssignSearchResults([]); return; }
+                    const timer = setTimeout(async () => {
+                      setAssignSearchLoading(true);
+                      try {
+                        const r = await fetch(`/api/users/search?q=${encodeURIComponent(q.trim())}`);
+                        const d = await r.json();
+                        setAssignSearchResults(d.users ?? []);
+                      } finally {
+                        setAssignSearchLoading(false);
+                      }
+                    }, 300);
+                    setAssignSearchTimer(timer);
+                  }}
+                />
+                {(() => {
+                  const q = assignSearch.trim().toLowerCase();
+                  const matchingGroups = q
+                    ? availableGroups.filter(g => g.name.toLowerCase().includes(q))
+                    : [];
+                  const hasAny = assignSearchResults.length > 0 || matchingGroups.length > 0;
+                  if (!q) return null;
+                  if (assignSearchLoading && !hasAny) {
+                    return <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>搜尋中...</p>;
+                  }
+                  if (!hasAny && !assignSearchLoading) {
+                    return (
+                      <p className="text-xs opacity-40 px-1" style={{ color: "var(--zen-ink)" }}>
+                        找不到{groupsLoading ? "使用者" : "使用者或群組"}
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl overflow-hidden border max-h-56 overflow-y-auto" style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 12%, transparent)" }}>
+                      {matchingGroups.map(g => {
+                        const already = selectedGroups.some(s => s.id === g.id);
+                        return (
+                          <button
+                            key={`g:${g.id}`}
+                            type="button"
+                            disabled={already}
+                            className="flex items-center gap-2 px-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              setSelectedGroups(prev => [...prev, g]);
+                              setAssignSearch("");
+                              setAssignSearchResults([]);
+                            }}
+                          >
+                            <span aria-hidden className="w-7 h-7 flex items-center justify-center rounded-full text-xs shrink-0" style={{ backgroundColor: "color-mix(in srgb, #b19739 20%, transparent)", color: "#b19739" }}>👥</span>
+                            <span className="text-sm flex-1" style={{ color: "#b19739" }}>{g.name}</span>
+                            {g.memberCount != null && (
+                              <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>{g.memberCount} 人</span>
+                            )}
+                            {already && <span className="text-xs opacity-50 ml-2" style={{ color: "var(--zen-ink)" }}>已加入</span>}
+                          </button>
+                        );
+                      })}
+                      {assignSearchResults.map(u => {
+                        const already = selectedAssignees.some(s => s.id === u.id);
+                        return (
+                          <button
+                            key={`u:${u.id}`}
+                            type="button"
+                            disabled={already}
+                            className="flex items-center gap-2 px-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              setSelectedAssignees(prev => [...prev, { id: u.id, name: u.name, avatarUrl: u.avatarUrl }]);
+                              setAssignSearch("");
+                              setAssignSearchResults([]);
+                            }}
+                          >
+                            <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+                            <span className="text-sm flex-1" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                            {already && <span className="text-xs opacity-50" style={{ color: "var(--zen-ink)" }}>已加入</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -810,19 +887,27 @@ export function PersonalListsView({
             </div>
 
             {assignError && <p className="text-xs text-red-500">{assignError}</p>}
+            {assignResultMsg && <p className="text-xs" style={{ color: "#b19739" }}>{assignResultMsg}</p>}
 
             <button
-              disabled={assignSubmitting || !assigneeId || !assignStart || !assignEnd}
+              disabled={
+                assignSubmitting ||
+                (selectedAssignees.length === 0 && selectedGroups.length === 0) ||
+                !assignStart ||
+                !assignEnd
+              }
               onClick={async () => {
                 setAssignSubmitting(true);
                 setAssignError(null);
+                setAssignResultMsg(null);
                 try {
                   const r = await fetch("/api/assignments", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       sourceResourceId: assignModal.collectionId,
-                      assigneeId,
+                      assigneeIds: selectedAssignees.map(u => u.id),
+                      groupIds: selectedGroups.map(g => g.id),
                       title: assignModal.displayName.trim(),
                       startAt: new Date(assignStart).toISOString(),
                       endAt: new Date(assignEnd).toISOString(),
@@ -833,7 +918,18 @@ export function PersonalListsView({
                     setAssignError(d.error ?? "建立失敗");
                     return;
                   }
-                  setAssignModal(null);
+                  const created = d.created ?? 0;
+                  const skipped = (d.skipped ?? []) as Array<{ reason: string }>;
+                  if (created === 0) {
+                    setAssignError(`未建立任何指派${skipped.length > 0 ? `（略過 ${skipped.length} 人）` : ""}`);
+                    return;
+                  }
+                  if (skipped.length > 0) {
+                    setAssignResultMsg(`已建立 ${created} 個指派，略過 ${skipped.length} 人`);
+                    setTimeout(() => setAssignModal(null), 1500);
+                  } else {
+                    setAssignModal(null);
+                  }
                 } finally {
                   setAssignSubmitting(false);
                 }

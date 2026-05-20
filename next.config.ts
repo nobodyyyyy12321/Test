@@ -2,9 +2,32 @@ import type { NextConfig } from "next";
 
 const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_BUILD_ID || String(Date.now());
 
+const SUPABASE_HOSTNAME = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_TEST_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_TEST_SUPABASE_URL).hostname
+      : null;
+  } catch {
+    return null;
+  }
+})();
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
+  },
+  images: {
+    remotePatterns: [
+      ...(SUPABASE_HOSTNAME
+        ? [{
+            protocol: "https" as const,
+            hostname: SUPABASE_HOSTNAME,
+            pathname: "/storage/v1/object/**",
+          }]
+        : []),
+      // Generic Supabase storage fallback for any project
+      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/**" },
+    ],
   },
   async headers() {
     return [

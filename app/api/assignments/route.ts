@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
 import { createAssignment, getAssignmentsByAssignee, getAssignmentsByAssigner, evictOldestTerminal, gradeAssignment } from "@/lib/assignments-supabase";
+import { getGroupWithMembers } from "@/lib/groups-supabase";
 
 async function getUser() {
   const session = await auth();
@@ -10,6 +11,8 @@ async function getUser() {
   if (!email && !name) return null;
   return email ? findUserByEmail(email) : findUserByName(name!);
 }
+
+type SkippedReason = "blocked" | "self" | "unknown_user" | "group_not_found";
 
 export async function POST(req: Request) {
   const user = await getUser();
@@ -23,13 +26,23 @@ export async function POST(req: Request) {
   }
 
   const sourceResourceId = typeof body.sourceResourceId === "string" ? body.sourceResourceId.trim() : "";
-  const assigneeId = typeof body.assigneeId === "string" ? body.assigneeId.trim() : "";
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const startAt = typeof body.startAt === "string" ? body.startAt.trim() : "";
   const endAt = typeof body.endAt === "string" ? body.endAt.trim() : "";
 
-  if (!sourceResourceId || !assigneeId || !title || !startAt || !endAt) {
+  const rawAssigneeIds = Array.isArray(body.assigneeIds)
+    ? body.assigneeIds.filter((s): s is string => typeof s === "string" && s.trim() !== "").map(s => s.trim())
+    : [];
+  const rawGroupIds = Array.isArray(body.groupIds)
+    ? body.groupIds.filter((s): s is string => typeof s === "string" && s.trim() !== "").map(s => s.trim())
+    : [];
+
+  if (!sourceResourceId || !title || !startAt || !endAt) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  if (rawAssigneeIds.length === 0 && rawGroupIds.length === 0) {
+    return NextResponse.json({ error: "At least one assignee or group required" }, { status: 400 });
   }
 
   if (new Date(endAt).getTime() - new Date(startAt).getTime() < 60000) {
@@ -40,31 +53,90 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "startAt must be in the future" }, { status: 400 });
   }
 
-  // Check block relationship
+  const skipped: Array<{ userId: string; reason: SkippedReason }> = [];
+
+  // Expand groups → accepted member userIds
+  const expanded = new Set<string>(rawAssigneeIds);
+  for (const groupId of rawGroupIds) {
+    const group = await getGroupWithMembers(groupId);
+    if (!group) {
+      skipped.push({ userId: groupId, reason: "group_not_found" });
+      continue;
+    }
+    for (const m of group.members ?? []) {
+      if (m.status === "accepted") expanded.add(m.userId);
+    }
+  }
+
+  // Drop self
+  if (expanded.has(user.id)) {
+    expanded.delete(user.id);
+    skipped.push({ userId: user.id, reason: "self" });
+  }
+
+  if (expanded.size === 0) {
+    return NextResponse.json({ created: 0, skipped, assignments: [] });
+  }
+
+  const candidateIds = [...expanded];
+
   const sb = (await import("@/lib/supabase-admin")).getSupabaseAdmin();
-  const { data: block } = await sb
+
+  // Block check — fetch any block relationship between user and any candidate in one query
+  const { data: blocks } = await sb
     .from("blocks")
-    .select("blocker_id")
-    .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${assigneeId}),and(blocker_id.eq.${assigneeId},blocked_id.eq.${user.id})`)
-    .maybeSingle();
-  if (block) {
-    return NextResponse.json({ error: "Block relationship exists" }, { status: 403 });
+    .select("blocker_id, blocked_id")
+    .or(
+      `and(blocker_id.eq.${user.id},blocked_id.in.(${candidateIds.join(",")})),` +
+      `and(blocked_id.eq.${user.id},blocker_id.in.(${candidateIds.join(",")}))`
+    );
+  const blockedIds = new Set<string>();
+  for (const b of (blocks ?? []) as Array<{ blocker_id: string; blocked_id: string }>) {
+    if (b.blocker_id === user.id) blockedIds.add(b.blocked_id);
+    else blockedIds.add(b.blocker_id);
+  }
+
+  const finalIds = candidateIds.filter(id => {
+    if (blockedIds.has(id)) {
+      skipped.push({ userId: id, reason: "blocked" });
+      return false;
+    }
+    return true;
+  });
+
+  // Verify users actually exist (cheap sanity check)
+  const { data: existingUsers } = await sb.from("users").select("id").in("id", finalIds);
+  const existingSet = new Set<string>((existingUsers ?? []).map((u: { id: string }) => u.id));
+
+  const toCreate = finalIds.filter(id => {
+    if (!existingSet.has(id)) {
+      skipped.push({ userId: id, reason: "unknown_user" });
+      return false;
+    }
+    return true;
+  });
+
+  if (toCreate.length === 0) {
+    return NextResponse.json({ created: 0, skipped, assignments: [] });
   }
 
   await evictOldestTerminal(user.id);
-  await evictOldestTerminal(assigneeId);
 
-  const assignment = await createAssignment({
-    assignerId: user.id,
-    assigneeId,
-    sourceResourceId,
-    title,
-    startAt,
-    endAt,
-  });
+  const assignments = [];
+  for (const assigneeId of toCreate) {
+    await evictOldestTerminal(assigneeId);
+    const a = await createAssignment({
+      assignerId: user.id,
+      assigneeId,
+      sourceResourceId,
+      title,
+      startAt,
+      endAt,
+    });
+    if (a) assignments.push(a);
+  }
 
-  if (!assignment) return NextResponse.json({ error: "Failed to create assignment" }, { status: 500 });
-  return NextResponse.json({ assignment });
+  return NextResponse.json({ created: assignments.length, skipped, assignments });
 }
 
 export async function GET(req: Request) {
