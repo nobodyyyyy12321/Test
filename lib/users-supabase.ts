@@ -255,7 +255,7 @@ export async function appendQuizRecord(
     correct: record.correct,
     set: record.set,
     timestamp: new Date().toISOString(),
-    category: record.category ?? null,
+    category: record.category ?? "",
     answers: record.answers ?? null,
   });
   if (error) throw error;

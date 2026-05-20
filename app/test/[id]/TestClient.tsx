@@ -273,12 +273,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
 
     if (isRetryWrongMode) return;
     if (!session?.user?.email || answeredCount === 0) return;
-    const recordEndpoint = ordered
-      ? "/api/user/gsat/record"
-      : id === "quoteChinese"
-      ? "/api/user/quote/record"
-      : "/api/user/english/record";
-    fetch(recordEndpoint, {
+    fetch("/api/record", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -290,7 +285,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         answers: compactAnswers,
       }),
     }).catch(() => {});
-  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, ordered, id, listTitle, levels, listId, pageTitle, mode, assignmentId]);
+  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, id, listTitle, levels, listId, pageTitle, mode, assignmentId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

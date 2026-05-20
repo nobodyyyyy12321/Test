@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     return Response.json({ success: true });
   } catch (error) {
-    console.error("Error saving quote record:", error);
+    console.error("Error saving record:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
