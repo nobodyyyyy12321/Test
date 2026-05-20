@@ -8,7 +8,6 @@ type LanguageCode = "zh-TW" | "zh-CN" | "en" | "es" | "ru";
 const QUIZ_PREFIXES = [
   "/quote",
   "/english",
-  "/study-chinese",
   "/math",
   "/recitation",
 ];
@@ -46,9 +45,6 @@ function isAllowedForLanguage(language: LanguageCode, pathname: string) {
     return true;
   }
   if (language === "en") {
-    if (pathname === "/study-chinese" || pathname.startsWith("/study-chinese/")) {
-      return true;
-    }
     if (["/math", "/physics", "/chemistry"].includes(pathname)) {
       return true;
     }

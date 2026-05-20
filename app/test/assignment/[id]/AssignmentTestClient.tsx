@@ -33,12 +33,13 @@ export default function AssignmentTestClient({ assignmentId, serverLang, review 
   if (error || !assignment) return <div className="flex min-h-screen items-center justify-center"><p className="text-sm text-red-500">{error ?? "無法載入"}</p></div>;
 
   if (review && assignment.submittedAt) {
-    const answers = assignment.answers as Record<string, string | string[] | null> | null;
+    const answers = assignment.answers as Array<{ n: number; u: string | string[] | null }> | null;
     if (answers && questions.length > 0) {
+      const answerMap = new Map(answers.map(a => [a.n, a.u]));
       const sorted = [...questions].sort((a, b) => a.number - b.number);
       const compactAnswers = sorted
         .filter(q => q.type !== "group")
-        .map(q => ({ n: q.number, u: answers[String(q.number)] ?? null }));
+        .map(q => ({ n: q.number, u: answerMap.get(q.number) ?? null }));
       const replayKey = `assignment_review_${assignmentId}`;
       try { sessionStorage.setItem(`quiz_replay_${replayKey}`, JSON.stringify({ answers: compactAnswers })); } catch {}
       const qsetId = assignment.sourceResourceId as string || assignmentId;

@@ -19,7 +19,6 @@ export async function POST(request: Request) {
       answered,
       correct,
       set,
-      category: "國文學測",
       answers: Array.isArray(answers) ? answers : undefined,
     });
 

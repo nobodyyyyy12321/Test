@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
-import { getAssignmentById, submitAssignment, deleteAssignment, gradeAssignment } from "@/lib/assignments-supabase";
+import {
+  getAssignmentById,
+  getAssignmentAnswers,
+  submitAssignment,
+  deleteAssignment,
+  gradeAssignment,
+  type AssignmentAnswer,
+} from "@/lib/assignments-supabase";
 import { fetchQuestions } from "@/lib/questions";
 
 async function getUser() {
@@ -26,7 +33,6 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Lazy grade if needed
   if (assignment.submittedAt && !assignment.gradedAt && new Date(assignment.endAt).getTime() < Date.now()) {
     await gradeAssignment(id);
     const updated = await getAssignmentById(id);
@@ -34,25 +40,28 @@ export async function GET(_req: Request, { params }: Params) {
   }
 
   const now = Date.now();
-  const start = new Date(assignment.startAt).getTime();
   const end = new Date(assignment.endAt).getTime();
-  const isWindowOpen = now >= start && now <= end;
   const isAfterWindow = now > end;
+  const isAssignee = assignment.assigneeId === user.id;
 
-  // Fetch questions (strip answer key before window closes)
   const questions = await fetchQuestions({ id: assignment.sourceResourceId });
-  const result: Record<string, unknown> = {
-    ...assignment,
-    questions: isAfterWindow ? questions : questions.map(q => ({ ...q, answer: undefined })),
-  };
 
-  // Only assignee sees answers key they submitted
-  if (assignment.assigneeId !== user.id && isWindowOpen) {
-    result.answers = undefined;
-    result.submittedAt = undefined;
+  // Assigner cannot peek at the assignee's answers or submission status before the window closes.
+  let answers: AssignmentAnswer[] | null = null;
+  let submittedAt = assignment.submittedAt;
+  if (assignment.submittedAt && (isAssignee || isAfterWindow)) {
+    answers = await getAssignmentAnswers(id);
+  }
+  if (!isAssignee && !isAfterWindow) {
+    submittedAt = null;
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json({
+    ...assignment,
+    submittedAt,
+    answers,
+    questions: isAfterWindow ? questions : questions.map(q => ({ ...q, answer: undefined })),
+  });
 }
 
 export async function POST(_req: Request, { params }: Params) {
@@ -81,12 +90,12 @@ export async function POST(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const answers = body.answers as Record<string, unknown> | undefined;
-  if (!answers || typeof answers !== "object") {
-    return NextResponse.json({ error: "answers required" }, { status: 400 });
+  const answers = body.answers;
+  if (!Array.isArray(answers)) {
+    return NextResponse.json({ error: "answers required (array of {n,u})" }, { status: 400 });
   }
 
-  const ok = await submitAssignment(id, answers);
+  const ok = await submitAssignment(id, answers as AssignmentAnswer[]);
   if (!ok) return NextResponse.json({ error: "Failed to submit" }, { status: 500 });
 
   return NextResponse.json({ ok: true });

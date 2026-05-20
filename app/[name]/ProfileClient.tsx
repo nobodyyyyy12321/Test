@@ -9,8 +9,6 @@ import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useExcelSelection } from "../lib/useExcelSelection";
 import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
-import zhTW from "../../public/locale/zh-TW.js";
-import type { CategoryNode } from "../components/CategoryNode";
 import { PersonalListsView } from "../components/PersonalListsView";
 import AssignmentsTab from "../components/AssignmentsTab";
 import { SocialIcon } from "../components/SocialIcon";
@@ -18,51 +16,9 @@ import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import { getProfileText, normalizeProfileLanguage, type SupportedUILanguage } from "../lib/i18n/profile";
 import { getStoredTheme, setTheme as setThemeMode, type ThemeMode, THEME_CHANGE_EVENT } from "../lib/theme";
 
-// ── locale helpers ────────────────────────────────────────────────────────────
-
-type LevelEntry = { name: string; levels: number[] };
-const SIMPLE_LABELS: Record<string, string> = {};
-const LEVEL_LABELS: Record<string, LevelEntry[]> = {};
-
-(function buildLabels() {
-  const nodes = zhTW as CategoryNode[];
-  function parseHref(href: string) {
-    const m = href.match(/^\/test\/([^?]+)(?:\?levels=(.+))?/);
-    if (!m) return null;
-    return { id: m[1], levels: m[2] ? m[2].split(",").map(Number) : [] };
-  }
-  for (const node of nodes) {
-    if (node.href) {
-      const p = parseHref(node.href);
-      if (p && !SIMPLE_LABELS[p.id]) SIMPLE_LABELS[p.id] = node.name;
-    }
-    if (node.children) {
-      for (const child of node.children) {
-        if (!child.href) continue;
-        const p = parseHref(child.href);
-        if (!p) continue;
-        if (p.levels.length > 0) {
-          (LEVEL_LABELS[p.id] = LEVEL_LABELS[p.id] ?? []).push({ name: child.name, levels: p.levels });
-          if (!SIMPLE_LABELS[p.id]) SIMPLE_LABELS[p.id] = node.name;
-        } else if (!SIMPLE_LABELS[p.id]) {
-          SIMPLE_LABELS[p.id] = child.name;
-        }
-      }
-    }
-  }
-})();
-
-function getCollectionLabel(collectionId: string, level?: number | null): string {
-  if (level != null && LEVEL_LABELS[collectionId]) {
-    const match = LEVEL_LABELS[collectionId].find(e => e.levels.includes(level));
-    if (match) return match.name;
-  }
-  return SIMPLE_LABELS[collectionId] ?? collectionId;
-}
-
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignOutbox" | "assignInbox" | "settings" | "upload";
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "settings" | "upload";
 
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
@@ -222,6 +178,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     return nameMatch || emailMatch;
   }, [initialIsOwner, session, status, urlName, initialProfile.email]);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">("outbox");
 
   // ── sidebar (collapsible left nav) ──────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
@@ -384,8 +341,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     if (typeof window === "undefined") return;
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
-      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignOutbox", "assignInbox"];
-      if (t && (valid as string[]).includes(t)) setActiveTab(t as Tab);
+      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignments"];
+      if (t === "assignOutbox" || t === "assignInbox") {
+        setActiveTab("assignments");
+        if (t === "assignInbox") setAssignSubTab("inbox");
+      } else if (t && (valid as string[]).includes(t)) {
+        setActiveTab(t as Tab);
+      }
     } catch {}
   }, []);
 
@@ -921,8 +883,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     { id: "lists", label: t("tabLists") },
     { id: "profile", label: t("tabProfile") },
     { id: "record", label: t("tabRecord"), ownerOnly: true },
-    { id: "assignOutbox", label: t("tabAssignOutbox"), ownerOnly: true },
-    { id: "assignInbox", label: t("tabAssignInbox"), ownerOnly: true },
+    { id: "assignments", label: t("tabAssignOutbox"), ownerOnly: true },
     { id: "groups", label: t("tabGroups"), ownerOnly: true },
     { id: "gallery", label: t("tabGallery"), ownerOnly: true },
     { id: "followers", label: t("tabFollowers") },
@@ -1103,7 +1064,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
               >
                 {tab.label}
               </button>
-              {tab.id === "assignInbox" && isOwner && (
+              {tab.id === "assignments" && isOwner && (
                 <button
                   onClick={() => handleSidebarTabClick("upload")}
                   className="text-left px-4 py-2.5 text-sm transition-colors"
@@ -1630,14 +1591,27 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
           </div>
         )}
 
-        {/* ── assign outbox tab ─────────────────────────────────────────── */}
-        {activeTab === "assignOutbox" && (
-          <AssignmentsTab variant="outbox" isOwner={isOwner} t={(k: string) => t(k as any)} dateLocale={dateLocale} />
-        )}
-
-        {/* ── assign inbox tab ──────────────────────────────────────────── */}
-        {activeTab === "assignInbox" && (
-          <AssignmentsTab variant="inbox" isOwner={isOwner} t={(k: string) => t(k as any)} dateLocale={dateLocale} />
+        {/* ── assignments tab (outbox + inbox sub-tabs) ─────────────────── */}
+        {activeTab === "assignments" && (
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3 mb-1">
+              <button
+                onClick={() => setAssignSubTab("outbox")}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  assignSubTab === "outbox" ? "border-current" : "border-transparent hover:opacity-70"
+                }`}
+                style={{ color: "#D1D5DB", opacity: assignSubTab === "outbox" ? 1 : 0.45 }}
+              >我指派的</button>
+              <button
+                onClick={() => setAssignSubTab("inbox")}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  assignSubTab === "inbox" ? "border-current" : "border-transparent hover:opacity-70"
+                }`}
+                style={{ color: "#D1D5DB", opacity: assignSubTab === "inbox" ? 1 : 0.45 }}
+              >指派給我</button>
+            </div>
+            <AssignmentsTab variant={assignSubTab} isOwner={isOwner} t={(k: string) => t(k as any)} dateLocale={dateLocale} />
+          </div>
         )}
 
         {/* ── upload tab (owner only) ───────────────────────────────────── */}

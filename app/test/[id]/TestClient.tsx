@@ -249,10 +249,10 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const checkAnswers = useCallback(() => {
     // Assignment mode: submit answers to API instead of grading locally
     if (mode === "assignment" && assignmentId) {
-      const answers: Record<string, string | string[] | null> = {};
+      const answers: Array<{ n: number; u: string | string[] | null }> = [];
       questions.forEach((q, idx) => {
         if (q.type === "group") return;
-        answers[String(q.number)] = userAnswers[idx] ?? null;
+        answers.push({ n: q.number, u: userAnswers[idx] ?? null });
       });
       fetch(`/api/assignments/${assignmentId}`, {
         method: "POST",

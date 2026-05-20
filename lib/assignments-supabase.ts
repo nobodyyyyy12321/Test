@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from "./supabase-admin";
 import { fetchQuestions } from "./questions";
 
+export type AssignmentAnswer = { n: number; u: string | string[] | null };
+
 export type Assignment = {
   id: string;
   assignerId: string;
@@ -12,7 +14,6 @@ export type Assignment = {
   startAt: string;
   endAt: string;
   createdAt: string;
-  answers: Record<string, unknown> | null;
   submittedAt: string | null;
   score: number | null;
   total: number | null;
@@ -33,7 +34,6 @@ function mapRow(row: Row): Assignment {
     startAt: row.start_at as string,
     endAt: row.end_at as string,
     createdAt: row.created_at as string,
-    answers: row.answers as Record<string, unknown> | null,
     submittedAt: row.submitted_at as string | null,
     score: row.score as number | null,
     total: row.total as number | null,
@@ -99,8 +99,26 @@ export async function getAssignmentById(id: string): Promise<Assignment | null> 
   return mapRow(data as Row);
 }
 
-export async function submitAssignment(id: string, answers: Record<string, unknown>): Promise<boolean> {
+export async function getAssignmentAnswers(assignmentId: string): Promise<AssignmentAnswer[] | null> {
   const sb = getSupabaseAdmin();
+  const { data } = await sb
+    .from("assignments")
+    .select("answers")
+    .eq("id", assignmentId)
+    .maybeSingle();
+  if (!data?.answers) return null;
+  return data.answers as AssignmentAnswer[];
+}
+
+export async function submitAssignment(id: string, answers: AssignmentAnswer[]): Promise<boolean> {
+  const sb = getSupabaseAdmin();
+  const { data: a } = await sb
+    .from("assignments")
+    .select("submitted_at")
+    .eq("id", id)
+    .single();
+  if (!a || a.submitted_at) return false;
+
   const { error } = await sb
     .from("assignments")
     .update({ answers, submitted_at: new Date().toISOString() })
@@ -117,36 +135,29 @@ export async function deleteAssignment(id: string): Promise<boolean> {
 export async function gradeAssignment(id: string): Promise<boolean> {
   const sb = getSupabaseAdmin();
 
-  const { data: assignment } = await sb
+  const { data: a } = await sb
     .from("assignments")
-    .select("source_resource_id, answers")
+    .select("source_resource_id, graded_at, answers")
     .eq("id", id)
     .single();
-  if (!assignment) return false;
+  if (!a || a.graded_at) return false;
+  if (!a.answers) return false;
 
-  const row = assignment as Row;
-  const qsetId = row.source_resource_id as string;
-  const answers = row.answers as Record<string, unknown> | null;
-  if (!answers) return false;
+  const answers = a.answers as AssignmentAnswer[];
+  const answerMap = new Map<number, unknown>();
+  for (const ans of answers) answerMap.set(ans.n, ans.u);
 
-  const questions = await fetchQuestions({ id: qsetId });
+  const questions = await fetchQuestions({ id: a.source_resource_id as string });
   if (!questions || questions.length === 0) return false;
-
-  // Build answer map keyed by question number
-  const answerMap: Record<number, unknown> = {};
-  for (const [k, v] of Object.entries(answers)) {
-    answerMap[Number(k)] = v;
-  }
 
   let score = 0;
   let total = 0;
   for (const q of questions) {
     if (q.type === "group") continue;
-    const points = 1;
-    total += points;
+    total += 1;
 
-    const userAnswer = answerMap[q.number];
-    if (userAnswer === undefined) continue;
+    const userAnswer = answerMap.get(q.number);
+    if (userAnswer === undefined || userAnswer === null) continue;
 
     const isCorrect = (() => {
       if (q.type === "fill") {
@@ -160,7 +171,7 @@ export async function gradeAssignment(id: string): Promise<boolean> {
       return String(userAnswer) === String(q.answer);
     })();
 
-    if (isCorrect) score += points;
+    if (isCorrect) score += 1;
   }
 
   const { error } = await sb

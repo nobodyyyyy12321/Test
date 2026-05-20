@@ -19,7 +19,6 @@ export async function POST(request: Request) {
       answered,
       correct,
       set,
-      category: "金句",
       answers: Array.isArray(answers) ? answers : undefined,
     });
 

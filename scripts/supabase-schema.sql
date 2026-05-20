@@ -102,15 +102,14 @@ create table if not exists assignments (
   start_at        timestamptz not null,
   end_at          timestamptz not null,
   created_at      timestamptz not null default now(),
-  answers         jsonb,
   submitted_at    timestamptz,
   score           int,
   total           int,
   graded_at       timestamptz,
+  answers         jsonb,
   check (assign_type = 'exam'),
   check (source_resource_type = 'qset'),
   check (end_at - start_at >= interval '1 minute'),
-  check ((answers is null) = (submitted_at is null)),
   check ((score is null) = (graded_at is null)),
   check ((total is null) = (graded_at is null)),
   check (graded_at is null or submitted_at is not null)
@@ -120,15 +119,16 @@ create index if not exists assignments_assigner_idx on assignments(assigner_id);
 create index if not exists assignments_window_idx   on assignments(end_at);
 
 -- ── quiz_records ────────────────────────────────────────────────────────────
+-- Practice attempts only. Assignment answers live on assignments.answers.
 create table if not exists quiz_records (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    text not null references users(id) on delete cascade,
-  answered   int not null,
-  correct    int not null,
-  set        text not null,
-  timestamp  timestamptz not null,
-  category   text not null,
-  answers    jsonb
+  id            uuid primary key default gen_random_uuid(),
+  user_id       text not null references users(id) on delete cascade,
+  answered      int not null,
+  correct       int,
+  set           text not null,
+  timestamp     timestamptz not null,
+  category      text,
+  answers       jsonb
 );
 
 create index if not exists quiz_records_user_id_idx on quiz_records(user_id);

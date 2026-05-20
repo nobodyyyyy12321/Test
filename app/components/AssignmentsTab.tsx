@@ -11,7 +11,7 @@ type Assignment = {
   startAt: string;
   endAt: string;
   createdAt: string;
-  answers: Record<string, unknown> | null;
+  answers: Array<{ n: number; u: string | string[] | null }> | null;
   submittedAt: string | null;
   score: number | null;
   total: number | null;
@@ -26,15 +26,16 @@ type Props = {
 };
 
 export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Props) {
-  const [inboxSubTab, setInboxSubTab] = useState<"pending" | "submitted">("pending");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [users, setUsers] = useState<Record<string, { name: string; avatarUrl?: string }>>({});
 
   useEffect(() => {
-    if (!isOwner || loaded) return;
+    if (!isOwner) return;
     setLoading(true);
+    setAssignments([]);
+    setUsers({});
     fetch(`/api/assignments?scope=${variant}`)
       .then(r => r.json())
       .then(data => {
@@ -61,15 +62,9 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
 
         setLoaded(true);
       }).finally(() => setLoading(false));
-  }, [isOwner, loaded, variant]);
+  }, [isOwner, variant]);
 
-  const filtered = variant === "outbox"
-    ? assignments
-    : inboxSubTab === "pending"
-      ? assignments.filter(a => !a.submittedAt && new Date(a.endAt).getTime() >= Date.now())
-      : assignments.filter(a => a.submittedAt);
-
-  const sel = useExcelSelection({ resetKey: `${variant}|${inboxSubTab}|${filtered.length}` });
+  const sel = useExcelSelection({ resetKey: `${variant}|${assignments.length}` });
 
   const now = Date.now();
 
@@ -91,38 +86,13 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
 
   return (
     <div className="flex flex-col gap-4">
-      {/* inbox sub-tabs */}
-      {variant === "inbox" && (
-        <div className="flex gap-3 mb-1">
-          <button
-            onClick={() => setInboxSubTab("pending")}
-            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-              inboxSubTab === "pending" ? "border-current" : "border-transparent hover:opacity-70"
-            }`}
-            style={{ color: "#D1D5DB", opacity: inboxSubTab === "pending" ? 1 : 0.45 }}
-          >
-            {t("assignInboxPending")}
-          </button>
-          <button
-            onClick={() => setInboxSubTab("submitted")}
-            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-              inboxSubTab === "submitted" ? "border-current" : "border-transparent hover:opacity-70"
-            }`}
-            style={{ color: "#D1D5DB", opacity: inboxSubTab === "submitted" ? 1 : 0.45 }}
-          >
-            {t("assignInboxSubmitted")}
-          </button>
-        </div>
-      )}
-
-      {/* list */}
       {loading && <p className="text-sm zen-subtle">載入中...</p>}
-      {!loading && loaded && filtered.length === 0 && (
+      {!loading && loaded && assignments.length === 0 && (
         <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>
-          {variant === "outbox" ? "尚無指派記錄" : inboxSubTab === "pending" ? "尚無待繳交的指派" : "尚無已繳交的指派"}
+          {variant === "outbox" ? "尚無指派記錄" : "尚無指派"}
         </p>
       )}
-      {!loading && loaded && filtered.length > 0 && (
+      {!loading && loaded && assignments.length > 0 && (
         <div className="overflow-x-auto">
           <table
             ref={sel.tableRef}
@@ -133,10 +103,10 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
           >
             <thead>
               <tr className="text-left text-xs opacity-50 divide-x divide-zinc-200 dark:divide-zinc-700">
-                <th data-row={0} data-col={0} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,0)}`}>
+                <th data-row={0} data-col={0} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${sel.cellBg(0,0)}`}>標題</th>
+                <th data-row={0} data-col={1} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,1)}`}>
                   {variant === "outbox" ? "對象" : "指派者"}
                 </th>
-                <th data-row={0} data-col={1} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal ${sel.cellBg(0,1)}`}>標題</th>
                 <th data-row={0} data-col={2} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,2)}`}>開始</th>
                 <th data-row={0} data-col={3} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,3)}`}>結束</th>
                 <th data-row={0} data-col={4} className={`px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 font-normal whitespace-nowrap ${sel.cellBg(0,4)}`}>狀態</th>
@@ -146,7 +116,7 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a, index) => {
+              {assignments.map((a, index) => {
                 const isReviewable = a.gradedAt !== null;
                 const reviewUrl = `/test/assignment/${encodeURIComponent(a.id)}?review=1`;
                 const peerName = users[variant === "outbox" ? a.assigneeId : a.assignerId]?.name
@@ -160,12 +130,12 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
                 const r = index + 1;
                 return (
                   <tr key={a.id} className={rowClass}>
-                    <td data-row={r} data-col={0} className={`px-3 py-2 whitespace-nowrap ${sel.cellBg(r,0)}`}>{peerName}</td>
-                    <td data-row={r} data-col={1} className={`px-3 py-2 ${sel.cellBg(r,1)}`}>
+                    <td data-row={r} data-col={0} className={`px-3 py-2 ${sel.cellBg(r,0)}`}>
                       {isReviewable ? (
                         <a href={reviewUrl} className="hover:underline">{a.title}</a>
                       ) : a.title}
                     </td>
+                    <td data-row={r} data-col={1} className={`px-3 py-2 whitespace-nowrap ${sel.cellBg(r,1)}`}>{peerName}</td>
                     <td data-row={r} data-col={2} className={`px-3 py-2 text-xs opacity-60 whitespace-nowrap ${sel.cellBg(r,2)}`}>{formatDate(a.startAt)}</td>
                     <td data-row={r} data-col={3} className={`px-3 py-2 text-xs opacity-60 whitespace-nowrap ${sel.cellBg(r,3)}`}>{formatDate(a.endAt)}</td>
                     <td data-row={r} data-col={4} className={`px-3 py-2 text-xs whitespace-nowrap ${sel.cellBg(r,4)}`}>

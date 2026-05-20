@@ -33,15 +33,8 @@ export type User = {
     correct: number;
     set: string;
     timestamp: string;
-    category: string;
+    category: string | null;
     answers?: { n: number; u: string | string[] | null }[];
-  }>;
-  studyChineseRecords?: Array<{
-    answered: number;
-    correct: number;
-    set: string;
-    timestamp: string;
-    category: "學中文";
   }>;
 };
 
@@ -85,29 +78,17 @@ async function attachRecordsAndRecitations(user: User): Promise<User> {
 
   const allRecords = (recRows.data ?? []) as Array<{
     answered: number; correct: number; set: string;
-    timestamp: string; category: string; answers: unknown;
+    timestamp: string; category: string | null; answers: unknown;
   }>;
 
-  user.records = allRecords
-    .filter((r) => r.category !== "學中文")
-    .map((r) => ({
-      answered: r.answered,
-      correct: r.correct,
-      set: r.set,
-      timestamp: r.timestamp,
-      category: r.category,
-      answers: r.answers as { n: number; u: string | string[] | null }[] | undefined,
-    }));
-
-  user.studyChineseRecords = allRecords
-    .filter((r) => r.category === "學中文")
-    .map((r) => ({
-      answered: r.answered,
-      correct: r.correct,
-      set: r.set,
-      timestamp: r.timestamp,
-      category: "學中文" as const,
-    }));
+  user.records = allRecords.map((r) => ({
+    answered: r.answered,
+    correct: r.correct,
+    set: r.set,
+    timestamp: r.timestamp,
+    category: r.category,
+    answers: r.answers as { n: number; u: string | string[] | null }[] | undefined,
+  }));
 
   user.recitations = (recitRows.data ?? []).map((r: any) => ({
     articleId: r.article_id,
@@ -256,7 +237,7 @@ export async function appendQuizRecord(
     answered: number;
     correct: number;
     set: string;
-    category: string;
+    category?: string;
     answers?: unknown[];
   }
 ): Promise<void> {
@@ -274,10 +255,20 @@ export async function appendQuizRecord(
     correct: record.correct,
     set: record.set,
     timestamp: new Date().toISOString(),
-    category: record.category,
+    category: record.category ?? null,
     answers: record.answers ?? null,
   });
   if (error) throw error;
+
+  const { data: allIds } = await db
+    .from("quiz_records")
+    .select("id")
+    .eq("user_id", u.id)
+    .order("timestamp", { ascending: false });
+  if (allIds && allIds.length > 10) {
+    const idsToDelete = allIds.slice(10).map((r) => r.id);
+    await db.from("quiz_records").delete().in("id", idsToDelete);
+  }
 }
 
 // ── recitation helper ─────────────────────────────────────────────────────────
