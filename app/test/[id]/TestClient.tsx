@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
 import type { Question } from "../../../lib/questions";
-import { useTimer } from "../../providers/TimerContext";
 import dynamic from "next/dynamic";
 
 const RenderContent = dynamic(() => import("../../components/RenderContent"), { ssr: false });
@@ -63,7 +62,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
   const L = useMemo(() => getTestLabels(activeLang), [activeLang]);
   const quizPageSize = limit ?? (id === "englishWords" ? 50 : null);
   const { data: session } = useSession();
-  const { enabled: timerEnabled, running: timerRunning, finished: timerFinished, mode: timerMode, start: timerStart, stop: timerStop, reset: timerReset } = useTimer();
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [allUserAnswers, setAllUserAnswers] = useState<(string | string[] | null)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -240,7 +238,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         setPageIndex(0);
         setPageSize(quizPageSize);
         setIsLoading(false);
-        if (!formalMode && timerEnabled) { timerReset(); timerStart(); }
       })
       .catch(() => { setIsLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -264,7 +261,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     }
 
     setShowResults(true);
-    if (timerEnabled && timerRunning) timerStop();
     const answeredCount = userAnswers.filter((a, idx) => questions[idx]?.type !== "group" && a !== null).length;
     const correctCount = questions.filter((q, idx) => q.type !== "group" && gradeAnswer(q, userAnswers[idx])).length;
     const timestamp = new Date().toISOString();
@@ -285,7 +281,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
         answers: compactAnswers,
       }),
     }).catch(() => {});
-  }, [timerEnabled, timerRunning, timerStop, userAnswers, questions, isRetryWrongMode, session?.user?.email, id, listTitle, levels, listId, pageTitle, mode, assignmentId]);
+  }, [userAnswers, questions, isRetryWrongMode, session?.user?.email, id, listTitle, levels, listId, pageTitle, mode, assignmentId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -369,10 +365,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     setShareScoreCard(card);
     setShareText(url);
   }, [showResults, checkedIdxs.size, questions, userAnswers, pageTitle, L, setShareText, setShareTitle, setShareScoreCard]);
-
-  useEffect(() => {
-    if (timerFinished && timerMode === "down" && !showResults) checkAnswers();
-  }, [timerFinished, timerMode, showResults, checkAnswers]);
 
   const handleSingleAnswerAt = (idx: number, answer: string) => {
     setAllUserAnswers(prev => { const next = [...prev]; next[pageStart + idx] = answer; return next; });
@@ -532,7 +524,6 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
               onClick={() => {
                 if (overlayRef.current) overlayRef.current.style.display = "none";
                 setStarted(true);
-                if (timerEnabled) { timerReset(); timerStart(); }
                 document.documentElement.requestFullscreen().catch(() => {});
               }}
               className="px-10 py-3 rounded-full text-base font-medium transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"

@@ -3,7 +3,7 @@ import { Geist, Noto_Serif_TC } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import AuthNav from "./components/AuthNav";
-import DesktopSettingsButton from "./components/DesktopSettingsButton";
+
 import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
 import PWARegister from "./components/PWARegister";
@@ -13,7 +13,6 @@ import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
 import ShareButton from "./components/ShareButton";
 import ThemeWatcher from "./components/ThemeWatcher";
-import { TimerProvider } from "./providers/TimerContext";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
 // ...existing code...
@@ -76,7 +75,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${notoSerif.variable} antialiased`}
       >
         <Providers>
-          <TimerProvider>
           <ThemeWatcher />
           <aside className="hidden sm:flex fixed right-4 top-4 z-40 flex-row items-center gap-2">
             <Link href="/" aria-label="回到首頁" className="inline-flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
@@ -88,7 +86,7 @@ export default function RootLayout({
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <ShareButton />
             </div>
-            <DesktopSettingsButton />
+
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <AuthNav />
             </div>
@@ -120,7 +118,6 @@ export default function RootLayout({
           <MobileBottomBar />
           <PullToRefresh />
           <RotatePrompt />
-          </TimerProvider>
         </Providers>
         <Analytics />
       </body>

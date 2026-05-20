@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import AuthNav from "./AuthNav";
-import SettingsMenu from "./SettingsMenu";
 import ShareButton from "./ShareButton";
 
 export default function MobileBottomBar() {
@@ -26,11 +25,6 @@ export default function MobileBottomBar() {
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
         <ShareButton />
       </div>
-      {loggedIn && (
-        <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-          <SettingsMenu />
-        </div>
-      )}
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
         <AuthNav />
       </div>
