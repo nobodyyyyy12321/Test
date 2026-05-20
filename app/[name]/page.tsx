@@ -17,16 +17,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const user = await findUserByName(urlName).catch(() => null);
   if (!user) return { title: isEn ? "User Not Found" : "找不到使用者" };
   return {
-    title: `${user.name} — Test`,
+    title: `${user.name}`,
     description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
     openGraph: {
-      title: `${user.name} — Test`,
+      title: `${user.name}`,
       description: user.bio || undefined,
       images: [{ url: user.avatarUrl || AVATAR_PLACEHOLDER }],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${user.name} — Test`,
+      title: `${user.name}`,
       description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
       images: [user.avatarUrl || AVATAR_PLACEHOLDER],
     },

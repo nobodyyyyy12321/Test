@@ -94,15 +94,15 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   }
 
   return {
-    title: `${title} — Test`,
+    title: `${title}`,
     description: getTestMetadataDescription(title, activeLang),
     openGraph: {
-      title: `${title} — Test`,
+      title: `${title}`,
       description: getTestMetadataDescription(title, activeLang),
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} — Test`,
+      title: `${title}`,
       description: getTestMetadataDescription(title, activeLang),
     },
   };
