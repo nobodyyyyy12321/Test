@@ -137,7 +137,7 @@ export function HomeContent() {
                 <Link
                   href={hrefWithOptions(child)}
                   className="book-link bookshelf-btn"
-                  style={{ color: LEAF_COLOR }}
+                  style={{ color: "var(--zen-ink)" }}
                   draggable={false}
                 >
                   {child.name}
@@ -713,7 +713,7 @@ export function HomeContent() {
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
     const isExpanded = isPinnedKeyOpen(pinId);
-    const childColor = ancestorExpanded || isExpanded ? FOLDER_COLOR : LEAF_COLOR;
+    const childColor = ancestorExpanded || isExpanded ? FOLDER_COLOR : "var(--zen-ink)";
     const indentStyle = depth > 1 ? { marginLeft: `${(depth - 1) * 14}px` } : undefined;
 
     return (
@@ -798,7 +798,7 @@ export function HomeContent() {
         <a
           href={recommendedHref}
           className="book-link bookshelf-btn"
-          style={{ color: inChain ? FOLDER_COLOR : LEAF_COLOR }}
+          style={{ color: inChain ? FOLDER_COLOR : "var(--zen-ink)" }}
           draggable={false}
         >
           {cat.name}
@@ -815,7 +815,7 @@ export function HomeContent() {
       key={`list-${list.id}`}
       href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
       className="book-link bookshelf-btn"
-      style={{ color: inChain ? FOLDER_COLOR : LEAF_COLOR }}
+      style={{ color: inChain ? FOLDER_COLOR : "var(--zen-ink)" }}
     >
       {list.title}
     </a>
@@ -835,7 +835,7 @@ export function HomeContent() {
           <button
             type="button"
             className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-            style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
+            style={{ color: isHighlighted ? FOLDER_COLOR : "var(--zen-ink)" }}
             title="公開資料夾"
             draggable={false}
             onClick={() => toggleRecommendedFolder(user, folder.id)}
@@ -922,7 +922,7 @@ export function HomeContent() {
           <button
             type="button"
             className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
-            style={{ color: isHighlighted ? FOLDER_COLOR : LEAF_COLOR }}
+            style={{ color: isHighlighted ? FOLDER_COLOR : "var(--zen-ink)" }}
             title="公開資料夾"
             draggable={false}
             onClick={() => togglePinnedRecFolder(key, chain)}
@@ -972,7 +972,7 @@ export function HomeContent() {
       <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
         <div className="relative flex flex-col items-center leading-none">
           <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Exam</h1>
-          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "#D1D5DB" }}>exam.farm</span>
+          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "var(--zen-ink)" }}>exam.farm</span>
           <div className="absolute -top-1 -right-5">
             <LanguageSelector />
           </div>
@@ -1014,7 +1014,7 @@ export function HomeContent() {
                         <a
                           href={`/test/list?listId=${list.id}&autostart=1`}
                           className="book-link bookshelf-btn"
-                          style={{ color: "#D1D5DB" }}
+                          style={{ color: "var(--zen-ink)" }}
                           draggable={false}
                         >
                           {list.title}
@@ -1030,7 +1030,7 @@ export function HomeContent() {
                         <a
                           href={`/test/${encodeURIComponent(col.collectionId)}?autostart=1`}
                           className="book-link bookshelf-btn"
-                          style={{ color: LEAF_COLOR }}
+                          style={{ color: "var(--zen-ink)" }}
                           draggable={false}
                         >
                           {col.displayName}
@@ -1077,7 +1077,7 @@ export function HomeContent() {
                           <a
                             href={fallbackHref}
                             className="book-link bookshelf-btn"
-                            style={{ color: LEAF_COLOR }}
+                            style={{ color: "var(--zen-ink)" }}
                             draggable={false}
                           >
                             {label}
@@ -1094,7 +1094,7 @@ export function HomeContent() {
                         <Link
                           href={hrefWithOptions(subject)}
                           className="book-link bookshelf-btn"
-                          style={{ color: LEAF_COLOR }}
+                          style={{ color: "var(--zen-ink)" }}
                           draggable={false}
                         >
                           {subject.name}
@@ -1215,7 +1215,7 @@ export function HomeContent() {
                 {!query && recommendedLoaded && (
                   <div className="mt-6">
                     <div className="flex items-center gap-1 mb-3">
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs" style={{ color: "var(--zen-ink)" }}>
                         {language === "en" ? "Recommended Creators" : "推薦創作者"}
                       </p>
                       <button
@@ -1243,7 +1243,7 @@ export function HomeContent() {
                               href={`/${encodeURIComponent(u.name)}`}
                               className="inline-block mb-3 hover:opacity-80 transition-opacity"
                             >
-                              <span className="text-base font-medium" style={{ color: "#b19739" }}>{u.name}</span>
+                              <span className="text-base font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
                             </Link>
                             {((u.categories && u.categories.length > 0) || (u.folders && u.folders.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
