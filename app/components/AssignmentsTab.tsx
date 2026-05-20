@@ -84,6 +84,24 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString(dateLocale, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 
+  const exportCsv = () => {
+    const rows = sel.getSelectionAsTable();
+    if (!rows || rows.length === 0) return;
+    const escape = (s: string) => /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    const csv = rows.map(r => r.map(escape).join(",")).join("\r\n");
+    // UTF-8 BOM so Excel renders Chinese correctly
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    a.download = `assignments-${variant}-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {loading && <p className="text-sm zen-subtle">載入中...</p>}
@@ -91,6 +109,22 @@ export default function AssignmentsTab({ variant, isOwner, t, dateLocale }: Prop
         <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>
           {variant === "outbox" ? "尚無指派記錄" : "尚無指派"}
         </p>
+      )}
+      {!loading && loaded && assignments.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            data-keep-selection="true"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={exportCsv}
+            disabled={!sel.hasSelection}
+            className="text-xs px-3 py-1.5 rounded-full border transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 25%, transparent)", color: "var(--zen-ink)" }}
+            title={sel.hasSelection ? "輸出選取範圍" : "請先框選表格範圍"}
+          >
+            輸出成CSV
+          </button>
+        </div>
       )}
       {!loading && loaded && assignments.length > 0 && (
         <div className="overflow-x-auto">

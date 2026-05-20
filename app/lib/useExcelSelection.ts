@@ -49,6 +49,9 @@ export function useExcelSelection({ resetKey }: { resetKey?: unknown } = {}) {
     const onDocDown = (e: MouseEvent) => {
       if (!tableRef.current) return;
       if (tableRef.current.contains(e.target as Node)) return;
+      // Elements with data-keep-selection (and their descendants) don't clear the selection
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("[data-keep-selection]")) return;
       setSel(null);
     };
     document.addEventListener("mousedown", onDocDown);
@@ -85,6 +88,29 @@ export function useExcelSelection({ resetKey }: { resetKey?: unknown } = {}) {
     return () => document.removeEventListener("copy", onCopy);
   }, [sel]);
 
+  const getSelectionAsTable = useCallback((): string[][] | null => {
+    if (!sel || !tableRef.current) return null;
+    const rMin = Math.min(sel.r1, sel.r2);
+    const rMax = Math.max(sel.r1, sel.r2);
+    const cMin = Math.min(sel.c1, sel.c2);
+    const cMax = Math.max(sel.c1, sel.c2);
+    const rows: string[][] = [];
+    for (let r = rMin; r <= rMax; r++) {
+      const cols: string[] = [];
+      for (let c = cMin; c <= cMax; c++) {
+        const cell = tableRef.current.querySelector<HTMLElement>(
+          `[data-row="${r}"][data-col="${c}"]`
+        );
+        const raw = cell?.dataset.copyText ?? cell?.innerText ?? "";
+        cols.push(raw.replace(/[\r\n]+/g, " ").trim());
+      }
+      rows.push(cols);
+    }
+    return rows;
+  }, [sel]);
+
+  const hasSelection = sel !== null;
+
   const isSelected = useCallback((r: number, c: number) => {
     if (!sel) return false;
     const rMin = Math.min(sel.r1, sel.r2);
@@ -104,5 +130,5 @@ export function useExcelSelection({ resetKey }: { resetKey?: unknown } = {}) {
     return "";
   };
 
-  return { tableRef, onMouseDown, onMouseOver, isSelected, isAnchor, cellBg };
+  return { tableRef, onMouseDown, onMouseOver, isSelected, isAnchor, cellBg, getSelectionAsTable, hasSelection };
 }
