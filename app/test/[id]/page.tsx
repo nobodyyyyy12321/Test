@@ -97,6 +97,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     title: `${title}`,
     description: getTestMetadataDescription(title, activeLang),
     openGraph: {
+      siteName: "Exam",
       title: `${title}`,
       description: getTestMetadataDescription(title, activeLang),
     },

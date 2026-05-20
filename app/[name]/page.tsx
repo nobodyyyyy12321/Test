@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${user.name}`,
     description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
     openGraph: {
+      siteName: "Exam",
       title: `${user.name}`,
       description: user.bio || undefined,
       images: [{ url: user.avatarUrl || AVATAR_PLACEHOLDER }],
