@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import type { QuestionList, ListQuestion } from "../../../../lib/lists-supabase";
-import { getCollectionLabel } from "../../../components/collectionLabels";
 
 type Props = { list: QuestionList };
 
@@ -215,9 +214,6 @@ export default function ListEditClient({ list }: Props) {
                 </span>
                 <span className="flex-1 text-sm truncate" style={{ color: "var(--zen-ink)" }}>
                   {q.title || `第 ${q.number} 題`}
-                </span>
-                <span className="text-xs opacity-40 shrink-0" style={{ color: "var(--zen-ink)" }}>
-                  {getCollectionLabel(q.collectionId, q.level)}
                 </span>
                 <button
                   type="button"
