@@ -12,6 +12,7 @@ import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
 import ShareButton from "./components/ShareButton";
+import SearchButton from "./components/SearchButton";
 import ThemeWatcher from "./components/ThemeWatcher";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
@@ -83,6 +84,9 @@ export default function RootLayout({
                 <path d="M9 21V12h6v9" />
               </svg>
             </Link>
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+              <SearchButton />
+            </div>
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <ShareButton />
             </div>

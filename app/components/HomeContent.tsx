@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
@@ -12,7 +11,6 @@ import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 import type { MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
-import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import type { QuestionList } from "../../lib/lists-supabase";
 import {
   DndContext,
@@ -153,13 +151,9 @@ export function HomeContent() {
   const [language, setLanguage] = useState("zh-TW");
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [loadingLang, setLoadingLang] = useState(false);
-  const [query, setQuery] = useState("");
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [openDropKey, setOpenDropKey] = useState<string | null>(null);
   const [openYearKey, setOpenYearKey] = useState<string | null>(null);
-  const [userResults, setUserResults] = useState<UserResult[]>([]);
-  const [ownerCatResults, setOwnerCatResults] = useState<Array<{ id: string; name: string; href: string | null; ownerId: string; ownerName: string | null; ownerAvatarUrl: string | null; problemsPerTest: number | null; shuffleProblems: boolean | null }>>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [catOpen, setCatOpen] = useState(true);
   const [pinnedNames, setPinnedNames] = useState<string[]>([]);
   const [externalPinnedRefs, setExternalPinnedRefs] = useState<Record<string, ExternalPinnedRef>>({});
@@ -189,13 +183,12 @@ export function HomeContent() {
     },
   });
   const visiblePinnedProfileTabs = pinnedProfileTabs;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeDrag, setActiveDrag] = useState<PinDragData | null>(null);
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
   );
-  const subjects = useFilteredCategories(categories, query);
+  const subjects = useFilteredCategories(categories, "");
 
   const FOLDER_COLOR = "#b19739"; // gold — nodes with children or dropdown
   const LEAF_COLOR = "#D1D5DB";   // off-white — leaf items (link directly to a test)
@@ -345,7 +338,7 @@ export function HomeContent() {
   };
 
   const renderCategoryNode = (node: CategoryNode, key: string, depth: number, path: string[], ancestorExpanded: boolean = false) => {
-    const isOpen = !!query || openKeys.has(key);
+    const isOpen = openKeys.has(key);
     const hasSub = !!node.children?.length;
     const hasDrop = !!node.dropdown?.length;
     const isDropOpen = openDropKey === key;
@@ -638,29 +631,10 @@ export function HomeContent() {
     setOpenKeys(new Set());
     setOpenDropKey(null);
     setOpenYearKey(null);
-    setQuery("");
-    setUserResults([]);
-    setOwnerCatResults([]);
 
     setCategories([]);
     setLoadingLang(false);
   }, [language]);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim()) { setUserResults([]); setOwnerCatResults([]); setSearchLoading(false); return; }
-    setSearchLoading(true);
-    debounceRef.current = setTimeout(() => {
-      Promise.all([
-        fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`).then(r => r.json()).catch(() => ({ users: [] })),
-        fetch(`/api/search/categories?q=${encodeURIComponent(query.trim())}&language=${encodeURIComponent(language)}`).then(r => r.json()).catch(() => ({ results: [] })),
-      ]).then(([userData, catData]) => {
-        setUserResults(userData.users ?? []);
-        setOwnerCatResults(catData.results ?? []);
-      }).finally(() => setSearchLoading(false));
-    }, 300);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, language]);
 
   const hrefToCategoryKey = (href: string): string => {
     const m = href.match(/\/test\/([^?]+)(?:\?.*?levels=([^&]+))?/);
@@ -977,15 +951,6 @@ export function HomeContent() {
             <LanguageSelector />
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            className="home-search w-[12.5rem] sm:w-[18.75rem] p-2 rounded-full border text-sm outline-none transition-all"
-            style={{ backgroundColor: "#1a1a1a", color: "#d1d5db", borderColor: "#3a3a3a" }}
-            placeholder={language === "en" ? "Search subjects or users" : "搜尋分類或帳號"}
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpenKeys(new Set()); }}
-          />
-        </div>
       </div>
 
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-16 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
@@ -1043,7 +1008,7 @@ export function HomeContent() {
                       const parts = pinValue.split(":");
                       const ownerId = parts[1];
                       const folderId = parts[2];
-                      const allUsers = [...recommendedAccounts, ...userResults];
+                      const allUsers = recommendedAccounts;
                       const user = allUsers.find(u => u.id === ownerId);
                       const folder = user?.folders?.find(f => f.id === folderId);
                       if (user && folder) {
@@ -1121,98 +1086,7 @@ export function HomeContent() {
                   )
                 )}
 
-                {query && searchLoading && (
-                  <p className="text-sm zen-subtle mt-6 opacity-50">搜尋中...</p>
-                )}
-
-                {!loadingLang && !searchLoading && subjects.length === 0 && userResults.length === 0 && ownerCatResults.length === 0 && query && (
-                  <p className="text-sm zen-subtle mt-6 opacity-50">
-                    {language === "en" ? "No matching results" : "沒有符合的結果"}
-                  </p>
-                )}
-
-                {ownerCatResults.length > 0 && (
-                  <div className="mt-6">
-                    <p className="text-xs text-zinc-400 mb-3">
-                      {language === "en" ? "Creator Categories" : "創作者分類"}
-                    </p>
-                    <ul className="flex flex-col gap-6">
-                      {Array.from(
-                        ownerCatResults.reduce((map, cat) => {
-                          if (!map.has(cat.ownerId)) map.set(cat.ownerId, { ownerName: cat.ownerName, ownerAvatarUrl: cat.ownerAvatarUrl, cats: [] });
-                          map.get(cat.ownerId)!.cats.push(cat);
-                          return map;
-                        }, new Map<string, { ownerName: string | null; ownerAvatarUrl: string | null; cats: typeof ownerCatResults }>())
-                      ).map(([ownerId, { ownerName, ownerAvatarUrl, cats }]) => (
-                        <li key={ownerId}>
-                          <Link
-                            href={`/${encodeURIComponent(ownerName ?? ownerId)}`}
-                            className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
-                          >
-                            <Image
-                              src={ownerAvatarUrl || AVATAR_PLACEHOLDER}
-                              alt={ownerName ?? ownerId}
-                              width={40}
-                              height={40}
-                              unoptimized
-                              className="w-10 h-10 rounded-full object-cover shrink-0"
-                            />
-                            <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{ownerName ?? ownerId}</span>
-                          </Link>
-                          <div className="bookshelf-grid">
-                              {cats.map(cat => {
-                                const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
-                                const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${ownerId}:${cat.id}`;
-                                const isPinned = loggedIn && pinnedNames.includes(pinId);
-                                return (
-                                  <PinDraggable key={cat.id} pinId={pinId} name={cat.name} href={recommendedHref} from="grid">
-                                    <a
-                                      href={recommendedHref}
-                                      className="book-link bookshelf-btn"
-                                      style={{ color: LEAF_COLOR }}
-                                      draggable={false}
-                                    >
-                                      {cat.name}
-                                    </a>
-                                  </PinDraggable>
-                                );
-                              })}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {userResults.length > 0 && (
-                  <div className="mt-6">
-                    <p className="text-xs text-zinc-400 mb-3">
-                      {language === "en" ? "Users" : "帳號"}
-                    </p>
-                    <div className="bookshelf-grid home-bookshelf-grid">
-                      {userResults.map(u => (
-                        <Link
-                          key={u.id}
-                          href={`/${encodeURIComponent(u.name)}`}
-                          className="book-link bookshelf-btn flex flex-col items-center gap-1.5"
-                          style={{ color: "var(--zen-ink)" }}
-                        >
-                          <Image
-                            src={u.avatarUrl || AVATAR_PLACEHOLDER}
-                            alt={u.name}
-                            width={32}
-                            height={32}
-                            unoptimized
-                            className="w-8 h-8 rounded-full object-cover shrink-0"
-                          />
-                          <span className="text-sm font-medium text-center leading-tight" style={{ color: "#b19739" }}>{u.name}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {!query && recommendedLoaded && (
+                {recommendedLoaded && (
                   <div className="mt-6">
                     <button
                       type="button"

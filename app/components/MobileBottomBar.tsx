@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import AuthNav from "./AuthNav";
 import ShareButton from "./ShareButton";
+import SearchButton from "./SearchButton";
 
 export default function MobileBottomBar() {
   const { data: session } = useSession();
@@ -21,6 +22,9 @@ export default function MobileBottomBar() {
             <path d="M9 21V12h6v9" />
           </svg>
         </Link>
+      </div>
+      <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
+        <SearchButton />
       </div>
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
         <ShareButton />
