@@ -1107,15 +1107,9 @@ export function HomeContent() {
                     </button>
                     {!recommendedCollapsed && (
                       recommendedAccounts.length > 0 ? (
-                        <ul className="flex flex-col gap-6">
+                        <ul className="flex flex-col gap-2">
                         {recommendedAccounts.map(u => (
                             <li key={u.id}>
-                            <Link
-                              href={`/${encodeURIComponent(u.name)}`}
-                              className="inline-block mb-3 hover:opacity-80 transition-opacity"
-                            >
-                              <span className="text-base font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                            </Link>
                             {((u.categories && u.categories.length > 0) || (u.folders && u.folders.length > 0) || (u.lists && u.lists.length > 0)) && (
                                 <div className="bookshelf-grid">
                                   {renderRecommendedCreatorItems(u)}

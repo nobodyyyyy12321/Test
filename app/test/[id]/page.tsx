@@ -49,32 +49,47 @@ function findNameInTree(nodes: CategoryNode[], id: string, levels?: string | nul
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function fetchCategoryNameById(id: string): Promise<string | null> {
+async function fetchCategoryNameById(id: string): Promise<{ name: string; ownerId: string | null } | null> {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
   const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
-  const url = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(id)}&select=name&limit=1`;
+  const url = `${SUPABASE_URL}/rest/v1/qsets?id=eq.${encodeURIComponent(id)}&select=name,owner_id&limit=1`;
   const res = await fetch(url, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
     next: { revalidate: 60 },
+  });
+  if (!res.ok) return null;
+  const rows: Array<{ name: string; owner_id: string | null }> = await res.json();
+  const row = rows[0];
+  if (!row) return null;
+  return { name: row.name, ownerId: row.owner_id ?? null };
+}
+
+async function fetchUserNameById(id: string): Promise<string | null> {
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
+  const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
+  const url = `${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(id)}&select=name&limit=1`;
+  const res = await fetch(url, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    next: { revalidate: 300 },
   });
   if (!res.ok) return null;
   const rows: Array<{ name: string }> = await res.json();
   return rows[0]?.name ?? null;
 }
 
-async function resolveTitle(id: string, levels?: string | null, language?: string | null): Promise<string> {
+async function resolveTitleAndOwner(id: string, levels?: string | null, language?: string | null): Promise<{ title: string; ownerId: string | null }> {
   if (UUID_RE.test(id)) {
-    const name = await fetchCategoryNameById(id);
-    if (name) return name;
+    const row = await fetchCategoryNameById(id);
+    if (row) return { title: row.name, ownerId: row.ownerId };
   }
 
   const lang = language && language.trim() ? language : "zh-TW";
   const categories = await getCategoriesCached(lang);
   const categoryName = findNameInTree(categories, id, levels);
-  if (categoryName) return categoryName;
+  if (categoryName) return { title: categoryName, ownerId: null };
 
   const fallbackTitle = await getAnyCollectionDisplayName(id, lang);
-  return fallbackTitle ?? id;
+  return { title: fallbackTitle ?? id, ownerId: null };
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
@@ -86,7 +101,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const inferredLang = inferLanguageFromCollectionId(decodedId);
   const activeLang = lang ?? language ?? inferredLang ?? cookieLang ?? "zh-TW";
 
-  let title = await resolveTitle(decodedId, levels, activeLang);
+  let title = (await resolveTitleAndOwner(decodedId, levels, activeLang)).title;
   if (name) title = decodeURIComponent(name);
   if (listId) {
     const list = await getListByIdCached(listId).catch(() => null);
@@ -116,14 +131,17 @@ export default async function TestPage({ params, searchParams }: Props) {
   const inferredLang = inferLanguageFromCollectionId(decodedId);
   const serverLang = lang ?? language ?? inferredLang ?? "zh-TW";
 
-  const [list, pageTitle] = await Promise.all([
+  const [list, resolved] = await Promise.all([
     listId ? getListByIdCached(listId).catch(() => null) : Promise.resolve(null),
-    resolveTitle(decodedId, levels, serverLang),
+    resolveTitleAndOwner(decodedId, levels, serverLang),
   ]);
 
-  const title = list?.title ?? (name ? decodeURIComponent(name) : pageTitle);
+  const title = list?.title ?? (name ? decodeURIComponent(name) : resolved.title);
   const parsedCount = count ? parseInt(count, 10) : NaN;
   const limit = Number.isFinite(parsedCount) && parsedCount > 0 ? parsedCount : null;
+
+  const ownerId = list?.ownerId ?? resolved.ownerId;
+  const ownerName = ownerId ? await fetchUserNameById(ownerId) : null;
 
   return (
     <TestClient
@@ -137,6 +155,7 @@ export default async function TestPage({ params, searchParams }: Props) {
       autostart={autostart === "1"}
       limit={limit}
       language={serverLang}
+      ownerName={ownerName}
     />
   );
 }

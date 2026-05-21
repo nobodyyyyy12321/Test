@@ -30,6 +30,7 @@ type TestTextKey =
   | "nextPage"
   | "shareFrom"
   | "practiceDescriptionSuffix"
+  | "createdBy"
   | "loading";
 
 type TestDictionary = Record<TestTextKey, string>;
@@ -64,6 +65,7 @@ const testZhTW: TestDictionary = {
   nextPage: "下一頁",
   shareFrom: "from Exam",
   practiceDescriptionSuffix: "練習題",
+  createdBy: "建立者",
   loading: "載入中…",
 };
 
@@ -97,6 +99,7 @@ const testEn: TestDictionary = {
   nextPage: "Next Page",
   shareFrom: "from Exam",
   practiceDescriptionSuffix: "practice questions",
+  createdBy: "Created by",
   loading: "Loading…",
 };
 
@@ -130,6 +133,7 @@ const testZhCN: TestDictionary = {
   nextPage: "下一页",
   shareFrom: "from Exam",
   practiceDescriptionSuffix: "练习题",
+  createdBy: "创建者",
   loading: "加载中…",
 };
 
@@ -185,6 +189,7 @@ export function getTestLabels(lang: string | null | undefined) {
     prevPage: t.prevPage,
     nextPage: t.nextPage,
     shareFrom: t.shareFrom,
+    createdBy: t.createdBy,
     loading: t.loading,
     shareScoreCard: (score: number, title: string) =>
       normalized === "en"

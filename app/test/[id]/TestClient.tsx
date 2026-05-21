@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
@@ -50,9 +51,10 @@ type Props = {
   mode?: "practice" | "assignment";
   assignmentId?: string;
   initialQuestions?: Question[];
+  ownerName?: string | null;
 };
 
-export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit, mode = "practice", assignmentId, initialQuestions }: Props) {
+export default function TestClient({ id, ordered, listId, listTitle, levels, language, pageTitle, replayKey, autostart, limit, mode = "practice", assignmentId, initialQuestions, ownerName }: Props) {
   const [clientLang, setClientLang] = useState<string | null>(null);
   useEffect(() => {
     const m = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]*)/);
@@ -796,6 +798,17 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
                 </>
               );
             })()}
+          </div>
+        )}
+        {ownerName && (
+          <div className="mt-8 text-xs opacity-60" style={{ color: "var(--zen-ink)" }}>
+            <span>{L.createdBy} </span>
+            <Link
+              href={`/${encodeURIComponent(ownerName)}`}
+              className="hover:opacity-80 underline-offset-2 hover:underline"
+            >
+              @{ownerName}
+            </Link>
           </div>
         )}
       </main>
