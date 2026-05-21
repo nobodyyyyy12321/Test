@@ -1214,26 +1214,23 @@ export function HomeContent() {
 
                 {!query && recommendedLoaded && (
                   <div className="mt-6">
-                    <div className="flex items-center gap-1 mb-3">
-                      <p className="text-xs" style={{ color: "var(--zen-ink)" }}>
-                        {language === "en" ? "Recommended Creators" : "推薦創作者"}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setRecommendedCollapsed(o => !o)}
-                        aria-label={recommendedCollapsed ? "展開" : "收合"}
-                        title={recommendedCollapsed ? "展開" : "收合"}
-                        className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => setRecommendedCollapsed(o => !o)}
+                      aria-label={recommendedCollapsed ? "展開" : "收合"}
+                      title={recommendedCollapsed ? "展開" : "收合"}
+                      className="flex items-center gap-1 mb-3 text-xs transition-colors"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      <span>{language === "en" ? "Recommended Creators" : "推薦創作者"}</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: recommendedCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                          style={{ transform: recommendedCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
-                        >
-                          <path d="m6 9 6 6 6-6"/>
-                        </svg>
-                      </button>
-                    </div>
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </button>
                     {!recommendedCollapsed && (
                       recommendedAccounts.length > 0 ? (
                         <ul className="flex flex-col gap-6">
