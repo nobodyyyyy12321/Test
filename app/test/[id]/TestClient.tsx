@@ -561,74 +561,79 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
             {showResults && mode === "assignment" && <span>已提交</span>}
             {showResults && mode !== "assignment" && <span>{L.score(correctCount, answeredCount)}</span>}
           </h1>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => goToQuestionPage(-1)}
-                disabled={!canGoPrevPage}
-                className="px-4 py-2 border rounded-full text-sm transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ background: "transparent", borderColor: "#b19739", color: "#b19739" }}
-              >
-                {L.prevPage}
-              </button>
-              <button
-                type="button"
-                onClick={() => goToQuestionPage(1)}
-                disabled={!canGoNextPage}
-                className="px-4 py-2 border rounded-full text-sm transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ background: "transparent", borderColor: "#b19739", color: "#b19739" }}
-              >
-                {L.nextPage}
-              </button>
-            </div>
-            {!showResults ? (
-              <>
-              {session?.user && (
-                <BulkAddToListButton
-                  questions={questions
-                    .map((q, i) => ({ q, i }))
-                    .filter(({ i }) => checkedIdxs.has(i))
-                    .map(({ q }) => ({
-                      questionId: q.id,
-                      collectionId: id,
-                      title: q.title,
-                      number: q.number,
-                      level: q.level,
-                    }))}
-                />
-              )}
-              <button
-                onClick={checkAnswers}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
-                className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
-              >
-                {mode === "assignment" ? "提交" : L.submit}
-              </button>
-              </>
-            ) : (
-              <>
-              {mode !== "assignment" && session && (
-                <button
-                  onClick={retryWrong}
-                  disabled={questions.every((q, idx) => q.type === "group" || userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
-                  className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
-                  style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
-                >
-                  {L.retryWrong}
-                </button>
-              )}
-              <button
-                onClick={resetQuiz}
-                className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
-              >
-                {mode === "assignment" ? "重新作答" : L.restart}
-              </button>
-              </>
-            )}
+        </div>
+
+        {/* 浮動操作列：固定在右下角 */}
+        <div
+          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-3 py-2 rounded-full"
+          style={{ backgroundColor: "color-mix(in srgb, var(--zen-bg) 92%, transparent)", backdropFilter: "blur(8px)", boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => goToQuestionPage(-1)}
+              disabled={!canGoPrevPage}
+              className="px-4 py-2 border rounded-full text-sm transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: "transparent", borderColor: "#b19739", color: "#b19739" }}
+            >
+              {L.prevPage}
+            </button>
+            <button
+              type="button"
+              onClick={() => goToQuestionPage(1)}
+              disabled={!canGoNextPage}
+              className="px-4 py-2 border rounded-full text-sm transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: "transparent", borderColor: "#b19739", color: "#b19739" }}
+            >
+              {L.nextPage}
+            </button>
           </div>
+          {!showResults ? (
+            <>
+            {session?.user && (
+              <BulkAddToListButton
+                questions={questions
+                  .map((q, i) => ({ q, i }))
+                  .filter(({ i }) => checkedIdxs.has(i))
+                  .map(({ q }) => ({
+                    questionId: q.id,
+                    collectionId: id,
+                    title: q.title,
+                    number: q.number,
+                    level: q.level,
+                  }))}
+              />
+            )}
+            <button
+              onClick={checkAnswers}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#b19739"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent"; }}
+              className="px-4 py-2 border rounded-full text-sm cursor-pointer hover:opacity-90 transition-opacity"
+              style={{ background: "transparent", borderColor: "transparent", color: "#b19739" }}
+            >
+              {mode === "assignment" ? "提交" : L.submit}
+            </button>
+            </>
+          ) : (
+            <>
+            {mode !== "assignment" && session && (
+              <button
+                onClick={retryWrong}
+                disabled={questions.every((q, idx) => q.type === "group" || userAnswers[idx] === null || gradeAnswer(q, userAnswers[idx]))}
+                className="px-4 py-2 border rounded-full text-sm disabled:opacity-30"
+                style={{ borderColor: "#b19739", color: "#b19739", background: "transparent" }}
+              >
+                {L.retryWrong}
+              </button>
+            )}
+            <button
+              onClick={resetQuiz}
+              className="px-4 py-2 border rounded-full bg-white text-black dark:bg-white dark:text-black text-sm"
+            >
+              {mode === "assignment" ? "重新作答" : L.restart}
+            </button>
+            </>
+          )}
         </div>
 
         <div className="mt-4 w-full grid grid-cols-1 sm:gap-x-8 divide-y sm:divide-y-0 divide-zinc-100 dark:divide-zinc-800" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
