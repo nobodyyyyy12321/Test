@@ -119,7 +119,7 @@ export function BulkAddToListButton({ questions }: BulkProps) {
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-2 z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
+        <div className="absolute bottom-full right-0 mb-2 z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
           <div className="px-3 py-2 text-xs text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
             加入 {questions.length} 題至清單
           </div>
