@@ -105,13 +105,13 @@ export default function AuthNav() {
           {/* 桌機下拉選單 */}
           {isMenuOpen && (
             <div className="hidden sm:block absolute right-0 top-full mt-2 w-36 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
-              <Link href="/auth/login" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
-              <Link href="/auth/register" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
+              <Link href="/auth/login" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "var(--zen-ink)" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
+              <Link href="/auth/register" className="block px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "var(--zen-ink)" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
             </div>
           )}
         </div>
 
-        {/* 手機遮罩 + 頂部下滑選單（用 Portal 渲染到 body，避免被 MobileBottomBar stacking context 限制） */}
+        {/* 手機遮罩 + 底部上滑 action sheet（Threads 風格，用 Portal 避免被 stacking context 限制） */}
         {domMounted && createPortal(
           <>
             <div
@@ -119,11 +119,32 @@ export default function AuthNav() {
               onClick={() => setIsMenuOpen(false)}
             />
             <div
-              className={`sm:hidden fixed bottom-0 left-0 right-0 z-[80] bg-zen-paper dark:bg-zinc-900 transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
-              style={{ boxShadow: '0 -4px 16px rgba(0,0,0,0.10)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+              className={`sm:hidden fixed bottom-0 left-0 right-0 z-[80] rounded-t-2xl bg-zinc-100 dark:bg-zinc-950 transition-transform duration-300 ${isMenuOpen ? 'translate-y-0' : 'translate-y-full'}`}
+              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
-              <Link href="/auth/login" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>登入</Link>
-              <Link href="/auth/register" className="block px-5 py-4 text-base text-center hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: "#D1D5DB" }} onClick={() => setIsMenuOpen(false)}>註冊</Link>
+              <div className="flex justify-center pt-2 pb-3">
+                <div className="w-9 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+              </div>
+              <div className="px-3 pb-3">
+                <div className="rounded-2xl overflow-hidden bg-white dark:bg-zinc-800">
+                  <Link
+                    href="/auth/login"
+                    className="block px-5 py-4 text-base border-b border-zinc-200 dark:border-zinc-700"
+                    style={{ color: "var(--zen-ink)" }}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    登入
+                  </Link>
+                  <Link
+                    href="/auth/register"
+                    className="block px-5 py-4 text-base"
+                    style={{ color: "var(--zen-ink)" }}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    註冊
+                  </Link>
+                </div>
+              </div>
             </div>
           </>,
           document.body
