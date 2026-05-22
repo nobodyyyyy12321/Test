@@ -80,10 +80,10 @@ html.formal-quiz-active #mobile-bottom-bar {
 }
 
 :root {
-  /* Light theme — beige background, white paper for cards */
-  --background: #f5f5dc;
+  /* Light theme — pure white background */
+  --background: #ffffff;
   --foreground: #1a1a1a;
-  --zen-bg: #f5f5dc;
+  --zen-bg: #ffffff;
   --zen-paper: #ffffff;
   --zen-ink: #1a1a1a;
   --zen-accent: #6b705c;
