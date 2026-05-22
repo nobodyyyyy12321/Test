@@ -131,23 +131,8 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
 
             {groupedByOwner.size > 0 && (
               <div className="p-4">
-                {Array.from(groupedByOwner).map(([ownerId, { ownerName, ownerAvatarUrl, cats }]) => (
+                {Array.from(groupedByOwner).map(([ownerId, { cats }]) => (
                   <div key={ownerId} className="mb-6">
-                    <Link
-                      href={`/${encodeURIComponent(ownerName ?? ownerId)}`}
-                      className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity"
-                      onClick={onClose}
-                    >
-                      <Image
-                        src={ownerAvatarUrl || AVATAR_PLACEHOLDER}
-                        alt={ownerName ?? ownerId}
-                        width={32}
-                        height={32}
-                        unoptimized
-                        className="w-8 h-8 rounded-full object-cover shrink-0"
-                      />
-                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{ownerName ?? ownerId}</span>
-                    </Link>
                     <div className="bookshelf-grid">
                       {cats.map(cat => {
                         const href = cat.id ? `/test/${encodeURIComponent(cat.id)}` : "#";

@@ -4,17 +4,15 @@ import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
-  const language = searchParams.get("language") ?? "zh-TW";
 
   if (!q) return NextResponse.json({ results: [] });
 
   const db = getSupabaseAdmin();
 
-  // Search public owner collections matching name.
+  // Search public owner collections matching name across all languages.
   const { data: cats, error } = await db
     .from("qsets")
     .select("id, name, owner_id, problems_per_test, shuffle_problems")
-    .eq("language", language)
     .eq("is_public", true)
     .not("owner_id", "is", null)
     .ilike("name", `%${q}%`)

@@ -60,6 +60,25 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
     const m = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]*)/);
     if (m) setClientLang(m[1]);
   }, []);
+  useEffect(() => {
+    // Visit increment: list takes priority when test is launched from a list
+    const target = listId ? { type: "list" as const, id: listId } : { type: "qset" as const, id };
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(target.id)) return;
+    const key = `visited:${target.type}:${target.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      return;
+    }
+    fetch("/api/visits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(target),
+      keepalive: true,
+    }).catch(() => {});
+  }, [id, listId]);
   const activeLang = clientLang ?? language;
   const L = useMemo(() => getTestLabels(activeLang), [activeLang]);
   const quizPageSize = limit ?? (id === "englishWords" ? 50 : null);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -73,29 +73,31 @@ function PinnedBarDroppable({ children, className, style }: { children: React.Re
   );
 }
 
-type UserResult = {
+type PopularQset = {
+  kind: "qset";
   id: string;
   name: string;
-  avatarUrl?: string;
-  categories?: Array<{
-    id: string;
-    name: string;
-    href?: string;
-    parentId?: string | null;
-    problemsPerTest?: number | null;
-    shuffleProblems?: boolean | null;
-  }>;
-  lists?: Array<{
-    id: string;
-    title: string;
-    parentId?: string | null;
-  }>;
-  folders?: Array<{
-    id: string;
-    name: string;
-    parentId: string | null;
-  }>;
+  ownerId: string;
+  problemsPerTest: number | null;
+  shuffleProblems: boolean | null;
+  visitCount: number;
 };
+type PopularList = {
+  kind: "list";
+  id: string;
+  title: string;
+  ownerId: string;
+  visitCount: number;
+};
+type PopularFolder = {
+  kind: "folder";
+  id: string;
+  name: string;
+  ownerId: string;
+  visitCount: number;
+  children: PopularItem[];
+};
+type PopularItem = PopularQset | PopularList | PopularFolder;
 type ExternalPinnedRef = {
   name: string;
   href?: string;
@@ -166,11 +168,16 @@ export function HomeContent() {
   const [homeLists, setHomeLists] = useState<QuestionList[]>([]);
   const [homeListsLoaded, setHomeListsLoaded] = useState(false);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
-  const [recommendedAccounts, setRecommendedAccounts] = useState<UserResult[]>([]);
-  const [recommendedLoaded, setRecommendedLoaded] = useState(false);
-  const [recommendedCollapsed, setRecommendedCollapsed] = useState(true);
-  const [recommendedOpenFolderKeys, setRecommendedOpenFolderKeys] = useState<Set<string>>(new Set());
+  const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
+  const [popularLoaded, setPopularLoaded] = useState(false);
+  const [popularCollapsed, setPopularCollapsed] = useState(true);
+  const [popularOffset, setPopularOffset] = useState(0);
+  const [popularHasMore, setPopularHasMore] = useState(false);
+  const [loadingMorePopular, setLoadingMorePopular] = useState(false);
+  const [openFolderIds, setOpenFolderIds] = useState<Set<string>>(new Set());
   const [pinnedRecOpenChain, setPinnedRecOpenChain] = useState<string[]>([]);
+  const popularSentinelRef = useRef<HTMLDivElement | null>(null);
+  const POPULAR_PAGE_SIZE = 20;
   const pinsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: session } = useSession();
   const loggedIn = !!session?.user;
@@ -475,40 +482,59 @@ export function HomeContent() {
       .catch(() => {});
   }, [loggedIn]);
 
-  // Load recommended accounts
+  // Load popular tests (first page)
   useEffect(() => {
-    setRecommendedAccounts([]);
-    setRecommendedLoaded(false);
-    setRecommendedOpenFolderKeys(new Set());
-    fetch(`/api/users/recommended?language=${encodeURIComponent(language)}&limit=6`)
-      .then(r => {
-        if (!r.ok) {
-          console.error("API error:", r.status, r.statusText);
-          return null;
-        }
-        return r.json();
-      })
+    setPopularItems([]);
+    setPopularOffset(0);
+    setPopularHasMore(false);
+    setPopularLoaded(false);
+    setOpenFolderIds(new Set());
+    fetch(`/api/popular?language=${encodeURIComponent(language)}&limit=${POPULAR_PAGE_SIZE}&offset=0`)
+      .then(r => (r.ok ? r.json() : null))
       .then(d => {
-        if (d && Array.isArray(d.users)) {
-          console.log("Recommended accounts loaded:", d.users.length);
-          setRecommendedAccounts(d.users.map((u: any) => ({ 
-            id: u.id, 
-            name: u.name, 
-            avatarUrl: u.avatarUrl,
-            categories: u.categories || [],
-            lists: u.lists || [],
-            folders: u.folders || [],
-          })));
-        } else {
-          console.log("No users in response", d);
+        if (d && Array.isArray(d.items)) {
+          setPopularItems(d.items as PopularItem[]);
+          setPopularHasMore(!!d.hasMore);
+          setPopularOffset(d.items.length);
         }
-        setRecommendedLoaded(true);
+        setPopularLoaded(true);
       })
       .catch(err => {
-        console.error("Recommended accounts error:", err);
-        setRecommendedLoaded(true);
+        console.error("Popular items error:", err);
+        setPopularLoaded(true);
       });
   }, [language]);
+
+  const loadMorePopular = () => {
+    if (loadingMorePopular || !popularHasMore) return;
+    setLoadingMorePopular(true);
+    fetch(`/api/popular?language=${encodeURIComponent(language)}&limit=${POPULAR_PAGE_SIZE}&offset=${popularOffset}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d && Array.isArray(d.items)) {
+          setPopularItems(prev => [...prev, ...(d.items as PopularItem[])]);
+          setPopularHasMore(!!d.hasMore);
+          setPopularOffset(o => o + d.items.length);
+        }
+      })
+      .catch(err => console.error("Popular load-more error:", err))
+      .finally(() => setLoadingMorePopular(false));
+  };
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    if (popularCollapsed || !popularHasMore) return;
+    const sentinel = popularSentinelRef.current;
+    if (!sentinel) return;
+    const io = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) loadMorePopular();
+      },
+      { rootMargin: "200px" }
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [popularCollapsed, popularHasMore, popularOffset, loadingMorePopular]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -728,98 +754,102 @@ export function HomeContent() {
     );
   };
 
-  const recommendedFolderKey = (ownerId: string, folderId: string): string => `${ownerId}:${folderId}`;
-
-  const toggleRecommendedFolder = (user: UserResult, folderId: string) => {
-    const key = recommendedFolderKey(user.id, folderId);
-    setRecommendedOpenFolderKeys((prev) => {
-      if (prev.has(key)) return new Set();
-      const path: string[] = [];
-      let cur: string | null = folderId;
-      while (cur) {
-        path.unshift(recommendedFolderKey(user.id, cur));
-        const f = user.folders?.find((f) => f.id === cur);
-        cur = f?.parentId ?? null;
+  const popularFolderById = useMemo(() => {
+    const map = new Map<string, PopularFolder>();
+    const walk = (items: PopularItem[]) => {
+      for (const item of items) {
+        if (item.kind === "folder") {
+          map.set(item.id, item);
+          walk(item.children);
+        }
       }
-      return new Set(path);
+    };
+    walk(popularItems);
+    return map;
+  }, [popularItems]);
+
+  const popularFolderParentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const walk = (items: PopularItem[], parentId: string | null) => {
+      for (const item of items) {
+        if (item.kind === "folder") {
+          if (parentId) map.set(item.id, parentId);
+          walk(item.children, item.id);
+        }
+      }
+    };
+    walk(popularItems, null);
+    return map;
+  }, [popularItems]);
+
+  const togglePopularFolder = (folderId: string) => {
+    setOpenFolderIds(prev => {
+      if (prev.has(folderId)) return new Set();
+      const chain = new Set<string>([folderId]);
+      let cur: string | undefined = popularFolderParentMap.get(folderId);
+      while (cur) {
+        chain.add(cur);
+        cur = popularFolderParentMap.get(cur);
+      }
+      return chain;
     });
   };
 
-  const recommendedCategoriesUnder = (user: UserResult, folderId: string | null) =>
-    (user.categories ?? []).filter((cat) => (cat.parentId ?? null) === folderId);
-
-  const recommendedFoldersUnder = (user: UserResult, folderId: string | null) =>
-    (user.folders ?? []).filter((folder) => (folder.parentId ?? null) === folderId);
-
-  const recommendedListsUnder = (user: UserResult, folderId: string | null) =>
-    (user.lists ?? []).filter((list) => (list.parentId ?? null) === folderId);
-
-  const recommendedFolderHasContent = (user: UserResult, folderId: string | null): boolean => {
-    if (recommendedCategoriesUnder(user, folderId).length > 0) return true;
-    return recommendedFoldersUnder(user, folderId).some((f) => recommendedFolderHasContent(user, f.id));
-  };
-
-  const renderRecommendedCategory = (
-    user: UserResult,
-    cat: NonNullable<UserResult["categories"]>[number],
-    inChain: boolean = false
-  ) => {
-    const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
-    const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${user.id}:${cat.id}`;
-    const isPinned = loggedIn && pinnedNames.includes(pinId);
+  const renderPopularQset = (q: PopularQset, inFolder: boolean = false): React.ReactNode => {
+    const href = appendHrefOptions(`/test/${encodeURIComponent(q.id)}`, q.problemsPerTest, q.shuffleProblems);
+    const pinId = `rec:${q.ownerId}:${q.id}`;
     return (
-      <PinDraggable key={`cat-${cat.id}`} pinId={pinId} name={cat.name} href={recommendedHref} from="grid">
+      <PinDraggable key={`pop-q-${q.id}`} pinId={pinId} name={q.name} href={href} from="grid">
         <a
-          href={recommendedHref}
+          href={href}
           className="book-link bookshelf-btn"
-          style={{ color: inChain ? FOLDER_COLOR : "var(--zen-ink)" }}
+          style={{ color: inFolder ? FOLDER_COLOR : "var(--zen-ink)" }}
           draggable={false}
         >
-          {cat.name}
+          {q.name}
         </a>
       </PinDraggable>
     );
   };
 
-  const renderRecommendedList = (
-    list: NonNullable<UserResult["lists"]>[number],
-    inChain: boolean = false
-  ) => (
-    <a
-      key={`list-${list.id}`}
-      href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
-      className="book-link bookshelf-btn"
-      style={{ color: inChain ? FOLDER_COLOR : "var(--zen-ink)" }}
-    >
-      {list.title}
-    </a>
-  );
+  const renderPopularList = (l: PopularList, inFolder: boolean = false): React.ReactNode => {
+    const href = `/test/list?listId=${encodeURIComponent(l.id)}&autostart=1`;
+    return (
+      <PinDraggable key={`pop-l-${l.id}`} pinId={`rec-list:${l.id}`} name={l.title} href={href} from="grid">
+        <a
+          href={href}
+          className="book-link bookshelf-btn"
+          style={{ color: inFolder ? FOLDER_COLOR : "var(--zen-ink)" }}
+          draggable={false}
+        >
+          {l.title}
+        </a>
+      </PinDraggable>
+    );
+  };
 
-  const renderRecommendedFolder = (
-    user: UserResult,
-    folder: NonNullable<UserResult["folders"]>[number],
-    ancestorExpanded: boolean = false
-  ): React.ReactNode => {
-    const key = recommendedFolderKey(user.id, folder.id);
-    const isOpen = recommendedOpenFolderKeys.has(key);
+  const renderPopularFolder = (folder: PopularFolder, ancestorExpanded: boolean = false): React.ReactNode => {
+    const isOpen = openFolderIds.has(folder.id);
     const isHighlighted = ancestorExpanded || isOpen;
     return (
-      <div key={`folder-${folder.id}`} className="contents">
-        <PinDraggable pinId={`rec-folder:${user.id}:${folder.id}`} name={folder.name} from="grid">
+      <div key={`pop-f-${folder.id}`} className="contents">
+        <PinDraggable pinId={`rec-folder:${folder.ownerId}:${folder.id}`} name={folder.name} from="grid">
           <button
             type="button"
             className={`book-link bookshelf-btn ${isOpen ? "active-category" : ""}`.trim()}
             style={{ color: isHighlighted ? FOLDER_COLOR : "var(--zen-ink)" }}
             title="公開資料夾"
             draggable={false}
-            onClick={() => toggleRecommendedFolder(user, folder.id)}
+            onClick={() => togglePopularFolder(folder.id)}
           >
             📁 {folder.name}
           </button>
         </PinDraggable>
-        {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderRecommendedCategory(user, cat, true))}
-        {isOpen && recommendedFoldersUnder(user, folder.id).filter((f) => recommendedFolderHasContent(user, f.id)).map((child) => renderRecommendedFolder(user, child, true))}
-        {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderRecommendedList(list, true))}
+        {isOpen && folder.children.map(child => {
+          if (child.kind === "qset") return renderPopularQset(child, true);
+          if (child.kind === "list") return renderPopularList(child, true);
+          return renderPopularFolder(child, true);
+        })}
       </div>
     );
   };
@@ -832,66 +862,41 @@ export function HomeContent() {
     });
   };
 
-  const renderPinnedRecCategory = (
-    user: UserResult,
-    cat: NonNullable<UserResult["categories"]>[number]
-  ): React.ReactNode => {
-    const recommendedHref = appendHrefOptions(`/test/${encodeURIComponent(cat.id)}`, cat.problemsPerTest, cat.shuffleProblems);
-    const pinId = cat.href ? `href:${hrefToCategoryKey(cat.href)}` : `rec:${user.id}:${cat.id}`;
-    const isPinned = loggedIn && pinnedNames.includes(pinId);
-    return (
-      <PinDraggable
-        key={`pinned-cat-${cat.id}`}
-        pinId={pinId}
-        name={cat.name}
-        href={recommendedHref}
-        from={isPinned ? "pinned" : "grid"}
-      >
-        <a
-          href={recommendedHref}
-          className="book-link bookshelf-btn"
-          style={{ color: FOLDER_COLOR }}
-          draggable={false}
-        >
-          {cat.name}
-        </a>
-      </PinDraggable>
-    );
+  const renderPinnedPopularChild = (item: PopularItem, chain: string[]): React.ReactNode => {
+    if (item.kind === "qset") {
+      const href = appendHrefOptions(`/test/${encodeURIComponent(item.id)}`, item.problemsPerTest, item.shuffleProblems);
+      return (
+        <PinDraggable key={`pinned-pop-q-${item.id}`} pinId={`rec:${item.ownerId}:${item.id}`} name={item.name} href={href} from="grid">
+          <a href={href} className="book-link bookshelf-btn" style={{ color: FOLDER_COLOR }} draggable={false}>
+            {item.name}
+          </a>
+        </PinDraggable>
+      );
+    }
+    if (item.kind === "list") {
+      const href = `/test/list?listId=${encodeURIComponent(item.id)}&autostart=1`;
+      return (
+        <PinDraggable key={`pinned-pop-l-${item.id}`} pinId={`rec-list:${item.id}`} name={item.title} from="pinned">
+          <a href={href} className="book-link bookshelf-btn" style={{ color: FOLDER_COLOR }} draggable={false}>
+            {item.title}
+          </a>
+        </PinDraggable>
+      );
+    }
+    return renderPinnedPopularFolder(item, undefined, [...chain, item.id], true);
   };
 
-  const renderPinnedRecList = (
-    list: NonNullable<UserResult["lists"]>[number]
-  ): React.ReactNode => (
-    <PinDraggable
-      key={`pinned-list-${list.id}`}
-      pinId={`rec-list:${list.id}`}
-      name={list.title}
-      from="pinned"
-    >
-      <a
-        href={`/test/list?listId=${encodeURIComponent(list.id)}&autostart=1`}
-        className="book-link bookshelf-btn"
-        style={{ color: FOLDER_COLOR }}
-        draggable={false}
-      >
-        {list.title}
-      </a>
-    </PinDraggable>
-  );
-
-  const renderPinnedRecFolder = (
-    user: UserResult,
-    folder: NonNullable<UserResult["folders"]>[number],
+  const renderPinnedPopularFolder = (
+    folder: PopularFolder,
     pinValue: string | undefined,
     chain: string[],
     ancestorExpanded: boolean = false
   ): React.ReactNode => {
-    const key = recommendedFolderKey(user.id, folder.id);
-    const isOpen = pinnedRecOpenChain.includes(key);
+    const isOpen = pinnedRecOpenChain.includes(folder.id);
     const isHighlighted = ancestorExpanded || isOpen;
-    const ctxId = pinValue ?? `rec-folder:${user.id}:${folder.id}`;
+    const ctxId = pinValue ?? `rec-folder:${folder.ownerId}:${folder.id}`;
     return (
-      <div key={`pinned-folder-${user.id}-${folder.id}`} className="contents">
+      <div key={`pinned-pop-f-${folder.id}`} className="contents">
         <PinDraggable pinId={ctxId} name={folder.name} from={pinValue ? "pinned" : "grid"}>
           <button
             type="button"
@@ -899,25 +904,15 @@ export function HomeContent() {
             style={{ color: isHighlighted ? FOLDER_COLOR : "var(--zen-ink)" }}
             title="公開資料夾"
             draggable={false}
-            onClick={() => togglePinnedRecFolder(key, chain)}
+            onClick={() => togglePinnedRecFolder(folder.id, chain)}
           >
             📁 {folder.name}
           </button>
         </PinDraggable>
-        {isOpen && recommendedCategoriesUnder(user, folder.id).map((cat) => renderPinnedRecCategory(user, cat))}
-        {isOpen && recommendedFoldersUnder(user, folder.id).filter((f) => recommendedFolderHasContent(user, f.id)).map((child) => renderPinnedRecFolder(user, child, undefined, [...chain, recommendedFolderKey(user.id, child.id)], true))}
-        {isOpen && recommendedListsUnder(user, folder.id).map((list) => renderPinnedRecList(list))}
+        {isOpen && folder.children.map(child => renderPinnedPopularChild(child, chain))}
       </div>
     );
   };
-
-  const renderRecommendedCreatorItems = (user: UserResult) => (
-    <>
-      {recommendedCategoriesUnder(user, null).map((cat) => renderRecommendedCategory(user, cat))}
-      {recommendedFoldersUnder(user, null).filter((f) => recommendedFolderHasContent(user, f.id)).map((folder) => renderRecommendedFolder(user, folder))}
-      {recommendedListsUnder(user, null).map((list) => renderRecommendedList(list))}
-    </>
-  );
 
   return (
     <DndContext sensors={dndSensors} onDragStart={handleDndStart} onDragEnd={handleDndEnd} onDragCancel={() => setActiveDrag(null)}>
@@ -1006,14 +1001,10 @@ export function HomeContent() {
                   {pinnedNames.map((pinValue) => {
                     if (pinValue.startsWith("rec-folder:")) {
                       const parts = pinValue.split(":");
-                      const ownerId = parts[1];
                       const folderId = parts[2];
-                      const allUsers = recommendedAccounts;
-                      const user = allUsers.find(u => u.id === ownerId);
-                      const folder = user?.folders?.find(f => f.id === folderId);
-                      if (user && folder) {
-                        const topKey = recommendedFolderKey(user.id, folder.id);
-                        return renderPinnedRecFolder(user, folder, pinValue, [topKey]);
+                      const folder = popularFolderById.get(folderId);
+                      if (folder) {
+                        return renderPinnedPopularFolder(folder, pinValue, [folder.id]);
                       }
                       const external = externalPinnedRefs[pinValue];
                       const displayName = external?.name ?? "資料夾";
@@ -1086,43 +1077,46 @@ export function HomeContent() {
                   )
                 )}
 
-                {recommendedLoaded && (
+                {popularLoaded && (
                   <div className="mt-6">
                     <button
                       type="button"
-                      onClick={() => setRecommendedCollapsed(o => !o)}
-                      aria-label={recommendedCollapsed ? "展開" : "收合"}
-                      title={recommendedCollapsed ? "展開" : "收合"}
+                      onClick={() => setPopularCollapsed(o => !o)}
+                      aria-label={popularCollapsed ? "展開" : "收合"}
+                      title={popularCollapsed ? "展開" : "收合"}
                       className="flex items-center gap-1 mb-3 text-xs transition-colors"
                       style={{ color: "var(--zen-ink)" }}
                     >
-                      <span>{language === "en" ? "Recommended Creators" : "推薦創作者"}</span>
+                      <span>{language === "en" ? "Popular" : "熱門"}</span>
                       <svg
                         xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                        style={{ transform: recommendedCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
+                        style={{ transform: popularCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
                       >
                         <path d="m6 9 6 6 6-6"/>
                       </svg>
                     </button>
-                    {!recommendedCollapsed && (
-                      recommendedAccounts.length > 0 ? (
-                        <ul className="flex flex-col gap-2">
-                        {recommendedAccounts.map(u => (
-                            <li key={u.id}>
-                            {((u.categories && u.categories.length > 0) || (u.folders && u.folders.length > 0) || (u.lists && u.lists.length > 0)) && (
-                                <div className="bookshelf-grid">
-                                  {renderRecommendedCreatorItems(u)}
-                                </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm zen-subtle opacity-50">
-                        {language === "en" ? "No creators found" : "暫無創作者"}
-                      </p>
-                    ))}
+                    {!popularCollapsed && (
+                      popularItems.length > 0 ? (
+                        <>
+                          <div className="bookshelf-grid">
+                            {popularItems.map(item => {
+                              if (item.kind === "qset") return renderPopularQset(item);
+                              if (item.kind === "list") return renderPopularList(item);
+                              return renderPopularFolder(item);
+                            })}
+                          </div>
+                          {popularHasMore && (
+                            <div ref={popularSentinelRef} className="h-8 flex items-center justify-center text-xs zen-subtle opacity-50">
+                              {loadingMorePopular ? (language === "en" ? "Loading…" : "載入中…") : ""}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm zen-subtle opacity-50">
+                          {language === "en" ? "No tests yet" : "暫無測驗"}
+                        </p>
+                      ))}
                   </div>
                 )}
 
