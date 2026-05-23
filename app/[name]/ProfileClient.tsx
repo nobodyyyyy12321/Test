@@ -1030,18 +1030,18 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         <span className="text-lg font-semibold truncate" style={{ color: "var(--zen-ink)" }}>{urlName}</span>
       </div>
 
-      {/* backdrop (mobile only, when sidebar open) */}
+      {/* backdrop (when sidebar open) */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* sidebar drawer — opaque card on mobile, text-only on desktop */}
+      {/* sidebar drawer — opaque, full page width when open */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-40 md:w-64 z-40 overflow-y-auto pointer-events-none transition-opacity duration-75 bg-[var(--zen-bg)] shadow-xl md:bg-transparent md:shadow-none ${
+        className={`fixed left-0 top-0 h-screen w-full z-40 overflow-y-auto pointer-events-none transition-opacity duration-75 bg-[var(--zen-bg)] shadow-xl ${
           sidebarOpen ? "opacity-100" : "opacity-0"
         }`}
         aria-hidden={!sidebarOpen}
