@@ -18,10 +18,16 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getSupabaseAdmin();
-  const { error } = await db.rpc("increment_visit", { target_type: type, target_id: id });
+  const { data, error } = await db.rpc("increment_visit", { target_type: type, target_id: id });
   if (error) {
-    console.error("increment_visit error:", error);
-    return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    console.error("increment_visit error:", { type, id, error });
+    return NextResponse.json({
+      ok: false,
+      error: "db_error",
+      detail: error.message,
+      code: error.code,
+      hint: error.hint,
+    }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, count: data });
 }
