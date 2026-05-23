@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { findUserByEmail, findUserByName } from "@/lib/users";
 import { createAssignment, getAssignmentsByAssignee, getAssignmentsByAssigner, evictOldestTerminal, gradeAssignment } from "@/lib/assignments-supabase";
 import { getGroupWithMembers } from "@/lib/groups-supabase";
+import { getListById } from "@/lib/lists-supabase";
 
 async function getUser() {
   const session = await auth();
@@ -26,6 +27,8 @@ export async function POST(req: Request) {
   }
 
   const sourceResourceId = typeof body.sourceResourceId === "string" ? body.sourceResourceId.trim() : "";
+  const rawType = typeof body.sourceResourceType === "string" ? body.sourceResourceType.trim() : "qset";
+  const sourceResourceType: "qset" | "list" = rawType === "list" ? "list" : "qset";
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const startAt = typeof body.startAt === "string" ? body.startAt.trim() : "";
   const endAt = typeof body.endAt === "string" ? body.endAt.trim() : "";
@@ -39,6 +42,13 @@ export async function POST(req: Request) {
 
   if (!sourceResourceId || !title || !startAt || !endAt) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  // For list sources, only the owner may assign.
+  if (sourceResourceType === "list") {
+    const list = await getListById(sourceResourceId);
+    if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
+    if (list.ownerId !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (rawAssigneeIds.length === 0 && rawGroupIds.length === 0) {
@@ -129,6 +139,7 @@ export async function POST(req: Request) {
       assignerId: user.id,
       assigneeId,
       sourceResourceId,
+      sourceResourceType,
       title,
       startAt,
       endAt,

@@ -132,7 +132,7 @@ export function PersonalListsView({
   // ── assignment creation ──
   type AssignUser = { id: string; name: string; avatarUrl?: string };
   type AssignGroup = { id: string; name: string; memberCount?: number };
-  const [assignModal, setAssignModal] = useState<{ collectionId: string; displayName: string } | null>(null);
+  const [assignModal, setAssignModal] = useState<{ sourceResourceId: string; sourceResourceType: "qset" | "list"; displayName: string } | null>(null);
   const [assignSearch, setAssignSearch] = useState("");
   const [assignSearchResults, setAssignSearchResults] = useState<AssignUser[]>([]);
   const [assignSearchLoading, setAssignSearchLoading] = useState(false);
@@ -396,6 +396,42 @@ export function PersonalListsView({
             >
               編輯
             </button>
+            {!list.isPublic && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setListCtxMenuId(null);
+                  const now = new Date();
+                  const startLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  const endLocal = new Date(now.getTime() + 3600000 - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  setAssignSearch("");
+                  setAssignSearchResults([]);
+                  setSelectedAssignees([]);
+                  setSelectedGroups([]);
+                  setAssignStart(startLocal);
+                  setAssignEnd(endLocal);
+                  setAssignError(null);
+                  setAssignResultMsg(null);
+                  setAssignModal({ sourceResourceId: list.id, sourceResourceType: "list", displayName: list.title });
+                  setGroupsLoading(true);
+                  fetch("/api/groups")
+                    .then(r => r.ok ? r.json() : { owned: [], joined: [] })
+                    .then((data: { owned?: AssignGroup[]; joined?: AssignGroup[] }) => {
+                      const all = [...(data.owned ?? []), ...(data.joined ?? [])];
+                      const seen = new Set<string>();
+                      const deduped = all.filter(g => !seen.has(g.id) && seen.add(g.id));
+                      setAvailableGroups(deduped);
+                    })
+                    .catch(() => setAvailableGroups([]))
+                    .finally(() => setGroupsLoading(false));
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                指派
+              </button>
+            )}
           </div>
         </>
       )}
@@ -463,7 +499,7 @@ export function PersonalListsView({
                   setAssignEnd(endLocal);
                   setAssignError(null);
                   setAssignResultMsg(null);
-                  setAssignModal({ collectionId: col.collectionId, displayName: col.displayName });
+                  setAssignModal({ sourceResourceId: col.collectionId, sourceResourceType: "qset", displayName: col.displayName });
                   // Lazy-load groups for the picker
                   setGroupsLoading(true);
                   fetch("/api/groups")
@@ -905,7 +941,8 @@ export function PersonalListsView({
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      sourceResourceId: assignModal.collectionId,
+                      sourceResourceId: assignModal.sourceResourceId,
+                      sourceResourceType: assignModal.sourceResourceType,
                       assigneeIds: selectedAssignees.map(u => u.id),
                       groupIds: selectedGroups.map(g => g.id),
                       title: assignModal.displayName.trim(),

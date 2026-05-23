@@ -108,7 +108,7 @@ create table if not exists assignments (
   graded_at       timestamptz,
   answers         jsonb,
   check (assign_type = 'exam'),
-  check (source_resource_type = 'qset'),
+  check (source_resource_type in ('qset','list')),
   check (end_at - start_at >= interval '1 minute'),
   check ((score is null) = (graded_at is null)),
   check ((total is null) = (graded_at is null)),
@@ -117,6 +117,10 @@ create table if not exists assignments (
 create index if not exists assignments_assignee_idx on assignments(assignee_id);
 create index if not exists assignments_assigner_idx on assignments(assigner_id);
 create index if not exists assignments_window_idx   on assignments(end_at);
+
+-- migration for existing databases (relax source_resource_type to include 'list'):
+-- alter table assignments drop constraint assignments_source_resource_type_check;
+-- alter table assignments add constraint assignments_source_resource_type_check check (source_resource_type in ('qset','list'));
 
 -- ── practices ──────────────────────────────────────────────────────────────
 -- Practice attempts only. Assignment answers live on assignments.answers.

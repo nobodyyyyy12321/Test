@@ -45,6 +45,7 @@ export async function createAssignment(opts: {
   assignerId: string;
   assigneeId: string;
   sourceResourceId: string;
+  sourceResourceType?: "qset" | "list";
   title: string;
   startAt: string;
   endAt: string;
@@ -56,7 +57,7 @@ export async function createAssignment(opts: {
       assigner_id: opts.assignerId,
       assignee_id: opts.assigneeId,
       assign_type: "exam",
-      source_resource_type: "qset",
+      source_resource_type: opts.sourceResourceType ?? "qset",
       source_resource_id: opts.sourceResourceId,
       title: opts.title,
       start_at: opts.startAt,
@@ -137,7 +138,7 @@ export async function gradeAssignment(id: string): Promise<boolean> {
 
   const { data: a } = await sb
     .from("assignments")
-    .select("source_resource_id, graded_at, answers")
+    .select("source_resource_id, source_resource_type, graded_at, answers")
     .eq("id", id)
     .single();
   if (!a || a.graded_at) return false;
@@ -147,7 +148,9 @@ export async function gradeAssignment(id: string): Promise<boolean> {
   const answerMap = new Map<number, unknown>();
   for (const ans of answers) answerMap.set(ans.n, ans.u);
 
-  const questions = await fetchQuestions({ id: a.source_resource_id as string });
+  const questions = a.source_resource_type === "list"
+    ? await fetchQuestions({ id: "", listId: a.source_resource_id as string })
+    : await fetchQuestions({ id: a.source_resource_id as string });
   if (!questions || questions.length === 0) return false;
 
   let score = 0;

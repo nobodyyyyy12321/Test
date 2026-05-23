@@ -32,6 +32,8 @@ export default function AssignmentTestClient({ assignmentId, serverLang, review 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><p className="text-sm opacity-50">載入中...</p></div>;
   if (error || !assignment) return <div className="flex min-h-screen items-center justify-center"><p className="text-sm text-red-500">{error ?? "無法載入"}</p></div>;
 
+  const isListAssignment = assignment.sourceResourceType === "list";
+
   if (review && assignment.submittedAt) {
     const answers = assignment.answers as Array<{ n: number; u: string | string[] | null }> | null;
     if (answers && questions.length > 0) {
@@ -42,10 +44,11 @@ export default function AssignmentTestClient({ assignmentId, serverLang, review 
         .map(q => ({ n: q.number, u: answerMap.get(q.number) ?? null }));
       const replayKey = `assignment_review_${assignmentId}`;
       try { sessionStorage.setItem(`quiz_replay_${replayKey}`, JSON.stringify({ answers: compactAnswers })); } catch {}
-      const qsetId = assignment.sourceResourceId as string || assignmentId;
-      // Redirect to the normal test page with replay
+      const sourceId = assignment.sourceResourceId as string || assignmentId;
       if (typeof window !== "undefined") {
-        window.location.href = `/test/${encodeURIComponent(qsetId)}?replay=${encodeURIComponent(replayKey)}&autostart=1`;
+        window.location.href = isListAssignment
+          ? `/test/list?listId=${encodeURIComponent(sourceId)}&replay=${encodeURIComponent(replayKey)}&autostart=1`
+          : `/test/${encodeURIComponent(sourceId)}?replay=${encodeURIComponent(replayKey)}&autostart=1`;
       }
       return null;
     }
@@ -59,12 +62,13 @@ export default function AssignmentTestClient({ assignmentId, serverLang, review 
   if (now > end) return <div className="flex min-h-screen items-center justify-center"><p className="text-sm opacity-50">已截止</p></div>;
   if (assignment.submittedAt) return <div className="flex min-h-screen items-center justify-center"><p className="text-sm opacity-50">已提交</p></div>;
 
+  const sourceId = (assignment.sourceResourceId as string) || assignmentId;
   return (
     <TestClient
-      id={assignment.sourceResourceId as string || assignmentId}
+      id={isListAssignment ? "list" : sourceId}
       ordered={true}
-      listId={null}
-      listTitle={null}
+      listId={isListAssignment ? sourceId : null}
+      listTitle={isListAssignment ? (assignment.title as string) : null}
       levels={null}
       language={serverLang}
       pageTitle={assignment.title as string}

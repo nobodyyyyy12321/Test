@@ -44,7 +44,9 @@ export async function GET(_req: Request, { params }: Params) {
   const isAfterWindow = now > end;
   const isAssignee = assignment.assigneeId === user.id;
 
-  const questions = await fetchQuestions({ id: assignment.sourceResourceId });
+  const questions = assignment.sourceResourceType === "list"
+    ? await fetchQuestions({ id: "", listId: assignment.sourceResourceId })
+    : await fetchQuestions({ id: assignment.sourceResourceId });
 
   // Assigner cannot peek at the assignee's answers or submission status before the window closes.
   let answers: AssignmentAnswer[] | null = null;
