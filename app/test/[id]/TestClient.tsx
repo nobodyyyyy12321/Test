@@ -555,7 +555,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
           </div>
         </div>
       )}
-      <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-24 sm:pb-8 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
+      <main className="flex w-full max-w-[1400px] flex-col items-start justify-start pt-[12vh] pb-40 sm:pb-24 px-6 sm:px-16 bg-transparent dark:bg-black sm:items-start">
         <div className="flex items-center justify-between w-full sticky top-0 z-10 py-2 gap-4" style={{ backgroundColor: "var(--zen-bg)" }}>
           <div className="flex flex-col min-w-0">
             <h2 className="text-lg sm:text-xl font-semibold zen-title truncate" style={{ color: "var(--zen-ink)" }}>

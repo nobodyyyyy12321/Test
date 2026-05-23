@@ -160,6 +160,30 @@ create index if not exists lists_owner_id_idx on lists(owner_id);
 alter table lists add column if not exists folder_id uuid references folders(id) on delete set null;
 create index if not exists lists_folder_idx on lists(folder_id);
 
+-- ── visit_count + increment_visit RPC ──────────────────────────────────────
+alter table qsets add column if not exists visit_count bigint not null default 0;
+alter table lists add column if not exists visit_count bigint not null default 0;
+create index if not exists qsets_visit_count_idx on qsets(visit_count desc);
+create index if not exists lists_visit_count_idx on lists(visit_count desc);
+
+create or replace function increment_visit(target_type text, target_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if target_type = 'qset' then
+    update qsets set visit_count = visit_count + 1 where id = target_id;
+  elsif target_type = 'list' then
+    update lists set visit_count = visit_count + 1 where id = target_id;
+  else
+    raise exception 'invalid target_type: %', target_type;
+  end if;
+end;
+$$;
+grant execute on function increment_visit(text, text) to anon, authenticated, service_role;
+
 -- ── list_questions ───────────────────────────────────────────────────────────
 create table if not exists list_questions (
   list_id       text not null references lists(id) on delete cascade,
