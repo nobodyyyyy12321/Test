@@ -7,6 +7,6 @@ export type CategoryNode = {
   dropdown?: { id?: string; name: string; href: string }[];
   dropdownAlign?: "left" | "right";
   problemsPerTest?: number | null;   // null/undef = no limit
-  shuffleProblems?: boolean | null;  // null/undef = default (shuffle on)
+  shuffleProblems?: boolean | null;  // null/undef = default (ordered); true = shuffle
   approval_status?: string; // Added optional approval_status property
 };

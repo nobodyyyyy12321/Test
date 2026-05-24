@@ -350,7 +350,7 @@ export function PersonalListsView({
     if (base === "#") return base;
     const extra: string[] = [];
     if (problemsPerTest != null) extra.push(`count=${encodeURIComponent(problemsPerTest)}`);
-    if (shuffleProblems === false) extra.push("ordered=true");
+    if (shuffleProblems === true) extra.push("shuffle=true");
     if (extra.length === 0) return base;
     return base + (base.includes("?") ? "&" : "?") + extra.join("&");
   };

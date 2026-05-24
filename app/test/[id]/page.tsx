@@ -14,7 +14,7 @@ const getListByIdCached = cache(getListById);
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ levels?: string; ordered?: string; listId?: string; replay?: string; autostart?: string; count?: string; lang?: string; language?: string; name?: string }>;
+  searchParams: Promise<{ levels?: string; shuffle?: string; listId?: string; replay?: string; autostart?: string; count?: string; lang?: string; language?: string; name?: string }>;
 };
 
 function inferLanguageFromCollectionId(collectionId: string): string | null {
@@ -126,7 +126,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function TestPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { levels, ordered, listId, replay, autostart, count, lang, language, name } = await searchParams;
+  const { levels, shuffle, listId, replay, autostart, count, lang, language, name } = await searchParams;
   const decodedId = decodeURIComponent(id);
   const inferredLang = inferLanguageFromCollectionId(decodedId);
   const serverLang = lang ?? language ?? inferredLang ?? "zh-TW";
@@ -146,7 +146,7 @@ export default async function TestPage({ params, searchParams }: Props) {
   return (
     <TestClient
       id={decodedId}
-      ordered={ordered === "true"}
+      ordered={shuffle !== "true"}
       listId={listId ?? null}
       listTitle={list?.title ?? null}
       levels={levels ?? null}

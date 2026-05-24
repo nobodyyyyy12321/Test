@@ -103,7 +103,7 @@ export type FlatCategory = {
   dropdown?: { id?: string; name: string; href: string }[];
   dropdownAlign?: "left" | "right" | null;
   problemsPerTest?: number | null;   // null/undef = no limit
-  shuffleProblems?: boolean | null;  // null/undef = default (shuffle on)
+  shuffleProblems?: boolean | null;  // null/undef = default (ordered); true = shuffle
 };
 
 async function _fetchCategoriesFlat(language: string): Promise<FlatCategory[]> {

@@ -42,7 +42,7 @@ const STARTER_COMMENT = `// Flat list — each item declares its parent.
 //
 // Optional per-item test settings (apply when clicking the link from the homepage):
 //   problemsPerTest: number   — limit how many problems per test (null = no limit)
-//   shuffleProblems: boolean  — false = play in fixed order; true/null = shuffle (default)
+//   shuffleProblems: boolean  — true = shuffle; false/null = play in fixed order (default)
 //
 // return [
 //   { id: "abc", parentId: null, name: "學測" },
