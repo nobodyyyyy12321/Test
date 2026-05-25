@@ -939,8 +939,8 @@ export function HomeContent() {
       )}
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
-        <div className="flex flex-row items-center gap-2 leading-none">
-          <span className="text-sm zen-subtle whitespace-nowrap" style={{ color: "#b19739" }}>exam.farm</span>
+        <div className="flex flex-row items-baseline gap-2 leading-none">
+          <span className="text-base zen-subtle whitespace-nowrap leading-none" style={{ color: "#b19739" }}>exam.farm</span>
           <LanguageSelector />
         </div>
       </div>
