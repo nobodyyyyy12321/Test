@@ -939,12 +939,9 @@ export function HomeContent() {
       )}
       {/* top-left brand */}
       <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
-        <div className="relative flex flex-col items-center leading-none">
-          <h1 className="text-[2.5rem] font-bold zen-title leading-none" style={{ color: "#b19739" }}>Exam</h1>
-          <span className="text-sm zen-subtle mt-3 whitespace-nowrap" style={{ color: "var(--zen-ink)" }}>exam.farm</span>
-          <div className="absolute -top-1 -right-5">
-            <LanguageSelector />
-          </div>
+        <div className="flex flex-row items-center gap-2 leading-none">
+          <span className="text-sm zen-subtle whitespace-nowrap" style={{ color: "#b19739" }}>exam.farm</span>
+          <LanguageSelector />
         </div>
       </div>
 
