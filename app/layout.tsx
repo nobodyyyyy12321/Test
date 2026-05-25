@@ -8,7 +8,6 @@ import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
 import PWARegister from "./components/PWARegister";
 import RotatePrompt from "./components/RotatePrompt";
-import GlobalUpOneLevelButton from "./components/GlobalUpOneLevelButton";
 import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
 import ShareButton from "./components/ShareButton";
@@ -108,13 +107,6 @@ export default function RootLayout({
               }),
             }}
           />
-          {/* ...existing code... */}
-          {/* Hide GlobalUpOneLevelButton on feedback page */}
-          {/* 只在非 /feedback 路徑顯示上一層按鈕，於伺服器端也正確隱藏 */}
-          {typeof window === "undefined" || !(
-            (typeof window !== "undefined" && window.location.pathname.startsWith("/feedback"))
-          ) ? null : <GlobalUpOneLevelButton />}
-
           <div id="main-content">
             <LanguageGate>{children}</LanguageGate>
           </div>

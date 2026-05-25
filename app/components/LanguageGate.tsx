@@ -37,10 +37,7 @@ function isQuizPath(pathname: string) {
 }
 
 function isAllowedForLanguage(language: LanguageCode, pathname: string) {
-  // 允許所有語言瀏覽 /feedback 和 /test（各語言有自己的題庫）
-  if (pathname === "/feedback" || pathname.startsWith("/feedback/")) {
-    return true;
-  }
+  // 允許所有語言瀏覽 /test（各語言有自己的題庫）
   if (pathname === "/test" || pathname.startsWith("/test/")) {
     return true;
   }
