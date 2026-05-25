@@ -16,8 +16,6 @@ const LANGUAGES: { value: LanguageCode; label: string }[] = [
   // { value: "ko", label: "한국어" },
 ];
 
-const GLOBE_COLOR = "#b19739";
-
 export default function LanguageSelector() {
   // TODO: re-enable after zh-TW features are done
   const [language, setLanguage] = useState<LanguageCode>("zh-TW");
@@ -62,34 +60,36 @@ export default function LanguageSelector() {
     <div className="relative" ref={menuRef}>
       {/* 觸發按鈕（桌機＋手機共用） */}
       <button
-        className="p-0 rounded-md text-sm inline-flex items-center justify-center"
-        style={{ backgroundColor: "var(--zen-bg)", color: GLOBE_COLOR }}
+        type="button"
+        className="inline-flex items-center gap-1 text-xs transition-colors"
+        style={{ color: "var(--zen-ink)" }}
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         aria-label="語言選擇"
         title={currentLabel}
       >
+        <span>{currentLabel}</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
+          width="12"
+          height="12"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-5 w-5 transition-transform duration-200 hover:scale-[1.15]"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
           aria-hidden="true"
         >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18" />
-          <path d="M12 3a14 14 0 0 0 0 18" />
-          <path d="M12 3a14 14 0 0 1 0 18" />
+          <path d="m6 9 6 6 6-6" />
         </svg>
-        <span className="sr-only">{currentLabel}</span>
       </button>
 
       {/* 桌機：向下展開 */}
       {isOpen && (
-        <div className="hidden sm:block absolute left-full top-0 ml-2 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
+        <div className="hidden sm:block absolute left-0 top-full mt-1 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
           {LANGUAGES.map((l, i) => (
             <button
               key={l.value}

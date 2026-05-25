@@ -937,14 +937,6 @@ export function HomeContent() {
           </div>
         </>
       )}
-      {/* top-left brand */}
-      <div className="fixed top-8 left-6 sm:left-16 flex items-center gap-12 z-30">
-        <div className="flex flex-row items-baseline gap-2 leading-none">
-          <span className="text-base zen-subtle whitespace-nowrap leading-none" style={{ color: "#b19739" }}>exam.farm</span>
-          <LanguageSelector />
-        </div>
-      </div>
-
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-16 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
         <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden max-sm:items-stretch max-sm:min-h-0">
           {/* Left panel — categories */}
@@ -1076,23 +1068,26 @@ export function HomeContent() {
 
                 {popularLoaded && (
                   <div className="mt-6">
-                    <button
-                      type="button"
-                      onClick={() => setPopularCollapsed(o => !o)}
-                      aria-label={popularCollapsed ? "展開" : "收合"}
-                      title={popularCollapsed ? "展開" : "收合"}
-                      className="flex items-center gap-1 mb-3 text-xs transition-colors"
-                      style={{ color: "var(--zen-ink)" }}
-                    >
-                      <span>{language === "en" ? "Popular" : "熱門"}</span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                        style={{ transform: popularCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
+                    <div className="flex items-center gap-2 mb-3">
+                      <LanguageSelector />
+                      <button
+                        type="button"
+                        onClick={() => setPopularCollapsed(o => !o)}
+                        aria-label={popularCollapsed ? "展開" : "收合"}
+                        title={popularCollapsed ? "展開" : "收合"}
+                        className="flex items-center gap-1 text-xs transition-colors"
+                        style={{ color: "var(--zen-ink)" }}
                       >
-                        <path d="m6 9 6 6 6-6"/>
-                      </svg>
-                    </button>
+                        <span>{language === "en" ? "Popular" : "熱門"}</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                          style={{ transform: popularCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
+                        >
+                          <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                      </button>
+                    </div>
                     {!popularCollapsed && (
                       popularItems.length > 0 ? (
                         <>
