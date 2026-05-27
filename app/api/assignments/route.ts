@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { findUserByEmail, findUserByName } from "@/lib/users";
+import { findUserByEmail, findUserByName } from "@/lib/users-supabase";
 import { createAssignment, getAssignmentsByAssignee, getAssignmentsByAssigner, evictOldestTerminal, gradeAssignment } from "@/lib/assignments-supabase";
 import { getGroupWithMembers } from "@/lib/groups-supabase";
 import { getListById } from "@/lib/lists-supabase";

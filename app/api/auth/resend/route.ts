@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByEmail, updateUser } from "../../../../lib/users";
+import { findUserByEmail, updateUser } from "../../../../lib/users-supabase";
 import bcrypt from "bcryptjs";
 
 async function sendVerificationEmail(to: string, url: string) {

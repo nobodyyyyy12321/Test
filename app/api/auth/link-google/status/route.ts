@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
-import { findUserByEmail } from "../../../../../lib/users";
+import { findUserByEmail } from "../../../../../lib/users-supabase";
 
 export async function GET() {
   try {

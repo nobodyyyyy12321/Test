@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
-import { findUserByEmail, findUserByName } from "../../../../lib/users";
+import { findUserByEmail, findUserByName } from "../../../../lib/users-supabase";
 import { getListById } from "../../../../lib/lists-supabase";
 import ListEditClient from "./ListEditClient";
 

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { auth } from "../../auth";
-import { findUserByName, findUserByEmail } from "../../lib/users";
+import { findUserByName, findUserByEmail } from "../../lib/users-supabase";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
 import ProfileClient from "./ProfileClient";
 

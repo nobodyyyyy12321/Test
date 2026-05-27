@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { findUserByEmail, findUserByName } from "@/lib/users";
+import { findUserByEmail, findUserByName } from "@/lib/users-supabase";
 import {
   getAssignmentById,
   getAssignmentAnswers,
@@ -9,7 +9,7 @@ import {
   gradeAssignment,
   type AssignmentAnswer,
 } from "@/lib/assignments-supabase";
-import { fetchQuestions } from "@/lib/questions";
+import { fetchQuestions } from "@/lib/questions-supabase";
 
 async function getUser() {
   const session = await auth();

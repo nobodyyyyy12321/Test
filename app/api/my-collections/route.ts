@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { findUserByEmail, findUserByName } from "@/lib/users";
+import { findUserByEmail, findUserByName } from "@/lib/users-supabase";
 import { getUserCollections, deleteUserCollection, upsertUserCollection, updateUserCollection, userOwnsCollection, countCollectionRefs } from "@/lib/user-collections-supabase";
 import { deletePersonalQuizSet } from "@/lib/questions-supabase";
 

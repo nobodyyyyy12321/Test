@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByName } from "../../../../../lib/users";
+import { findUserByName } from "../../../../../lib/users-supabase";
 import { getFollowers } from "../../../../../lib/follows-supabase";
 
 export async function GET(

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
-import { findUserByEmail, findUserByName } from "@/lib/users";
-import { fetchQuestions } from "@/lib/questions";
+import { findUserByEmail, findUserByName } from "@/lib/users-supabase";
+import { fetchQuestions } from "@/lib/questions-supabase";
 
 async function getViewerId(): Promise<string | null> {
   try {

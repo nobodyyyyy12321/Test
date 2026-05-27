@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../../auth";
-import { findUserByEmail, findUserByName } from "../../../../lib/users";
+import { findUserByEmail, findUserByName } from "../../../../lib/users-supabase";
 import { getUserCollectionRef } from "../../../../lib/user-collections-supabase";
 import { fetchPersonalQuizQuestionsFresh } from "../../../../lib/questions-supabase";
 import CollectionEditClient from "./CollectionEditClient";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByVerificationToken, updateUser } from "../../../../lib/users";
+import { findUserByVerificationToken, updateUser } from "../../../../lib/users-supabase";
 
 export async function GET(req: Request) {
   try {

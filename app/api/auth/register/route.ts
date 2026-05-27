@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByName, findUserByEmail, saveUser } from "../../../../lib/users";
+import { findUserByName, findUserByEmail, saveUser } from "../../../../lib/users-supabase";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 

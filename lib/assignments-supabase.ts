@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "./supabase-admin";
-import { fetchQuestions } from "./questions";
+import { fetchQuestions } from "./questions-supabase";
 
 export type AssignmentAnswer = { n: number; u: string | string[] | null };
 

@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { appendPractice } from "@/lib/users";
+import { appendPractice } from "@/lib/users-supabase";
 
 export async function POST(request: Request) {
   try {

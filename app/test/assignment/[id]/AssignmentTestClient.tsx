@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import TestClient from "../../[id]/TestClient";
-import type { Question } from "../../../../lib/questions";
+import type { Question } from "../../../../lib/questions-supabase";
 
 type Props = {
   assignmentId: string;

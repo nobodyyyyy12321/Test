@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByEmail, findUserByName, findUserById, updateUser } from "../../../../lib/users";
+import { findUserByEmail, findUserByName, findUserById, updateUser } from "../../../../lib/users-supabase";
 import type { Session } from "next-auth";
 import { auth } from "../../../../auth";
 

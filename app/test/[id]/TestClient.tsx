@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BulkAddToListButton } from "../../components/AddToListButton";
 import { useShare } from "../../providers/ShareProvider";
-import type { Question } from "../../../lib/questions";
+import type { Question } from "../../../lib/questions-supabase";
 import dynamic from "next/dynamic";
 
 const RenderContent = dynamic(() => import("../../components/RenderContent"), { ssr: false });

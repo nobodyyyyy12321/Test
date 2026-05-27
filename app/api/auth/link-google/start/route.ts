@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
-import { findUserByEmail, updateUser } from "../../../../../lib/users";
+import { findUserByEmail, updateUser } from "../../../../../lib/users-supabase";
 
 export async function POST() {
   try {

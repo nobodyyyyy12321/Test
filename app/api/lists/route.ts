@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../auth";
-import { findUserByEmail, findUserByName } from "../../../lib/users";
+import { findUserByEmail, findUserByName } from "../../../lib/users-supabase";
 import { getListsByOwner, createList } from "../../../lib/lists-supabase";
 import type { Session } from "next-auth";
 

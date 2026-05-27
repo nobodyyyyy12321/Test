@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByName } from "../../../../../lib/users";
+import { findUserByName } from "../../../../../lib/users-supabase";
 import { getPublicListsByOwner } from "../../../../../lib/lists-supabase";
 import { getUserCollections } from "../../../../../lib/user-collections-supabase";
 import { listFolders, isFolderPublicVisible, publicFolderDisplayParentId } from "../../../../../lib/folders-supabase";

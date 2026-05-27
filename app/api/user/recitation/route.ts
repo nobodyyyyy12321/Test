@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
-import { appendRecitation } from "../../../../lib/users";
+import { appendRecitation } from "../../../../lib/users-supabase";
 import { incrementArticleCounters } from "../../../../lib/articles-supabase";
 
 export async function POST(request: Request) {

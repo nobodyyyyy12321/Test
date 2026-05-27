@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { auth } from "../../../../auth";
-import { findUserByEmail, findUserByName, updateUser } from "../../../../lib/users";
+import { findUserByEmail, findUserByName, updateUser } from "../../../../lib/users-supabase";
 
 const AVATAR_BUCKET = process.env.SUPABASE_AVATAR_BUCKET || "avatars";
 

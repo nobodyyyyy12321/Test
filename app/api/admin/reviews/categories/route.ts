@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { deleteUserCollection } from "@/lib/user-collections-supabase";
 import { deletePersonalQuizSet } from "@/lib/questions-supabase";
-import { findUserByEmail, findUserByName } from "@/lib/users";
+import { findUserByEmail, findUserByName } from "@/lib/users-supabase";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_TEST_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!;
