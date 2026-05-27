@@ -89,7 +89,10 @@ export default function LanguageSelector() {
 
       {/* 桌機：向下展開 */}
       {isOpen && (
-        <div className="hidden sm:block absolute left-0 top-full mt-1 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800 bg-zen-paper dark:bg-zinc-900">
+        <div
+          className="hidden sm:block absolute left-0 top-full mt-1 w-44 rounded shadow-md z-[61] border border-zinc-200 dark:border-zinc-800"
+          style={{ backgroundColor: "var(--zen-paper)" }}
+        >
           {LANGUAGES.map((l, i) => (
             <button
               key={l.value}
