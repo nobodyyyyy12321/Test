@@ -894,14 +894,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
-      {/* fixed account name (top-left) */}
-      <div
-        className="fixed top-4 left-4 z-30 h-10 flex items-center px-2 pointer-events-none"
-        style={{ maxWidth: "calc(100vw - 5rem)" }}
-      >
-        <span className="text-lg font-semibold truncate" style={{ color: "var(--zen-ink)" }}>{urlName}</span>
-      </div>
-
       <main className="w-full max-w-2xl md:max-w-4xl px-6 pt-10 pb-36 sm:pb-10">
 
         {/* header */}
