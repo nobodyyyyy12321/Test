@@ -7,7 +7,6 @@ import { useSession, signOut } from "next-auth/react";
 import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
 
 type Tab =
-  | "home"
   | "lists"
   | "profile"
   | "record"
@@ -153,7 +152,6 @@ export default function PersonalMenu() {
   // (or when there's no target profile in view, i.e. we're on the homepage).
   const ownerOnlyTabs: { id: Tab; label: string }[] = showOwnerTabs
     ? [
-        { id: "home",        label: uiLang === "en" ? "Home" : "首頁" },
         { id: "record",      label: t("tabRecord") },
         { id: "assignments", label: t("tabAssignOutbox") },
         { id: "upload",      label: t("uploadQuestions") },
@@ -231,14 +229,24 @@ export default function PersonalMenu() {
               </button>
             </>
           ) : (
-            <Link
-              href="/auth/login"
-              onClick={() => setOpen(false)}
-              className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              style={{ color: "var(--zen-ink)", opacity: 0.85 }}
-            >
-              {uiLang === "en" ? "Sign In" : "登入"}
-            </Link>
+            <>
+              <Link
+                href="/auth/login"
+                onClick={() => setOpen(false)}
+                className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                style={{ color: "var(--zen-ink)", opacity: 0.85 }}
+              >
+                {uiLang === "en" ? "Sign In" : "登入"}
+              </Link>
+              <Link
+                href="/auth/register"
+                onClick={() => setOpen(false)}
+                className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                style={{ color: "var(--zen-ink)", opacity: 0.85 }}
+              >
+                {uiLang === "en" ? "Sign Up" : "註冊"}
+              </Link>
+            </>
           )}
         </nav>
       </aside>
