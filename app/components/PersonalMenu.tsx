@@ -193,9 +193,9 @@ export default function PersonalMenu() {
 
       <aside
         ref={drawerRef}
-        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-lg
-          left-0 right-0 top-0 pt-4
-          sm:left-auto sm:right-0 sm:top-20 sm:pt-0 sm:w-56 sm:max-w-[60vw] sm:rounded-lg ${
+        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-lg rounded-lg
+          right-0 top-20 w-48 max-w-[80vw]
+          sm:w-56 sm:max-w-[60vw] ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         style={{ backgroundColor: "var(--zen-bg)" }}
@@ -203,7 +203,7 @@ export default function PersonalMenu() {
       >
         <nav className="flex flex-col py-2">
           {/* utility icons: home / share / search */}
-          <div className="flex items-center gap-5 px-4 py-2.5">
+          <div className="flex items-center gap-5 px-4 py-4 sm:py-2.5">
             <Link href="/" aria-label="home" onClick={() => setOpen(false)} className="flex items-center justify-center transition-opacity hover:opacity-70">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
@@ -220,7 +220,7 @@ export default function PersonalMenu() {
                   key={tab.id}
                   href={tabHref(tab.id)}
                   onClick={() => setOpen(false)}
-                  className="text-left px-4 py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   style={{ color: "var(--zen-ink)", opacity: 0.7 }}
                 >
                   {tab.label}
@@ -236,7 +236,7 @@ export default function PersonalMenu() {
                   } catch {}
                   signOut({ callbackUrl: "/" });
                 }}
-                className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
               >
                 {t("signOut")}
@@ -247,7 +247,7 @@ export default function PersonalMenu() {
               <Link
                 href="/auth/login"
                 onClick={() => setOpen(false)}
-                className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 style={{ color: "var(--zen-ink)", opacity: 0.85 }}
               >
                 {uiLang === "en" ? "Sign In" : "登入"}
@@ -255,7 +255,7 @@ export default function PersonalMenu() {
               <Link
                 href="/auth/register"
                 onClick={() => setOpen(false)}
-                className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 style={{ color: "var(--zen-ink)", opacity: 0.85 }}
               >
                 {uiLang === "en" ? "Sign Up" : "註冊"}
