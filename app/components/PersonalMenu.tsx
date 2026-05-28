@@ -193,11 +193,12 @@ export default function PersonalMenu() {
 
       <aside
         ref={drawerRef}
-        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh]
-          left-0 right-0 top-0 pt-4 shadow-lg bg-[var(--zen-bg)]
-          sm:left-auto sm:right-0 sm:top-20 sm:pt-0 sm:w-56 sm:max-w-[60vw] sm:shadow-none sm:bg-transparent ${
+        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-lg
+          left-0 right-0 top-0 pt-4
+          sm:left-auto sm:right-0 sm:top-20 sm:pt-0 sm:w-56 sm:max-w-[60vw] sm:rounded-lg ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
+        style={{ backgroundColor: "var(--zen-bg)" }}
         aria-hidden={!open}
       >
         <nav className="flex flex-col py-2">
