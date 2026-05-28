@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Noto_Serif_TC } from "next/font/google";
-import Link from "next/link";
 import "./globals.css";
 import PersonalMenu from "./components/PersonalMenu";
 
@@ -10,8 +9,6 @@ import PWARegister from "./components/PWARegister";
 import RotatePrompt from "./components/RotatePrompt";
 import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
-import ShareButton from "./components/ShareButton";
-import SearchButton from "./components/SearchButton";
 import ThemeWatcher from "./components/ThemeWatcher";
 import { Analytics } from "@vercel/analytics/next";
 import "./speaker-icon.css";
@@ -77,19 +74,6 @@ export default function RootLayout({
         <Providers>
           <ThemeWatcher />
           <aside className="hidden sm:flex fixed right-4 top-4 z-[60] flex-row items-center gap-2">
-            <Link href="/" aria-label="回到首頁" className="inline-flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-                <path d="M9 21V12h6v9" />
-              </svg>
-            </Link>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <ShareButton />
-            </div>
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-              <SearchButton />
-            </div>
-
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <PersonalMenu />
             </div>
