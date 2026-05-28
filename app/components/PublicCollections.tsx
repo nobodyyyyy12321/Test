@@ -8,6 +8,7 @@ import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
+import PersonalMenu from "./PersonalMenu";
 import type { CategoryNode } from "./CategoryNode";
 import type { MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
@@ -102,7 +103,7 @@ type ExternalPinnedRef = {
   name: string;
   href?: string;
 };
-export function HomeContent() {
+export function PublicCollections({ embedded = false }: { embedded?: boolean } = {}) {
     // Unified pinned folder rendering (same as recommended creator area)
     function renderPinnedFolder(
       node: CategoryNode,
@@ -937,7 +938,9 @@ export function HomeContent() {
           </div>
         </>
       )}
-      <main className="flex w-full flex-col pt-36 px-4 sm:pl-16 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
+      {!embedded && <PersonalMenu language={language} />}
+
+      <main className="flex w-full flex-col pt-36 px-4 sm:pl-28 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
         <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden max-sm:items-stretch max-sm:min-h-0">
           {/* Left panel — categories */}
           <div className="w-full sm:w-1/2 shrink-0 max-sm:flex max-sm:flex-col max-sm:h-full max-sm:overflow-hidden">

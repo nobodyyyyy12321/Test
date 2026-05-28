@@ -3,13 +3,14 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import NextImage from "next/image";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useExcelSelection } from "../lib/useExcelSelection";
 import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import { PersonalListsView } from "../components/PersonalListsView";
+import { PublicCollections } from "../components/PublicCollections";
 import AssignmentsTab from "../components/AssignmentsTab";
 import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
@@ -18,7 +19,9 @@ import { getStoredTheme, setTheme as setThemeMode, type ThemeMode, THEME_CHANGE_
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "settings" | "upload";
+type Tab = "home" | "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "settings" | "upload";
+
+const TAB_KEYS: readonly Tab[] = ["home", "profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignments", "settings", "upload"] as const;
 
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
@@ -175,7 +178,17 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     const emailMatch = Boolean(initialProfile.email && (session.user as any).email === initialProfile.email);
     return nameMatch || emailMatch;
   }, [initialIsOwner, session, status, urlName, initialProfile.email]);
-  const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const searchParams = useSearchParams();
+  const tabFromUrl = (searchParams?.get("tab") ?? null) as Tab | null;
+  const initialTab: Tab = tabFromUrl && TAB_KEYS.includes(tabFromUrl) ? tabFromUrl : "profile";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  // Re-sync activeTab if the URL `?tab=` changes (e.g. PersonalMenu link click).
+  useEffect(() => {
+    if (tabFromUrl && TAB_KEYS.includes(tabFromUrl) && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabFromUrl]);
   const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">("outbox");
 
   // ── sidebar (collapsible left nav) ──────────────────────────────────────
@@ -878,14 +891,15 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   // ── tabs config ───────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
+    { id: "home", label: uiLang === "en" ? "Home" : "首頁", ownerOnly: true },
     { id: "lists", label: t("tabLists") },
     { id: "profile", label: t("tabProfile") },
     { id: "record", label: t("tabRecord"), ownerOnly: true },
     { id: "assignments", label: t("tabAssignOutbox"), ownerOnly: true },
     { id: "groups", label: t("tabGroups"), ownerOnly: true },
     { id: "gallery", label: t("tabGallery"), ownerOnly: true },
-    { id: "followers", label: t("tabFollowers") },
-    { id: "following", label: t("tabFollowing") },
+    { id: "followers", label: t("tabFollowers"), ownerOnly: true },
+    { id: "following", label: t("tabFollowing"), ownerOnly: true },
   ];
   const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
@@ -1158,6 +1172,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             )}
           </div>
         </div>
+        )}
+
+        {/* ── home tab (public categories + 公開題庫) ─────────────────────── */}
+        {activeTab === "home" && (
+          <PublicCollections embedded />
         )}
 
         {/* ── profile tab ─────────────────────────────────────────────────── */}
