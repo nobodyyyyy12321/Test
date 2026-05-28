@@ -1,14 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import AuthNav from "./AuthNav";
+import PersonalMenu from "./PersonalMenu";
 import ShareButton from "./ShareButton";
 import SearchButton from "./SearchButton";
 
 export default function MobileBottomBar() {
-  const { data: session } = useSession();
-  const loggedIn = !!session?.user;
-
   return (
     <div
       id="mobile-bottom-bar"
@@ -30,7 +26,7 @@ export default function MobileBottomBar() {
         <SearchButton />
       </div>
       <div className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
-        <AuthNav />
+        <PersonalMenu />
       </div>
     </div>
   );

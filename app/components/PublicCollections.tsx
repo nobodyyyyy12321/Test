@@ -10,7 +10,6 @@ import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 import type { MyCollection } from "./PersonalListsView";
-import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
 import type { QuestionList } from "../../lib/lists-supabase";
 import {
   DndContext,
@@ -25,7 +24,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 
-type PinDragFrom = "grid" | "pinned" | "list-pinned" | "my-collection-pinned" | "profile-tab-pinned";
+type PinDragFrom = "grid" | "pinned" | "list-pinned" | "my-collection-pinned";
 type PinDragData = { pinId: string; name: string; href?: string; from: PinDragFrom };
 
 function PinDraggable({
@@ -162,9 +161,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
   const [openPinnedKeyChain, setOpenPinnedKeyChain] = useState<string[]>([]);
   const [pinnedCollectionIds, setPinnedCollectionIds] = useState<string[]>([]);
   const [pinnedListIds, setPinnedListIds] = useState<string[]>([]);
-  type PinnedProfileTab = { name: string; tab: string; label: string };
-  const [pinnedProfileTabs, setPinnedProfileTabs] = useState<PinnedProfileTab[]>([]);
-  const [profileTabCtxMenu, setProfileTabCtxMenu] = useState<{ name: string; tab: string; label: string; x: number; y: number } | null>(null);
   const [homeLists, setHomeLists] = useState<QuestionList[]>([]);
   const [homeListsLoaded, setHomeListsLoaded] = useState(false);
   const [myCollections, setMyCollections] = useState<MyCollection[]>([]);
@@ -189,7 +185,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
       router.push(userName ? `/${encodeURIComponent(userName)}` : "/auth/login");
     },
   });
-  const visiblePinnedProfileTabs = pinnedProfileTabs;
   const [activeDrag, setActiveDrag] = useState<PinDragData | null>(null);
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -223,10 +218,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
     if (data.from === "pinned") unpin(data.pinId);
     else if (data.from === "list-pinned") unpinList(data.pinId);
     else if (data.from === "my-collection-pinned") unpinCollection(data.pinId);
-    else if (data.from === "profile-tab-pinned") {
-      const parts = data.pinId.split("\t");
-      if (parts.length === 2) unpinProfileTab(parts[0], parts[1]);
-    }
   };
 
   const itemClassForDepth = (depth: number): string => {
@@ -417,31 +408,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
     );
   };
 
-  const profileTabsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const saveProfileTabs = (tabs: PinnedProfileTab[]) => {
-    if (loggedIn) {
-      if (profileTabsDebounce.current) clearTimeout(profileTabsDebounce.current);
-      profileTabsDebounce.current = setTimeout(() => {
-        fetch("/api/user/pins", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pinnedProfileTabs: tabs }),
-        }).catch(() => {});
-      }, 500);
-    } else {
-      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(tabs)); } catch {}
-    }
-  };
-
-  const unpinProfileTab = (name: string, tab: string) => {
-    setPinnedProfileTabs(prev => {
-      const next = prev.filter(p => !(p.name === name && p.tab === tab));
-      saveProfileTabs(next);
-      return next;
-    });
-  };
-
   useEffect(() => {
     try {
       const storedExternal = localStorage.getItem("externalPinnedRefs");
@@ -458,8 +424,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
         if (storedCols) setPinnedCollectionIds(JSON.parse(storedCols));
         const storedLists = localStorage.getItem("pinnedListIds");
         if (storedLists) setPinnedListIds(JSON.parse(storedLists));
-        const storedTabs = localStorage.getItem("pinnedProfileTabs");
-        if (storedTabs) setPinnedProfileTabs(JSON.parse(storedTabs));
       } catch {}
       return;
     }
@@ -469,7 +433,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
         if (Array.isArray(d.pinnedCats)) setPinnedNames(d.pinnedCats);
         if (Array.isArray(d.pinnedCollectionIds)) setPinnedCollectionIds(d.pinnedCollectionIds);
         if (Array.isArray(d.pinnedListIds)) setPinnedListIds(d.pinnedListIds);
-        if (Array.isArray(d.pinnedProfileTabs)) setPinnedProfileTabs(d.pinnedProfileTabs);
       })
       .catch(() => {});
     // Pre-load profile language so profile page uses the correct language immediately
@@ -917,26 +880,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
   return (
     <DndContext sensors={dndSensors} onDragStart={handleDndStart} onDragEnd={handleDndEnd} onDragCancel={() => setActiveDrag(null)}>
     <div className="flex min-h-screen items-start justify-start bg-transparent font-sans dark:bg-black">
-      {/* profile-tab pin context menu */}
-      {profileTabCtxMenu && (
-        <>
-          <div className="fixed inset-0 z-40" onMouseDown={() => setProfileTabCtxMenu(null)} />
-          <div
-            className="fixed z-50 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-            style={{ left: profileTabCtxMenu.x, top: profileTabCtxMenu.y, minWidth: "5rem" }}
-          >
-            <button
-              type="button"
-              onMouseDown={e => e.stopPropagation()}
-              onClick={() => { unpinProfileTab(profileTabCtxMenu.name, profileTabCtxMenu.tab); setProfileTabCtxMenu(null); }}
-              className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              style={{ color: "var(--zen-ink)" }}
-            >
-              從首頁移除
-            </button>
-          </div>
-        </>
-      )}
 
 
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-28 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
@@ -1114,69 +1057,12 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
                   </div>
                 )}
 
-                {/* pinned profile tabs — mobile only */}
-                {loggedIn && visiblePinnedProfileTabs.length > 0 && (
-                  <div className="sm:hidden mt-6">
-                    {visiblePinnedProfileTabs.map((p) => {
-                      const section = (
-                        <PinnedProfileTabSection
-                          name={p.name}
-                          tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
-                          label={p.label}
-                          onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
-                        />
-                      );
-                      if (p.tab === "lists") {
-                        return <div key={`mobile-${p.name}-${p.tab}`}>{section}</div>;
-                      }
-                      return (
-                        <PinDraggable
-                          key={`mobile-${p.name}-${p.tab}`}
-                          pinId={`${p.name}\t${p.tab}`}
-                          name={p.label}
-                          from="profile-tab-pinned"
-                        >
-                          {section}
-                        </PinDraggable>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </div>
 
             </>
             )}
           </div>
-
-          {/* Right panel — pinned profile tabs (desktop) */}
-          {loggedIn && visiblePinnedProfileTabs.length > 0 && (
-            <div className="hidden sm:block flex-1 pt-2 px-2">
-              {visiblePinnedProfileTabs.map((p) => {
-                const section = (
-                  <PinnedProfileTabSection
-                    name={p.name}
-                    tab={p.tab as "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked"}
-                    label={p.label}
-                    onContextMenu={e => { e.preventDefault(); setProfileTabCtxMenu({ name: p.name, tab: p.tab, label: p.label, x: e.clientX, y: e.clientY }); }}
-                  />
-                );
-                if (p.tab === "lists") {
-                  return <div key={`desktop-${p.name}-${p.tab}`}>{section}</div>;
-                }
-                return (
-                  <PinDraggable
-                    key={`desktop-${p.name}-${p.tab}`}
-                    pinId={`${p.name}\t${p.tab}`}
-                    name={p.label}
-                    from="profile-tab-pinned"
-                  >
-                    {section}
-                  </PinDraggable>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <Footer language={language} />

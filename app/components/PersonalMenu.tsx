@@ -193,10 +193,11 @@ export default function PersonalMenu() {
 
       <aside
         ref={drawerRef}
-        className={`fixed right-0 top-20 w-56 max-w-[60vw] z-50 overflow-y-auto transition-opacity duration-150 ${
+        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh]
+          left-0 right-0 top-0 pt-4 shadow-lg bg-[var(--zen-bg)]
+          sm:left-auto sm:right-0 sm:top-20 sm:pt-0 sm:w-56 sm:max-w-[60vw] sm:shadow-none sm:bg-transparent ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
-        style={{ maxHeight: "calc(100vh - 5rem)" }}
         aria-hidden={!open}
       >
         <nav className="flex flex-col py-2">
@@ -215,7 +216,14 @@ export default function PersonalMenu() {
               ))}
               <button
                 type="button"
-                onClick={() => { setOpen(false); signOut({ callbackUrl: "/" }); }}
+                onClick={() => {
+                  setOpen(false);
+                  try {
+                    localStorage.removeItem("avatarUrl");
+                    localStorage.removeItem("displayName");
+                  } catch {}
+                  signOut({ callbackUrl: "/" });
+                }}
                 className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
               >
