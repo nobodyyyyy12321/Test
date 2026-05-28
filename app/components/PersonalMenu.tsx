@@ -34,16 +34,34 @@ const NON_PROFILE_ROOTS = new Set([
   "upload",
 ]);
 
-type Props = { language: string };
-
-export default function PersonalMenu({ language }: Props) {
+export default function PersonalMenu() {
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [language, setLanguage] = useState<string>("zh-TW");
   const drawerRef = useRef<HTMLElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   const uiLang = normalizeProfileLanguage(language);
   const t = (k: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, k);
+
+  // Detect site language from cookie/localStorage; re-read when LanguageSelector
+  // dispatches `site-language-change`.
+  useLayoutEffect(() => {
+    const fromCookie = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]+)/)?.[1];
+    const fromStorage = localStorage.getItem("siteLanguage");
+    const lang = fromCookie ?? fromStorage ?? "zh-TW";
+    setLanguage(lang);
+  }, []);
+  useEffect(() => {
+    const onChange = () => {
+      const fromCookie = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]+)/)?.[1];
+      const fromStorage = localStorage.getItem("siteLanguage");
+      setLanguage(fromCookie ?? fromStorage ?? "zh-TW");
+    };
+    window.addEventListener("site-language-change", onChange);
+    return () => window.removeEventListener("site-language-change", onChange);
+  }, []);
 
   // Hydrate name from localStorage cache before paint to avoid stale JWT name.
   useLayoutEffect(() => {
@@ -100,12 +118,22 @@ export default function PersonalMenu({ language }: Props) {
   // the target IS the viewer because we're off a profile page entirely).
   const showOwnerTabs = isAuthed && (profileNameOnPage === null || isViewingOwnProfile);
 
-  // close on Esc
+  // close on Esc or outside-click
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (drawerRef.current?.contains(target)) return;
+      if (buttonRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointerDown);
+    };
   }, [open]);
 
   const tabHref = (tab: Tab): string => {
@@ -142,18 +170,19 @@ export default function PersonalMenu({ language }: Props) {
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-label="menu"
         aria-expanded={open}
-        className="fixed top-6 left-4 sm:left-6 z-[60] inline-flex items-center justify-center w-10 h-10 rounded-md transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+        className="flex items-center justify-center transition-opacity hover:opacity-70"
         style={{ color: "var(--zen-ink)", backgroundColor: "transparent" }}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="22" height="22" viewBox="0 0 24 24"
+          width="26" height="26" viewBox="0 0 24 24"
           fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
           aria-hidden="true"
         >
           <line x1="3" y1="6"  x2="21" y2="6"  />
@@ -164,12 +193,12 @@ export default function PersonalMenu({ language }: Props) {
 
       <aside
         ref={drawerRef}
-        className={`fixed left-0 top-0 h-screen w-56 max-w-[60vw] z-50 overflow-y-auto transition-opacity duration-150 ${
+        className={`fixed right-0 top-20 w-56 max-w-[60vw] z-50 overflow-y-auto transition-opacity duration-150 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
+        style={{ maxHeight: "calc(100vh - 5rem)" }}
         aria-hidden={!open}
       >
-        <div className="h-[60px]" />
         <nav className="flex flex-col py-2">
           {isAuthed ? (
             <>
@@ -178,7 +207,7 @@ export default function PersonalMenu({ language }: Props) {
                   key={tab.id}
                   href={tabHref(tab.id)}
                   onClick={() => setOpen(false)}
-                  className="text-left px-4 py-2.5 text-sm transition-colors hover:opacity-100"
+                  className="text-left px-4 py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   style={{ color: "var(--zen-ink)", opacity: 0.7 }}
                 >
                   {tab.label}
@@ -187,7 +216,7 @@ export default function PersonalMenu({ language }: Props) {
               <button
                 type="button"
                 onClick={() => { setOpen(false); signOut({ callbackUrl: "/" }); }}
-                className="text-left px-4 py-2.5 text-sm transition-colors"
+                className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
               >
                 {t("signOut")}
@@ -197,7 +226,7 @@ export default function PersonalMenu({ language }: Props) {
             <Link
               href="/auth/login"
               onClick={() => setOpen(false)}
-              className="text-left px-4 py-2.5 text-sm transition-colors"
+              className="text-left px-4 py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
               style={{ color: "var(--zen-ink)", opacity: 0.85 }}
             >
               {uiLang === "en" ? "Sign In" : "登入"}

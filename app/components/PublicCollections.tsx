@@ -8,7 +8,6 @@ import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useFilteredCategories } from "./useFilteredCategories";
 import { Footer } from "./Footer";
 import LanguageSelector from "./LanguageSelector";
-import PersonalMenu from "./PersonalMenu";
 import type { CategoryNode } from "./CategoryNode";
 import type { MyCollection } from "./PersonalListsView";
 import { PinnedProfileTabSection } from "./PinnedProfileTabSection";
@@ -938,7 +937,7 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
           </div>
         </>
       )}
-      {!embedded && <PersonalMenu language={language} />}
+
 
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-28 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
         <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden max-sm:items-stretch max-sm:min-h-0">
