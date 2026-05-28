@@ -1,5 +1,5 @@
-import { HomeContent } from "./components/HomeContent";
+import { PublicCollections } from "./components/PublicCollections";
 
 export default async function Home() {
-  return <HomeContent />;
+  return <PublicCollections />;
 }

@@ -3,13 +3,14 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import NextImage from "next/image";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useExcelSelection } from "../lib/useExcelSelection";
 import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import { PersonalListsView } from "../components/PersonalListsView";
+import { PublicCollections } from "../components/PublicCollections";
 import AssignmentsTab from "../components/AssignmentsTab";
 import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
@@ -18,7 +19,9 @@ import { getStoredTheme, setTheme as setThemeMode, type ThemeMode, THEME_CHANGE_
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "settings" | "upload";
+type Tab = "home" | "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "settings" | "upload";
+
+const TAB_KEYS: readonly Tab[] = ["home", "profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignments", "settings", "upload"] as const;
 
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
@@ -175,20 +178,21 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     const emailMatch = Boolean(initialProfile.email && (session.user as any).email === initialProfile.email);
     return nameMatch || emailMatch;
   }, [initialIsOwner, session, status, urlName, initialProfile.email]);
-  const [activeTab, setActiveTab] = useState<Tab>("profile");
-  const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">("outbox");
-
-  // ── sidebar (collapsible left nav) ──────────────────────────────────────
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const searchParams = useSearchParams();
+  const rawTab = searchParams?.get("tab") ?? null;
+  // Accept canonical tab keys plus the assignOutbox/assignInbox aliases.
+  const tabFromUrl: Tab | null =
+    rawTab === "assignOutbox" || rawTab === "assignInbox" ? "assignments"
+    : rawTab && (TAB_KEYS as readonly string[]).includes(rawTab) ? (rawTab as Tab)
+    : null;
+  const [activeTab, setActiveTab] = useState<Tab>(tabFromUrl ?? "profile");
+  const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">(rawTab === "assignInbox" ? "inbox" : "outbox");
+  // Re-sync when the URL `?tab=` changes (e.g. PersonalMenu link click).
   useEffect(() => {
-    try {
-      const v = localStorage.getItem("profileSidebarOpen");
-      if (v !== null) setSidebarOpen(v === "true");
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try { localStorage.setItem("profileSidebarOpen", String(sidebarOpen)); } catch {}
-  }, [sidebarOpen]);
+    if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+    if (rawTab === "assignInbox") setAssignSubTab("inbox");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawTab]);
 
   // ── profile state ──
   const [name, setName] = useState(initialProfile.name || "");
@@ -272,10 +276,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const [colCtxMenuId, setColCtxMenuId] = useState<string | null>(null);
   const [colCtxMenuPos, setColCtxMenuPos] = useState({ x: 0, y: 0 });
 
-  // ── pinned profile tabs (shown on home page) ─────────────────────────────
-  type PinnedTab = { name: string; tab: Tab; label: string };
-  const [pinnedTabs, setPinnedTabs] = useState<PinnedTab[]>([]);
-  const [tabCtxMenu, setTabCtxMenu] = useState<{ tab: Tab; label: string; x: number; y: number } | null>(null);
   const isLoggedIn = !!session?.user;
 
   useEffect(() => {
@@ -318,73 +318,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const t = (key: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, key);
   const normalizedProfileLang = normalizeProfileLanguage(uiLang);
   const dateLocale = normalizedProfileLang === "en" ? "en-US" : normalizedProfileLang === "zh-CN" ? "zh-CN" : "zh-TW";
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetch("/api/user/pins")
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d && Array.isArray(d.pinnedProfileTabs)) setPinnedTabs(d.pinnedProfileTabs);
-        })
-        .catch(() => {});
-    } else {
-      try {
-        const stored = localStorage.getItem("pinnedProfileTabs");
-        if (stored) setPinnedTabs(JSON.parse(stored));
-      } catch {}
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const t = new URLSearchParams(window.location.search).get("tab");
-      const valid: Tab[] = ["profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignments"];
-      if (t === "assignOutbox" || t === "assignInbox") {
-        setActiveTab("assignments");
-        if (t === "assignInbox") setAssignSubTab("inbox");
-      } else if (t && (valid as string[]).includes(t)) {
-        setActiveTab(t as Tab);
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (!tabCtxMenu) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setTabCtxMenu(null); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [tabCtxMenu]);
-
-  // Only these tabs can be pinned to home page
-  const PINNABLE_TABS: Tab[] = ["lists"];
-  const isTabPinnable = (tab: Tab) => PINNABLE_TABS.includes(tab);
-  const isTabPinned = (tab: Tab) => pinnedTabs.some(p => p.name === urlName && p.tab === tab);
-  const persistPinnedTabs = (next: PinnedTab[]) => {
-    if (isLoggedIn) {
-      fetch("/api/user/pins", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pinnedProfileTabs: next }),
-      }).catch(() => {});
-    } else {
-      try { localStorage.setItem("pinnedProfileTabs", JSON.stringify(next)); } catch {}
-    }
-  };
-  const togglePinTab = (tab: Tab, label: string) => {
-    // Only allow pinning of specific tabs
-    if (!isTabPinnable(tab)) return;
-    setPinnedTabs(prev => {
-      const exists = prev.some(p => p.name === urlName && p.tab === tab);
-      const next = exists
-        ? prev.filter(p => !(p.name === urlName && p.tab === tab))
-        : [...prev, { name: urlName, tab, label }];
-      persistPinnedTabs(next);
-      return next;
-    });
-    setTabCtxMenu(null);
-  };
-
 
   // ── load lists when tab activated ─────────────────────────────────────────
 
@@ -845,49 +778,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     setShowUserMenu(false);
   };
 
-  const handleSignOut = async () => {
-    try {
-      localStorage.removeItem("avatarUrl");
-      localStorage.removeItem("displayName");
-      const csrfRes = await fetch("/api/auth/csrf", { method: "GET", credentials: "include" });
-      if (!csrfRes.ok) throw new Error(`csrf_http_${csrfRes.status}`);
-      const csrfJson = await csrfRes.json();
-      const csrfToken = csrfJson?.csrfToken;
-      if (!csrfToken) throw new Error("csrf_missing");
-
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/api/auth/signout";
-      const csrfInput = document.createElement("input");
-      csrfInput.type = "hidden";
-      csrfInput.name = "csrfToken";
-      csrfInput.value = csrfToken;
-      const callbackInput = document.createElement("input");
-      callbackInput.type = "hidden";
-      callbackInput.name = "callbackUrl";
-      callbackInput.value = "/";
-      form.appendChild(csrfInput);
-      form.appendChild(callbackInput);
-      document.body.appendChild(form);
-      form.submit();
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
-  // ── tabs config ───────────────────────────────────────────────────────────
-
-  const tabs: { id: Tab; label: string; ownerOnly?: boolean }[] = [
-    { id: "lists", label: t("tabLists") },
-    { id: "profile", label: t("tabProfile") },
-    { id: "record", label: t("tabRecord"), ownerOnly: true },
-    { id: "assignments", label: t("tabAssignOutbox"), ownerOnly: true },
-    { id: "groups", label: t("tabGroups"), ownerOnly: true },
-    { id: "gallery", label: t("tabGallery"), ownerOnly: true },
-    { id: "followers", label: t("tabFollowers") },
-    { id: "following", label: t("tabFollowing") },
-  ];
-  const visibleTabs = tabs.filter(t => !t.ownerOnly || initialIsOwner);
 
   // ── group detail content (shared between desktop inline card and mobile sheet) ──
 
@@ -1000,108 +890,10 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   const handleSidebarTabClick = (id: Tab) => {
     setActiveTab(id);
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
   };
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
-      {/* sidebar toggle (always visible, layered above sidebar) */}
-      <button
-        onClick={() => setSidebarOpen(prev => !prev)}
-        className="fixed top-4 left-4 z-50 w-10 h-10 flex items-center justify-center rounded-lg border transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        style={{ borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)", color: "var(--zen-ink)", backgroundColor: "var(--zen-bg)" }}
-        aria-label={sidebarOpen ? t("closeSidebar") : t("openSidebar")}
-        aria-expanded={sidebarOpen}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
-
-      {/* fixed account name (next to hamburger, always visible) */}
-      <div
-        className="fixed top-4 left-16 z-50 h-10 flex items-center px-2 pointer-events-none"
-        style={{ maxWidth: "calc(100vw - 5rem)" }}
-      >
-        <span className="text-lg font-semibold truncate" style={{ color: "var(--zen-ink)" }}>{urlName}</span>
-      </div>
-
-      {/* backdrop (mobile only, when sidebar open) */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* sidebar drawer — full-width opaque sheet on mobile, text-only on desktop */}
-      <aside
-        className={`fixed left-0 top-0 h-screen w-full md:w-64 z-40 overflow-y-auto pointer-events-none transition-opacity duration-75 bg-[var(--zen-bg)] shadow-xl md:bg-transparent md:shadow-none ${
-          sidebarOpen ? "opacity-100" : "opacity-0"
-        }`}
-        aria-hidden={!sidebarOpen}
-      >
-        <div className="h-[60px]" />
-        <nav className={`flex flex-col py-2 ${sidebarOpen ? "pointer-events-auto" : ""}`}>
-          {visibleTabs.map(tab => (
-            <React.Fragment key={tab.id}>
-              <button
-                onClick={() => handleSidebarTabClick(tab.id)}
-                onContextMenu={e => { e.preventDefault(); if (isOwner) setTabCtxMenu({ tab: tab.id, label: tab.label, x: e.clientX, y: e.clientY }); }}
-                className="text-left px-4 py-2.5 text-sm transition-colors"
-                style={{
-                  color: "var(--zen-ink)",
-                  opacity: activeTab === tab.id ? 1 : 0.6,
-                  fontWeight: activeTab === tab.id ? 600 : 400,
-                }}
-              >
-                {tab.label}
-              </button>
-              {tab.id === "assignments" && isOwner && (
-                <button
-                  onClick={() => handleSidebarTabClick("upload")}
-                  className="text-left px-4 py-2.5 text-sm transition-colors"
-                  style={{
-                    color: "var(--zen-ink)",
-                    opacity: activeTab === "upload" ? 1 : 0.6,
-                    fontWeight: activeTab === "upload" ? 600 : 400,
-                  }}
-                >
-                  {t("uploadQuestions")}
-                </button>
-              )}
-            </React.Fragment>
-          ))}
-          {isOwner && (
-            <>
-              <button
-                onClick={() => handleSidebarTabClick("settings")}
-                className="text-left px-4 py-2.5 text-sm transition-colors"
-                style={{
-                  color: "var(--zen-ink)",
-                  opacity: activeTab === "settings" ? 1 : 0.6,
-                  fontWeight: activeTab === "settings" ? 600 : 400,
-                }}
-              >
-                {t("tabSettings")}
-              </button>
-              <button
-                onClick={handleSignOut}
-                className="text-left px-4 py-2.5 text-sm transition-colors"
-                style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
-              >
-                {t("signOut")}
-              </button>
-            </>
-          )}
-        </nav>
-      </aside>
-
       <main className="w-full max-w-2xl md:max-w-4xl px-6 pt-10 pb-36 sm:pb-10">
 
         {/* header */}
@@ -1158,6 +950,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             )}
           </div>
         </div>
+        )}
+
+        {/* ── home tab (public categories + 公開題庫) ─────────────────────── */}
+        {activeTab === "home" && (
+          <PublicCollections embedded />
         )}
 
         {/* ── profile tab ─────────────────────────────────────────────────── */}
@@ -1722,27 +1519,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         )}
 
       </main>
-
-      {/* ── tab right-click menu ─────────────────────────────────────────── */}
-      {tabCtxMenu && isTabPinnable(tabCtxMenu.tab) && typeof window !== "undefined" && createPortal(
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setTabCtxMenu(null)} onContextMenu={e => { e.preventDefault(); setTabCtxMenu(null); }} />
-          <div
-            className="fixed z-50 w-32 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
-            style={{ top: tabCtxMenu.y, left: tabCtxMenu.x }}
-          >
-            <button
-              type="button"
-              onClick={() => togglePinTab(tabCtxMenu.tab, tabCtxMenu.label)}
-              className="w-full text-left px-4 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              style={{ color: "var(--zen-ink)" }}
-            >
-              {isTabPinned(tabCtxMenu.tab) ? t("removeFromHome") : t("showOnHome")}
-            </button>
-          </div>
-        </>,
-        document.body
-      )}
     </div>
   );
 }
