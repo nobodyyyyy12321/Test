@@ -7,7 +7,6 @@ import Providers from "./providers/SessionProvider";
 import LanguageGate from "./components/LanguageGate";
 import PWARegister from "./components/PWARegister";
 import RotatePrompt from "./components/RotatePrompt";
-import MobileBottomBar from "./components/MobileBottomBar";
 import PullToRefresh from "./components/PullToRefresh";
 import ThemeWatcher from "./components/ThemeWatcher";
 import { Analytics } from "@vercel/analytics/next";
@@ -73,7 +72,7 @@ export default function RootLayout({
       >
         <Providers>
           <ThemeWatcher />
-          <aside className="hidden sm:flex fixed right-4 top-4 z-[60] flex-row items-center gap-2">
+          <aside className="flex fixed right-4 top-4 z-[60] flex-row items-center gap-2">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <PersonalMenu />
             </div>
@@ -94,8 +93,6 @@ export default function RootLayout({
           <div id="main-content">
             <LanguageGate>{children}</LanguageGate>
           </div>
-          {/* 手機版底部列 */}
-          <MobileBottomBar />
           <PullToRefresh />
           <RotatePrompt />
         </Providers>

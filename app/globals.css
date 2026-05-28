@@ -12,8 +12,7 @@
   100% { width: 100%; opacity: 1; }
 }
 
-html.formal-quiz-active aside,
-html.formal-quiz-active #mobile-bottom-bar {
+html.formal-quiz-active aside {
   display: none !important;
 }
 @media (min-width: 640px) {
