@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useFilteredCategories } from "./useFilteredCategories";
-import { Footer } from "./Footer";
-import LanguageSelector from "./LanguageSelector";
 import type { CategoryNode } from "./CategoryNode";
 import type { MyCollection } from "./PersonalListsView";
 import type { QuestionList } from "../../lib/lists-supabase";
@@ -1014,7 +1012,6 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
                 {popularLoaded && (
                   <div className="mt-6">
                     <div className="flex items-center gap-2 mb-3">
-                      <LanguageSelector />
                       <button
                         type="button"
                         onClick={() => setPopularCollapsed(o => !o)}
@@ -1065,7 +1062,7 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
           </div>
         </div>
 
-        <Footer language={language} />
+        <div className="w-full mt-auto pt-16 pb-12" />
       </main>
     </div>
     <DragOverlay dropAnimation={null}>

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
 import ShareButton from "./ShareButton";
@@ -35,19 +35,38 @@ const NON_PROFILE_ROOTS = new Set([
   "upload",
 ]);
 
+const LANGUAGES: { value: string; label: string }[] = [
+  { value: "zh-TW", label: "中文繁體" },
+  { value: "en", label: "English" },
+];
+
 export default function PersonalMenu() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [language, setLanguage] = useState<string>("zh-TW");
+  const [langPickerOpen, setLangPickerOpen] = useState(false);
   const drawerRef = useRef<HTMLElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value);
+    try {
+      localStorage.setItem("siteLanguage", value);
+      document.cookie = `siteLanguage=${value}; path=/; max-age=31536000`;
+    } catch {}
+    window.dispatchEvent(new Event("site-language-change"));
+    setLangPickerOpen(false);
+    setOpen(false);
+    router.push("/");
+  };
 
   const uiLang = normalizeProfileLanguage(language);
   const t = (k: Parameters<typeof getProfileText>[1]) => getProfileText(uiLang, k);
 
-  // Detect site language from cookie/localStorage; re-read when LanguageSelector
-  // dispatches `site-language-change`.
+  // Detect site language from cookie/localStorage; re-read when a
+  // `site-language-change` event fires.
   useLayoutEffect(() => {
     const fromCookie = document.cookie.match(/(?:^|;\s*)siteLanguage=([^;]+)/)?.[1];
     const fromStorage = localStorage.getItem("siteLanguage");
@@ -202,7 +221,7 @@ export default function PersonalMenu() {
         aria-hidden={!open}
       >
         <nav className="flex flex-col py-2">
-          {/* utility icons: home / share / search */}
+          {/* utility icons: home / share / search / language */}
           <div className="flex items-center gap-5 px-4 py-4 sm:py-2.5">
             <Link href="/" aria-label="home" onClick={() => setOpen(false)} className="flex items-center justify-center transition-opacity hover:opacity-70">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
@@ -212,7 +231,22 @@ export default function PersonalMenu() {
             </Link>
             <ShareButton />
             <SearchButton />
+            <button
+              type="button"
+              onClick={() => setLangPickerOpen(v => !v)}
+              aria-label="語言選擇"
+              aria-expanded={langPickerOpen}
+              className="flex items-center justify-center transition-opacity hover:opacity-70"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18" />
+                <path d="M12 3a14 14 0 0 0 0 18" />
+                <path d="M12 3a14 14 0 0 1 0 18" />
+              </svg>
+            </button>
           </div>
+
           {isAuthed ? (
             <>
               {tabs.map(tab => (
@@ -264,6 +298,51 @@ export default function PersonalMenu() {
           )}
         </nav>
       </aside>
+
+      {langPickerOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
+          onClick={() => setLangPickerOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-xs mx-4 rounded-xl shadow-xl overflow-hidden"
+            style={{ backgroundColor: "var(--zen-paper)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
+              <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>
+                {uiLang === "en" ? "Language" : "語言"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLangPickerOpen(false)}
+                aria-label="close"
+                className="text-lg leading-none"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex flex-col py-1">
+              {LANGUAGES.map(l => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => handleLanguageChange(l.value)}
+                  className="text-left px-5 py-3 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  style={{
+                    color: "var(--zen-ink)",
+                    fontWeight: language === l.value ? 600 : 400,
+                    opacity: language === l.value ? 1 : 0.75,
+                  }}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
