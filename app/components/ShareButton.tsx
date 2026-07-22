@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
 function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
-  if (pathname === "/" || pathname === "") return "Exam";
+  if (pathname === "/" || pathname === "") return "Test";
 
   const segments = pathname.split("/").filter(Boolean);
 
@@ -16,7 +16,7 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
     return id;
   }
 
-  return "Exam";
+  return "Test";
 }
 
 function ShareButtonInner() {
@@ -32,7 +32,7 @@ function ShareButtonInner() {
   const { shareText, shareTitle, shareScoreCard } = useShare();
   const urlTitle = getPageTitle(pathname, searchParams);
   const documentTitle = typeof document !== "undefined"
-    ? document.title.replace(/\s*[\u2014\-]\s*Exam\s*$/, "").trim()
+    ? document.title.replace(/\s*[\u2014\-]\s*Test\s*$/, "").trim()
     : "";
   const title = isTestRoute
     ? (resolvedUrlTitle || shareTitle || documentTitle || urlTitle)

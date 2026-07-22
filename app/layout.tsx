@@ -28,8 +28,8 @@ const FAVICON = `/icons/favicon.png?v=${BUILD_ID}`;
 
 export const metadata: Metadata = {
   title: {
-    default: "Exam",
-    template: "%s — Exam",
+    default: "Test",
+    template: "%s — Test",
   },
   description: "多方位測驗平台",
   metadataBase: new URL("https://exam.farm"),
@@ -41,14 +41,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Exam",
-    title: "Exam",
+    siteName: "Test",
+    title: "Test",
     description: "多方位測驗平台",
     locale: "zh_TW",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Exam",
+    title: "Test",
     description: "多方位測驗平台",
   },
 };
@@ -85,7 +85,7 @@ export default function RootLayout({
               __html: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                "name": "Exam",
+                "name": "Test",
                 "url": "https://exam.farm",
               }),
             }}

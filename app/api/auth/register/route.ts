@@ -18,7 +18,7 @@ async function trySendVerificationEmail(to: string, url: string) {
         const result = await resend.emails.send({
           from: from,
           to: to,
-          subject: "請驗證您的Exam帳號",
+          subject: "請驗證您的Test帳號",
           html: `<p>請點擊下方連結完成驗證：</p><p><a href="${url}">${url}</a></p>`,
         });
         
