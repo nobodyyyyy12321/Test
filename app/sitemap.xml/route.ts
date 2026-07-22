@@ -34,7 +34,7 @@ export async function GET() {
       console.warn('sitemap: Firebase env not set, skipping articles in sitemap');
     }
 
-    const base = 'https://exam.farm';
+    const base = 'https://testtttt.io';
 
     const staticUrls: SitemapUrl[] = [
       { loc: `${base}/`, priority: '1.0' },
@@ -71,7 +71,7 @@ export async function GET() {
     });
   } catch (err) {
     console.error('Failed to generate sitemap:', err);
-    const fallback = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://exam.farm/</loc>\n  </url>\n</urlset>`;
+    const fallback = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://testtttt.io/</loc>\n  </url>\n</urlset>`;
     return new Response(fallback, { headers: { 'Content-Type': 'application/xml' } });
   }
 }

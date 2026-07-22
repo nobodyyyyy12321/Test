@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s — Test",
   },
   description: "多方位測驗平台",
-  metadataBase: new URL("https://exam.farm"),
+  metadataBase: new URL("https://testtttt.io"),
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [{ url: FAVICON, type: "image/png" }],
@@ -86,7 +86,7 @@ export default function RootLayout({
                 "@context": "https://schema.org",
                 "@type": "Organization",
                 "name": "Test",
-                "url": "https://exam.farm",
+                "url": "https://testtttt.io",
               }),
             }}
           />

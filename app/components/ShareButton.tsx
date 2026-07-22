@@ -70,7 +70,7 @@ function ShareButtonInner() {
   const getUrl = () => {
     const isHome = pathname === "/" || pathname === "";
     return isHome
-      ? "https://exam.farm"
+      ? "https://testtttt.io"
       : `${window.location.origin}${pathname}${window.location.search}`;
   };
 

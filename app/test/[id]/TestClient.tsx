@@ -380,7 +380,7 @@ export default function TestClient({ id, ordered, listId, listTitle, levels, lan
       return gradeAnswer(q, userAnswers[idx]);
     }).length;
     const score = Math.round((correctCount / total) * 100);
-    const url = typeof window !== "undefined" ? window.location.href : "https://exam.farm";
+    const url = typeof window !== "undefined" ? window.location.href : "https://testtttt.io";
     const card = L.shareScoreCard(score, pageTitle);
     setShareTitle(pageTitle);
     setShareScoreCard(card);
