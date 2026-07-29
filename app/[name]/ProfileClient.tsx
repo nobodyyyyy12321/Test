@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import NextImage from "next/image";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useExcelSelection } from "../lib/useExcelSelection";
@@ -100,11 +101,12 @@ type Props = {
   urlName: string;
   isOwner: boolean;
   initialProfile: InitialProfile;
+  initialTab?: Tab;
 };
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile }: Props) {
+export default function ProfileClient({ urlName, isOwner: initialIsOwner, initialProfile, initialTab }: Props) {
   const { data: session, status } = useSession();
   const router = useRouter();
   useEdgeSwipeNav({
@@ -185,14 +187,16 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     rawTab === "assignOutbox" || rawTab === "assignInbox" ? "assignments"
     : rawTab && (TAB_KEYS as readonly string[]).includes(rawTab) ? (rawTab as Tab)
     : null;
-  const [activeTab, setActiveTab] = useState<Tab>(tabFromUrl ?? "profile");
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? tabFromUrl ?? "profile");
   const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">(rawTab === "assignInbox" ? "inbox" : "outbox");
   // Re-sync when the URL `?tab=` changes (e.g. PersonalMenu link click).
+  // If `initialTab` is provided (child routes like /[name]/followers), let it win.
   useEffect(() => {
+    if (initialTab) return;
     if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
     if (rawTab === "assignInbox") setAssignSubTab("inbox");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawTab]);
+  }, [rawTab, initialTab]);
 
   // ── profile state ──
   const [name, setName] = useState(initialProfile.name || "");
@@ -386,9 +390,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   }, [urlName, session]);
 
   // ── load followers tab ────────────────────────────────────────────────────
+  // Also load on the profile tab so we can show the count next to the avatar.
 
   useEffect(() => {
-    if (activeTab !== "followers" || followersLoaded) return;
+    if (activeTab !== "followers" && activeTab !== "profile") return;
+    if (followersLoaded) return;
     setFollowersLoading(true);
     fetch(`/api/users/${encodeURIComponent(urlName)}/followers`)
       .then(r => r.json())
@@ -401,9 +407,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   }, [activeTab, followersLoaded, urlName]);
 
   // ── load following tab ────────────────────────────────────────────────────
+  // Also load on the profile tab so we can show the count next to the avatar.
 
   useEffect(() => {
-    if (activeTab !== "following" || followingLoaded) return;
+    if (activeTab !== "following" && activeTab !== "profile") return;
+    if (followingLoaded) return;
     setFollowingLoading(true);
     fetch(`/api/users/${encodeURIComponent(urlName)}/following`)
       .then(r => r.json())
@@ -976,6 +984,26 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* follower / following stats */}
+              <div className="flex flex-row gap-3 justify-center sm:justify-start">
+                <Link
+                  href={`/${encodeURIComponent(urlName)}/followers`}
+                  className="flex items-baseline gap-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  <span className="text-base font-semibold">{followersLoaded ? followers.length : "…"}</span>
+                  <span className="text-xs opacity-70">{t("tabFollowers")}</span>
+                </Link>
+                <Link
+                  href={`/${encodeURIComponent(urlName)}/following`}
+                  className="flex items-baseline gap-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  style={{ color: "var(--zen-ink)" }}
+                >
+                  <span className="text-base font-semibold">{followingLoaded ? following.length : "…"}</span>
+                  <span className="text-xs opacity-70">{t("tabFollowing")}</span>
+                </Link>
               </div>
 
               {/* name */}

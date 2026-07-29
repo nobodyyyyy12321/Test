@@ -118,15 +118,18 @@ export default function PersonalMenu() {
   const sessionName = (session?.user as { name?: string } | undefined)?.name ?? null;
   const myName = displayName ?? sessionName;
 
-  // Detect whether the current path is a profile page (`/[name]`). Single-
-  // segment paths that aren't a known app route are profile pages.
+  // Detect whether the current path is a profile page: `/[name]`,
+  // `/[name]/followers`, or `/[name]/following`.
   const pathname = usePathname() ?? "/";
   const profileNameOnPage = (() => {
     const segs = pathname.split("/").filter(Boolean);
-    if (segs.length !== 1) return null;
+    if (segs.length === 0) return null;
     const first = decodeURIComponent(segs[0]);
     if (NON_PROFILE_ROOTS.has(first)) return null;
-    return first;
+    if (segs.length === 1) return first;
+    const PROFILE_SUB_ROUTES = new Set(["followers", "following"]);
+    if (segs.length === 2 && PROFILE_SUB_ROUTES.has(segs[1])) return first;
+    return null;
   })();
 
   // The menu navigates within whichever profile is currently in view; on any
@@ -158,7 +161,10 @@ export default function PersonalMenu() {
 
   const tabHref = (tab: Tab): string => {
     if (!targetName) return "/auth/login";
-    return `/${encodeURIComponent(targetName)}?tab=${tab}`;
+    const enc = encodeURIComponent(targetName);
+    if (tab === "followers") return `/${enc}/followers`;
+    if (tab === "following") return `/${enc}/following`;
+    return `/${enc}?tab=${tab}`;
   };
 
   // Tabs visible to *any* viewer (owner or visitor) of a profile page.
@@ -178,8 +184,6 @@ export default function PersonalMenu() {
         { id: "upload",      label: t("uploadQuestions") },
         { id: "groups",      label: t("tabGroups") },
         { id: "gallery",     label: t("tabGallery") },
-        { id: "followers",   label: t("tabFollowers") },
-        { id: "following",   label: t("tabFollowing") },
         { id: "settings",    label: t("tabSettings") },
       ]
     : [];

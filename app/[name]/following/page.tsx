@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { findUserByName } from "../../lib/users-supabase";
-import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
-import ProfileClient from "./ProfileClient";
-import { loadProfileData } from "./_shared";
+import { findUserByName } from "../../../lib/users-supabase";
+import ProfileClient from "../ProfileClient";
+import { loadProfileData } from "../_shared";
 
 type Props = { params: Promise<{ name: string }> };
 
@@ -16,27 +15,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const isEn = lang === "en";
   const user = await findUserByName(urlName).catch(() => null);
   if (!user) return { title: isEn ? "User Not Found" : "找不到使用者" };
-  return {
-    title: `${user.name}`,
-    description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
-    openGraph: {
-      siteName: "Test",
-      title: `${user.name}`,
-      description: user.bio || undefined,
-      images: [{ url: user.avatarUrl || AVATAR_PLACEHOLDER }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `${user.name}`,
-      description: user.bio || (isEn ? `${user.name}'s profile page` : `${user.name} 的個人頁面`),
-      images: [user.avatarUrl || AVATAR_PLACEHOLDER],
-    },
-  };
+  return { title: isEn ? `${user.name} — Following` : `${user.name} — 追蹤中` };
 }
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage({ params }: Props) {
+export default async function FollowingPage({ params }: Props) {
   const { name } = await params;
   const urlName = decodeURIComponent(name);
 
@@ -49,6 +33,7 @@ export default async function AccountPage({ params }: Props) {
       urlName={urlName}
       isOwner={loaded.isOwner}
       initialProfile={loaded.initialProfile}
+      initialTab="following"
     />
   );
 }
