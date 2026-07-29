@@ -4,7 +4,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import NextImage from "next/image";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useExcelSelection } from "../lib/useExcelSelection";
@@ -187,13 +186,31 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     rawTab === "assignOutbox" || rawTab === "assignInbox" ? "assignments"
     : rawTab && (TAB_KEYS as readonly string[]).includes(rawTab) ? (rawTab as Tab)
     : null;
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? tabFromUrl ?? "profile");
+  // These "tabs" are rendered as popup modals over the profile page instead of
+  // as inline tab bodies. Any URL/initialTab entry for them opens the modal.
+  const MODAL_TABS = ["followers", "following", "groups", "gallery"] as const;
+  type ModalKind = typeof MODAL_TABS[number];
+  const isModalTab = (t: Tab | null): t is ModalKind =>
+    !!t && (MODAL_TABS as readonly string[]).includes(t);
+  const inputTab: Tab | null = initialTab ?? tabFromUrl;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    inputTab && !isModalTab(inputTab) ? inputTab : "profile",
+  );
+  const [activeModal, setActiveModal] = useState<ModalKind | null>(
+    isModalTab(inputTab) ? inputTab : null,
+  );
   const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">(rawTab === "assignInbox" ? "inbox" : "outbox");
   // Re-sync when the URL `?tab=` changes (e.g. PersonalMenu link click).
   // If `initialTab` is provided (child routes like /[name]/followers), let it win.
   useEffect(() => {
     if (initialTab) return;
-    if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+    if (isModalTab(tabFromUrl)) {
+      setActiveModal(tabFromUrl);
+      setActiveTab("profile");
+    } else if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+      setActiveModal(null);
+    }
     if (rawTab === "assignInbox") setAssignSubTab("inbox");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawTab, initialTab]);
@@ -438,9 +455,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   }, [activeTab, blockedLoaded, isOwner]);
 
   // ── load gallery when tab activated ─────────────────────────────────────
+  // Also load on the profile tab so we can show the count next to the avatar.
 
   useEffect(() => {
-    if (activeTab !== "gallery" || galleryLoaded || !isOwner) return;
+    if (activeTab !== "gallery" && activeTab !== "profile") return;
+    if (galleryLoaded || !isOwner) return;
     setGalleryLoading(true);
     fetch("/api/quiz-assets")
       .then(r => r.json())
@@ -464,9 +483,11 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
   };
 
   // ── load groups when tab activated ───────────────────────────────────────
+  // Also load on the profile tab so we can show the count next to the avatar.
 
   useEffect(() => {
-    if (activeTab !== "groups" || groupsLoaded || !isOwner) return;
+    if (activeTab !== "groups" && activeTab !== "profile") return;
+    if (groupsLoaded || !isOwner) return;
     setGroupsLoading(true);
     fetch("/api/groups")
       .then(r => r.json())
@@ -986,24 +1007,48 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
                 )}
               </div>
 
-              {/* follower / following stats */}
-              <div className="flex flex-row gap-3 justify-center sm:justify-start">
-                <Link
-                  href={`/${encodeURIComponent(urlName)}/followers`}
+              {/* follower / following / groups / gallery stats (open modals) */}
+              <div className="flex flex-row flex-wrap gap-3 justify-center sm:justify-start">
+                <button
+                  type="button"
+                  onClick={() => setActiveModal("followers")}
                   className="flex items-baseline gap-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                   style={{ color: "var(--zen-ink)" }}
                 >
                   <span className="text-base font-semibold">{followersLoaded ? followers.length : "…"}</span>
                   <span className="text-xs opacity-70">{t("tabFollowers")}</span>
-                </Link>
-                <Link
-                  href={`/${encodeURIComponent(urlName)}/following`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal("following")}
                   className="flex items-baseline gap-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                   style={{ color: "var(--zen-ink)" }}
                 >
                   <span className="text-base font-semibold">{followingLoaded ? following.length : "…"}</span>
                   <span className="text-xs opacity-70">{t("tabFollowing")}</span>
-                </Link>
+                </button>
+                {isOwner && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal("groups")}
+                      className="flex items-baseline gap-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      <span className="text-base font-semibold">{groupsLoaded ? (ownedGroups.length + joinedGroups.length) : "…"}</span>
+                      <span className="text-xs opacity-70">{t("tabGroups")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal("gallery")}
+                      className="flex items-baseline gap-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      <span className="text-base font-semibold">{galleryLoaded ? galleryItems.length : "…"}</span>
+                      <span className="text-xs opacity-70">{t("tabGallery")}</span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* name */}
@@ -1192,30 +1237,44 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         )}
 
         {/* ── followers tab ───────────────────────────────────────────────── */}
-        {activeTab === "followers" && (
-          <div>
-            {followersLoading ? (
-              <p className="text-sm zen-subtle">{t("loading")}</p>
-            ) : followers.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">{t("noFollowers")}</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {followers.map(u => (
-                  <li key={u.id}>
-                    <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
+        {activeModal === "followers" && (
+          <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 overflow-y-auto pt-16 pb-16" onClick={() => setActiveModal(null)}>
+            <div className="relative w-full max-w-2xl mx-4 rounded-xl shadow-xl" style={{ backgroundColor: "var(--zen-paper)" }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10" style={{ backgroundColor: "var(--zen-paper)" }}>
+                <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>{t("tabFollowers")}</span>
+                <button type="button" onClick={() => setActiveModal(null)} aria-label="close" className="text-lg leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
+              </div>
+              <div className="p-5">
+                {followersLoading ? (
+                  <p className="text-sm zen-subtle">{t("loading")}</p>
+                ) : followers.length === 0 ? (
+                  <p className="text-sm zen-subtle opacity-50">{t("noFollowers")}</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {followers.map(u => (
+                      <li key={u.id}>
+                        <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
+                          <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* ── groups tab ──────────────────────────────────────────────────── */}
-        {activeTab === "groups" && (
-          <div className="flex flex-col gap-6">
+        {/* ── groups modal ────────────────────────────────────────────────── */}
+        {activeModal === "groups" && (
+          <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 overflow-y-auto pt-16 pb-16" onClick={() => setActiveModal(null)}>
+            <div className="relative w-full max-w-2xl mx-4 rounded-xl shadow-xl" style={{ backgroundColor: "var(--zen-paper)" }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10" style={{ backgroundColor: "var(--zen-paper)" }}>
+                <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>{t("tabGroups")}</span>
+                <button type="button" onClick={() => setActiveModal(null)} aria-label="close" className="text-lg leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
+              </div>
+              <div className="p-5 flex flex-col gap-6">
             {groupsLoading && <p className="text-sm zen-subtle opacity-50">{t("loading")}</p>}
 
             {/* pending invites */}
@@ -1315,11 +1374,13 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             {!groupsLoading && ownedGroups.length === 0 && joinedGroups.length === 0 && groupsLoaded && (
               <p className="text-sm opacity-40" style={{ color: "var(--zen-ink)" }}>{t("noGroups")}</p>
             )}
+              </div>
+            </div>
           </div>
         )}
 
         {/* ── group bottom sheet (mobile only) ───────────────────────────── */}
-        {activeTab === "groups" && activeGroupId && typeof window !== "undefined" && createPortal(
+        {activeModal === "groups" && activeGroupId && typeof window !== "undefined" && createPortal(
           <div className="sm:hidden">
             {/* backdrop */}
             <div className="fixed inset-0 z-40 bg-black/40" onClick={() => closeGroupSheet()} />
@@ -1353,63 +1414,79 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         )}
 
         {/* ── following tab ───────────────────────────────────────────────── */}
-        {activeTab === "following" && (
-          <div>
-            {followingLoading ? (
-              <p className="text-sm zen-subtle">{t("loading")}</p>
-            ) : following.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">{t("noFollowing")}</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {following.map(u => (
-                  <li key={u.id}>
-                    <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
+        {activeModal === "following" && (
+          <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 overflow-y-auto pt-16 pb-16" onClick={() => setActiveModal(null)}>
+            <div className="relative w-full max-w-2xl mx-4 rounded-xl shadow-xl" style={{ backgroundColor: "var(--zen-paper)" }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10" style={{ backgroundColor: "var(--zen-paper)" }}>
+                <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>{t("tabFollowing")}</span>
+                <button type="button" onClick={() => setActiveModal(null)} aria-label="close" className="text-lg leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
+              </div>
+              <div className="p-5">
+                {followingLoading ? (
+                  <p className="text-sm zen-subtle">{t("loading")}</p>
+                ) : following.length === 0 ? (
+                  <p className="text-sm zen-subtle opacity-50">{t("noFollowing")}</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {following.map(u => (
+                      <li key={u.id}>
+                        <a href={`/${encodeURIComponent(u.name)}`} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <NextImage src={u.avatarUrl || AVATAR_PLACEHOLDER} alt={u.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover shrink-0" />
+                          <span className="text-sm font-medium" style={{ color: "var(--zen-ink)" }}>{u.name}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {/* ── gallery tab ────────────────────────────────────────────────── */}
-        {activeTab === "gallery" && (
-          <div className="pt-[calc(2rem+3cm)]">
-            {galleryLoading ? (
-              <p className="text-sm zen-subtle">{t("loading")}</p>
-            ) : galleryItems.length === 0 ? (
-              <p className="text-sm zen-subtle opacity-50">{t("noRecords")}</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {galleryItems.map((item) => (
-                  <div key={item.name} className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col">
-                    <a href={item.previewUrl} target="_blank" rel="noreferrer" className="block aspect-video bg-zinc-100 dark:bg-zinc-800">
-                      <img src={item.previewUrl} alt={item.name} className="w-full h-full object-cover" />
-                    </a>
-                    <div className="p-3 flex flex-col gap-2">
-                      <p className="text-xs font-mono truncate" title={item.url}>{item.url}</p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => navigator.clipboard.writeText(item.url)}
-                          className="text-xs px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors"
-                        >
-                          複製 URL
-                        </button>
-                        <button
-                          onClick={() => handleDeleteImage(item.path)}
-                          disabled={deletingPath === item.path}
-                          className="text-xs px-2.5 py-1 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
-                        >
-                          {deletingPath === item.path ? "刪除中..." : "刪除"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+        {activeModal === "gallery" && (
+          <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 overflow-y-auto pt-16 pb-16" onClick={() => setActiveModal(null)}>
+            <div className="relative w-full max-w-4xl mx-4 rounded-xl shadow-xl" style={{ backgroundColor: "var(--zen-paper)" }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10" style={{ backgroundColor: "var(--zen-paper)" }}>
+                <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>{t("tabGallery")}</span>
+                <button type="button" onClick={() => setActiveModal(null)} aria-label="close" className="text-lg leading-none" style={{ color: "var(--zen-ink)" }}>×</button>
               </div>
-            )}
+              <div className="p-5">
+                {galleryLoading ? (
+                  <p className="text-sm zen-subtle">{t("loading")}</p>
+                ) : galleryItems.length === 0 ? (
+                  <p className="text-sm zen-subtle opacity-50">{t("noRecords")}</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {galleryItems.map((item) => (
+                      <div key={item.name} className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col">
+                        <a href={item.previewUrl} target="_blank" rel="noreferrer" className="block aspect-video bg-zinc-100 dark:bg-zinc-800">
+                          <img src={item.previewUrl} alt={item.name} className="w-full h-full object-cover" />
+                        </a>
+                        <div className="p-3 flex flex-col gap-2">
+                          <p className="text-xs font-mono truncate" title={item.url}>{item.url}</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => navigator.clipboard.writeText(item.url)}
+                              className="text-xs px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors"
+                            >
+                              複製 URL
+                            </button>
+                            <button
+                              onClick={() => handleDeleteImage(item.path)}
+                              disabled={deletingPath === item.path}
+                              className="text-xs px-2.5 py-1 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
+                            >
+                              {deletingPath === item.path ? "刪除中..." : "刪除"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

@@ -182,8 +182,6 @@ export default function PersonalMenu() {
         { id: "record",      label: t("tabRecord") },
         { id: "assignments", label: t("tabAssignOutbox") },
         { id: "upload",      label: t("uploadQuestions") },
-        { id: "groups",      label: t("tabGroups") },
-        { id: "gallery",     label: t("tabGallery") },
         { id: "settings",    label: t("tabSettings") },
       ]
     : [];
