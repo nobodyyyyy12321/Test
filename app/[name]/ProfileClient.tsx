@@ -1117,6 +1117,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* ── lists tab ───────────────────────────────────────────────────── */}
         {activeTab === "lists" && (
           <div>
+            <h1 className="text-xl font-semibold mb-4" style={{ color: "var(--zen-ink)" }}>{t("tabLists")}</h1>
             <PersonalListsView
               isOwner={isOwner}
               loading={listsLoading}
