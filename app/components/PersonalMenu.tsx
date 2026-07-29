@@ -216,12 +216,11 @@ export default function PersonalMenu() {
 
       <aside
         ref={drawerRef}
-        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-lg rounded-lg
+        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800
           right-0 top-20 w-48 max-w-[80vw]
           sm:w-56 sm:max-w-[60vw] ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
-        style={{ backgroundColor: "var(--zen-bg)" }}
         aria-hidden={!open}
       >
         <nav className="flex flex-col py-2">
@@ -258,7 +257,7 @@ export default function PersonalMenu() {
                   key={tab.id}
                   href={tabHref(tab.id)}
                   onClick={() => setOpen(false)}
-                  className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                   style={{ color: "var(--zen-ink)", opacity: 0.7 }}
                 >
                   {tab.label}
@@ -274,7 +273,7 @@ export default function PersonalMenu() {
                   } catch {}
                   signOut({ callbackUrl: "/" });
                 }}
-                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
               >
                 {t("signOut")}
@@ -285,7 +284,7 @@ export default function PersonalMenu() {
               <Link
                 href="/auth/login"
                 onClick={() => setOpen(false)}
-                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 style={{ color: "var(--zen-ink)", opacity: 0.85 }}
               >
                 {uiLang === "en" ? "Sign In" : "登入"}
@@ -293,7 +292,7 @@ export default function PersonalMenu() {
               <Link
                 href="/auth/register"
                 onClick={() => setOpen(false)}
-                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 style={{ color: "var(--zen-ink)", opacity: 0.85 }}
               >
                 {uiLang === "en" ? "Sign Up" : "註冊"}
@@ -333,7 +332,7 @@ export default function PersonalMenu() {
                   key={l.value}
                   type="button"
                   onClick={() => handleLanguageChange(l.value)}
-                  className="text-left px-5 py-3 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="text-left px-5 py-3 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
                   style={{
                     color: "var(--zen-ink)",
                     fontWeight: language === l.value ? 600 : 400,
