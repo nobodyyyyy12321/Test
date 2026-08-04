@@ -881,8 +881,7 @@ export function PublicCollections({ embedded = false }: { embedded?: boolean } =
 
 
       <main className="flex w-full flex-col pt-36 px-4 sm:pl-28 sm:pr-16 min-h-screen sm:pb-10 max-sm:h-dvh max-sm:overflow-hidden">
-        <h1 className="text-2xl sm:text-3xl font-bold zen-title leading-none mb-4 -mt-28" style={{ color: "#b19739" }}>Test</h1>
-        <div className="flex flex-row items-start gap-6 w-full flex-1 mt-16 max-sm:overflow-hidden max-sm:items-stretch max-sm:min-h-0">
+        <div className="flex flex-row items-start gap-6 w-full flex-1 max-sm:overflow-hidden max-sm:items-stretch max-sm:min-h-0">
           {/* Categories panel — full page width */}
           <div className="w-full shrink-0 max-sm:flex max-sm:flex-col max-sm:h-full max-sm:overflow-hidden">
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Noto_Serif_TC } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import PersonalMenu from "./components/PersonalMenu";
 
@@ -72,7 +73,15 @@ export default function RootLayout({
       >
         <Providers>
           <ThemeWatcher />
-          <aside className="flex fixed right-4 top-4 z-[60] flex-row items-center gap-2">
+          <aside className="flex fixed right-4 top-4 z-[60] flex-row items-center gap-3">
+            <Link
+              href="/"
+              className="text-2xl sm:text-3xl font-bold zen-title leading-none transition-opacity hover:opacity-80"
+              style={{ color: "#b19739" }}
+              aria-label="home"
+            >
+              Test
+            </Link>
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <PersonalMenu />
             </div>
