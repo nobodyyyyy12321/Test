@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
-import ShareButton from "./ShareButton";
+import SharePanel from "./SharePanel";
 
 type Tab =
   | "lists"
@@ -46,6 +46,10 @@ export default function PersonalMenu() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [language, setLanguage] = useState<string>("zh-TW");
   const [langPickerOpen, setLangPickerOpen] = useState(false);
+  const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const subOpen = langPickerOpen || sharePanelOpen;
+  const openLang = () => { setLangPickerOpen(true); setSharePanelOpen(false); };
+  const openShare = () => { setSharePanelOpen(true); setLangPickerOpen(false); };
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchUsers, setSearchUsers] = useState<{ id: string; name: string; avatarUrl?: string }[]>([]);
@@ -203,6 +207,7 @@ export default function PersonalMenu() {
   useEffect(() => {
     if (!open) {
       setLangPickerOpen(false);
+      setSharePanelOpen(false);
       setSearchOpen(false);
     }
   }, [open]);
@@ -271,7 +276,7 @@ export default function PersonalMenu() {
       >
         <div
           style={{ width: "200%" }}
-          className={`flex transition-transform duration-200 ${langPickerOpen ? "-translate-x-1/2" : ""}`}
+          className={`flex transition-transform duration-200 ${subOpen ? "-translate-x-1/2" : ""}`}
         >
         <nav className="w-1/2 shrink-0 flex flex-col py-2">
           {/* inline search — appears above the icon row, pushes items down */}
@@ -337,7 +342,22 @@ export default function PersonalMenu() {
                 <path d="M9 21V12h6v9" />
               </svg>
             </Link>
-            <ShareButton />
+            <button
+              type="button"
+              onClick={() => sharePanelOpen ? setSharePanelOpen(false) : openShare()}
+              aria-label="分享"
+              aria-expanded={sharePanelOpen}
+              className="flex items-center justify-center transition-opacity hover:opacity-70"
+              style={{ opacity: sharePanelOpen ? 1 : undefined }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/>
+                <circle cx="6" cy="12" r="3"/>
+                <circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+            </button>
             <button
               type="button"
               onClick={() => setSearchOpen(v => !v)}
@@ -353,10 +373,11 @@ export default function PersonalMenu() {
             </button>
             <button
               type="button"
-              onClick={() => setLangPickerOpen(v => !v)}
+              onClick={() => langPickerOpen ? setLangPickerOpen(false) : openLang()}
               aria-label="語言選擇"
               aria-expanded={langPickerOpen}
               className="flex items-center justify-center transition-opacity hover:opacity-70"
+              style={{ opacity: langPickerOpen ? 1 : undefined }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="9" />
@@ -418,35 +439,42 @@ export default function PersonalMenu() {
           )}
         </nav>
 
-        {/* language view — second pane of the sliding drawer */}
+        {/* sub-view pane — shows language OR share content based on which is open */}
         <div className="w-1/2 shrink-0 flex flex-col py-2">
-          <button
-            type="button"
-            onClick={() => setLangPickerOpen(false)}
-            aria-label="back"
-            className="flex items-center gap-2 px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
-            style={{ color: "var(--zen-ink)" }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-            <span className="font-medium">{uiLang === "en" ? "Language" : "語言"}</span>
-          </button>
-          {LANGUAGES.map(l => (
-            <button
-              key={l.value}
-              type="button"
-              onClick={() => handleLanguageChange(l.value)}
-              className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
-              style={{
-                color: "var(--zen-ink)",
-                fontWeight: language === l.value ? 600 : 400,
-                opacity: language === l.value ? 1 : 0.7,
-              }}
-            >
-              {l.label}
-            </button>
-          ))}
+          {langPickerOpen && (
+            <>
+              <button
+                type="button"
+                onClick={() => setLangPickerOpen(false)}
+                aria-label="back"
+                className="flex items-center gap-2 px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                style={{ color: "var(--zen-ink)" }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                <span className="font-medium">{uiLang === "en" ? "Language" : "語言"}</span>
+              </button>
+              {LANGUAGES.map(l => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => handleLanguageChange(l.value)}
+                  className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  style={{
+                    color: "var(--zen-ink)",
+                    fontWeight: language === l.value ? 600 : 400,
+                    opacity: language === l.value ? 1 : 0.7,
+                  }}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </>
+          )}
+          {sharePanelOpen && (
+            <SharePanel onClose={() => setSharePanelOpen(false)} />
+          )}
         </div>
         </div>
       </aside>

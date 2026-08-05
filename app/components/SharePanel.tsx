@@ -19,8 +19,7 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
   return "Test";
 }
 
-function ShareButtonInner() {
-  const [open, setOpen] = useState(false);
+function SharePanelInner({ onClose }: { onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const [editText, setEditText] = useState("");
   const [resolvedUrlTitle, setResolvedUrlTitle] = useState<string | null>(null);
@@ -32,7 +31,7 @@ function ShareButtonInner() {
   const { shareText, shareTitle, shareScoreCard } = useShare();
   const urlTitle = getPageTitle(pathname, searchParams);
   const documentTitle = typeof document !== "undefined"
-    ? document.title.replace(/\s*[\u2014\-]\s*Test\s*$/, "").trim()
+    ? document.title.replace(/\s*[—\-]\s*Test\s*$/, "").trim()
     : "";
   const title = isTestRoute
     ? (resolvedUrlTitle || shareTitle || documentTitle || urlTitle)
@@ -74,18 +73,17 @@ function ShareButtonInner() {
       : `${window.location.origin}${pathname}${window.location.search}`;
   };
 
-  const handleOpen = () => {
+  // Seed the edit text when the panel mounts / share context changes.
+  useEffect(() => {
     setEditText(shareScoreCard ? (shareText ?? "") : isTextMode ? shareText! : `${title}\n${getUrl()}`);
-    setOpen(true);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareScoreCard, shareText, title]);
 
   const handleCopy = () => {
     if (shareScoreCard) {
-      // Render the card as a PNG image and copy to clipboard
       const W = 800, PAD = 48, FONT_SIZE = 28, LINE_HEIGHT = 40;
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
-      // Measure text to determine height (simple word-wrap)
       ctx.font = `bold ${FONT_SIZE}px system-ui, sans-serif`;
       const maxW = W - PAD * 2;
       const words = shareScoreCard.split(" ");
@@ -138,98 +136,62 @@ function ShareButtonInner() {
     }
   };
 
-
   return (
     <>
       <button
         type="button"
-        onClick={handleOpen}
-        aria-label="分享"
-        title="分享"
-        className="flex items-center justify-center transition-opacity hover:opacity-70"
+        onClick={onClose}
+        aria-label="back"
+        className="flex items-center gap-2 px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+        style={{ color: "var(--zen-ink)" }}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="18" cy="5" r="3"/>
-          <circle cx="6" cy="12" r="3"/>
-          <circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 18l-6-6 6-6" />
         </svg>
+        <span className="font-medium">分享</span>
       </button>
-
-      {open && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
-          onClick={() => { setOpen(false); setCopied(false); setEditText(""); }}
-        >
+      <div className="px-4 py-3 flex flex-col gap-3">
+        {shareScoreCard && (
           <div
-            className="relative w-full max-w-sm mx-4 rounded-xl shadow-xl overflow-hidden"
-            style={{ backgroundColor: "var(--zen-paper)" }}
-            onClick={e => e.stopPropagation()}
+            className="w-full rounded-lg px-3 py-2 text-xs font-medium select-none text-center"
+            style={{
+              background: "linear-gradient(135deg, #5fa870 0%, #b19739 100%)",
+              color: "#fff",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>分享</span>
-              <button
-                onClick={() => { setOpen(false); setCopied(false); setEditText(""); }}
-                className="text-lg leading-none"
-                style={{ color: "var(--zen-ink)" }}
-              >✕</button>
-            </div>
-            <div className="px-5 py-4 flex flex-col gap-3">
-              {shareScoreCard && (
-                <div
-                  className="w-full rounded-lg px-4 py-3 text-sm font-medium select-none text-center"
-                  style={{
-                    background: "linear-gradient(135deg, #5fa870 0%, #b19739 100%)",
-                    color: "#fff",
-                    userSelect: "none",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {shareScoreCard}
-                </div>
-              )}
-              <textarea
-                value={editText}
-                onChange={e => setEditText(e.target.value)}
-                className="w-full text-sm resize-none outline-none"
-                style={{
-                  backgroundColor: "var(--zen-paper)",
-                  color: "var(--zen-ink)",
-                  height: shareScoreCard ? "3rem" : "10rem",
-                }}
-              />
-            </div>
-            <div className="flex justify-end px-5 py-3 border-t border-zinc-100 dark:border-zinc-800">
-              <button
-                onClick={handleCopy}
-                className="px-4 py-2 rounded-full text-sm border transition-opacity hover:opacity-80"
-                style={{ borderColor: "var(--zen-ink)", color: "var(--zen-ink)", background: "transparent" }}
-              >
-                {copied ? "已複製！" : shareScoreCard ? "複製圖片" : "複製"}
-              </button>
-            </div>
+            {shareScoreCard}
           </div>
-        </div>
-      )}
+        )}
+        <textarea
+          value={editText}
+          onChange={e => setEditText(e.target.value)}
+          className="w-full text-xs resize-none outline-none rounded-md border p-2"
+          style={{
+            backgroundColor: "var(--zen-bg)",
+            color: "var(--zen-ink)",
+            borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)",
+            height: shareScoreCard ? "3rem" : "6rem",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="w-full px-3 py-2 rounded-md text-xs border transition-opacity hover:opacity-80"
+          style={{ borderColor: "var(--zen-ink)", color: "var(--zen-ink)", background: "transparent" }}
+        >
+          {copied ? "已複製!" : shareScoreCard ? "複製圖片" : "複製"}
+        </button>
+      </div>
     </>
   );
 }
 
-const ShareButtonFallback = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0 }}>
-    <circle cx="18" cy="5" r="3"/>
-    <circle cx="6" cy="12" r="3"/>
-    <circle cx="18" cy="19" r="3"/>
-    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-  </svg>
-);
-
-export default function ShareButton() {
+export default function SharePanel({ onClose }: { onClose: () => void }) {
   return (
-    <Suspense fallback={<ShareButtonFallback />}>
-      <ShareButtonInner />
+    <Suspense fallback={null}>
+      <SharePanelInner onClose={onClose} />
     </Suspense>
   );
 }
