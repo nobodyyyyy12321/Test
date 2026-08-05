@@ -199,6 +199,14 @@ export default function PersonalMenu() {
     };
   }, [open]);
 
+  // Reset sub-views when the drawer closes so the next open shows the main view.
+  useEffect(() => {
+    if (!open) {
+      setLangPickerOpen(false);
+      setSearchOpen(false);
+    }
+  }, [open]);
+
   const tabHref = (tab: Tab): string => {
     if (!targetName) return "/auth/login";
     const enc = encodeURIComponent(targetName);
@@ -254,14 +262,18 @@ export default function PersonalMenu() {
 
       <aside
         ref={drawerRef}
-        className={`fixed z-50 overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800
+        className={`fixed z-50 overflow-x-hidden overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800
           right-0 top-20 w-48 max-w-[80vw]
           sm:w-56 sm:max-w-[60vw] ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         aria-hidden={!open}
       >
-        <nav className="flex flex-col py-2">
+        <div
+          style={{ width: "200%" }}
+          className={`flex transition-transform duration-200 ${langPickerOpen ? "-translate-x-1/2" : ""}`}
+        >
+        <nav className="w-1/2 shrink-0 flex flex-col py-2">
           {/* inline search — appears above the icon row, pushes items down */}
           {searchOpen && (
             <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex flex-col gap-2">
@@ -405,52 +417,39 @@ export default function PersonalMenu() {
             </>
           )}
         </nav>
-      </aside>
 
-      {langPickerOpen && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
-          onClick={() => setLangPickerOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-xs mx-4 rounded-xl shadow-xl overflow-hidden"
-            style={{ backgroundColor: "var(--zen-paper)" }}
-            onClick={e => e.stopPropagation()}
+        {/* language view — second pane of the sliding drawer */}
+        <div className="w-1/2 shrink-0 flex flex-col py-2">
+          <button
+            type="button"
+            onClick={() => setLangPickerOpen(false)}
+            aria-label="back"
+            className="flex items-center gap-2 px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+            style={{ color: "var(--zen-ink)" }}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-lg font-medium" style={{ color: "var(--zen-ink)" }}>
-                {uiLang === "en" ? "Language" : "語言"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setLangPickerOpen(false)}
-                aria-label="close"
-                className="text-lg leading-none"
-                style={{ color: "var(--zen-ink)" }}
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex flex-col py-1">
-              {LANGUAGES.map(l => (
-                <button
-                  key={l.value}
-                  type="button"
-                  onClick={() => handleLanguageChange(l.value)}
-                  className="text-left px-5 py-3 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                  style={{
-                    color: "var(--zen-ink)",
-                    fontWeight: language === l.value ? 600 : 400,
-                    opacity: language === l.value ? 1 : 0.75,
-                  }}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-          </div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            <span className="font-medium">{uiLang === "en" ? "Language" : "語言"}</span>
+          </button>
+          {LANGUAGES.map(l => (
+            <button
+              key={l.value}
+              type="button"
+              onClick={() => handleLanguageChange(l.value)}
+              className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+              style={{
+                color: "var(--zen-ink)",
+                fontWeight: language === l.value ? 600 : 400,
+                opacity: language === l.value ? 1 : 0.7,
+              }}
+            >
+              {l.label}
+            </button>
+          ))}
         </div>
-      )}
+        </div>
+      </aside>
     </>
   );
 }
