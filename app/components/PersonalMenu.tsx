@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
 import ShareButton from "./ShareButton";
-import SearchButton from "./SearchButton";
 
 type Tab =
   | "lists"
@@ -47,6 +46,13 @@ export default function PersonalMenu() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [language, setLanguage] = useState<string>("zh-TW");
   const [langPickerOpen, setLangPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchUsers, setSearchUsers] = useState<{ id: string; name: string; avatarUrl?: string }[]>([]);
+  const [searchCats, setSearchCats] = useState<{ id: string; name: string }[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -82,6 +88,40 @@ export default function PersonalMenu() {
     window.addEventListener("site-language-change", onChange);
     return () => window.removeEventListener("site-language-change", onChange);
   }, []);
+
+  // Debounced search for users + categories (same endpoints as SearchModal).
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!searchOpen) return;
+    if (!searchQuery.trim()) {
+      setSearchUsers([]);
+      setSearchCats([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    searchDebounceRef.current = setTimeout(() => {
+      Promise.all([
+        fetch(`/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`).then(r => r.json()).catch(() => ({ users: [] })),
+        fetch(`/api/search/categories?q=${encodeURIComponent(searchQuery.trim())}&language=${encodeURIComponent(language)}`).then(r => r.json()).catch(() => ({ results: [] })),
+      ]).then(([u, c]) => {
+        setSearchUsers(u.users ?? []);
+        setSearchCats((c.results ?? []).map((r: { id: string; name: string }) => ({ id: r.id, name: r.name })));
+      }).finally(() => setSearchLoading(false));
+    }, 300);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery, searchOpen, language]);
+
+  // Focus the search input when it opens; clear results on close.
+  useEffect(() => {
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    } else {
+      setSearchQuery("");
+      setSearchUsers([]);
+      setSearchCats([]);
+    }
+  }, [searchOpen]);
 
   // Hydrate name from localStorage cache before paint to avoid stale JWT name.
   useLayoutEffect(() => {
@@ -222,6 +262,61 @@ export default function PersonalMenu() {
         aria-hidden={!open}
       >
         <nav className="flex flex-col py-2">
+          {/* inline search — appears above the icon row, pushes items down */}
+          {searchOpen && (
+            <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex flex-col gap-2">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={uiLang === "en" ? "Search subjects or accounts" : "搜尋科目或帳號"}
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--zen-bg)",
+                  color: "var(--zen-ink)",
+                  borderColor: "color-mix(in srgb, var(--zen-ink) 20%, transparent)",
+                }}
+              />
+              {searchQuery.trim() && (
+                <div className="max-h-64 overflow-y-auto flex flex-col gap-1">
+                  {searchLoading && (
+                    <p className="text-xs opacity-50 py-2 text-center" style={{ color: "var(--zen-ink)" }}>
+                      {uiLang === "en" ? "Searching…" : "搜尋中…"}
+                    </p>
+                  )}
+                  {!searchLoading && searchUsers.length === 0 && searchCats.length === 0 && (
+                    <p className="text-xs opacity-50 py-2 text-center" style={{ color: "var(--zen-ink)" }}>
+                      {uiLang === "en" ? "No results" : "沒有結果"}
+                    </p>
+                  )}
+                  {searchUsers.map(u => (
+                    <Link
+                      key={`u-${u.id}`}
+                      href={`/${encodeURIComponent(u.name)}`}
+                      onClick={() => { setSearchOpen(false); setOpen(false); }}
+                      className="text-left px-2 py-1.5 text-sm rounded transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700 truncate"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      @{u.name}
+                    </Link>
+                  ))}
+                  {searchCats.map(c => (
+                    <Link
+                      key={`c-${c.id}`}
+                      href={`/test/${encodeURIComponent(c.id)}`}
+                      onClick={() => { setSearchOpen(false); setOpen(false); }}
+                      className="text-left px-2 py-1.5 text-sm rounded transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700 truncate"
+                      style={{ color: "var(--zen-ink)" }}
+                    >
+                      {c.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* utility icons: home / share / search / language */}
           <div className="flex items-center gap-5 px-4 py-4 sm:py-2.5">
             <Link href="/" aria-label="home" onClick={() => setOpen(false)} className="flex items-center justify-center transition-opacity hover:opacity-70">
@@ -231,7 +326,19 @@ export default function PersonalMenu() {
               </svg>
             </Link>
             <ShareButton />
-            <SearchButton />
+            <button
+              type="button"
+              onClick={() => setSearchOpen(v => !v)}
+              aria-label="搜尋"
+              aria-expanded={searchOpen}
+              className="flex items-center justify-center transition-opacity hover:opacity-70"
+              style={{ opacity: searchOpen ? 1 : undefined }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
             <button
               type="button"
               onClick={() => setLangPickerOpen(v => !v)}
