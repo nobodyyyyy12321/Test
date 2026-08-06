@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
 import SharePanel from "./SharePanel";
+import SettingsPanel from "./SettingsPanel";
 
 type Tab =
   | "lists"
@@ -47,9 +48,12 @@ export default function PersonalMenu() {
   const [language, setLanguage] = useState<string>("zh-TW");
   const [langPickerOpen, setLangPickerOpen] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
-  const subOpen = langPickerOpen || sharePanelOpen;
-  const openLang = () => { setLangPickerOpen(true); setSharePanelOpen(false); };
-  const openShare = () => { setSharePanelOpen(true); setLangPickerOpen(false); };
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
+  const subOpen = langPickerOpen || sharePanelOpen || settingsPanelOpen;
+  const closeAllSubs = () => { setLangPickerOpen(false); setSharePanelOpen(false); setSettingsPanelOpen(false); };
+  const openLang = () => { closeAllSubs(); setLangPickerOpen(true); };
+  const openShare = () => { closeAllSubs(); setSharePanelOpen(true); };
+  const openSettings = () => { closeAllSubs(); setSettingsPanelOpen(true); };
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchUsers, setSearchUsers] = useState<{ id: string; name: string; avatarUrl?: string }[]>([]);
@@ -208,6 +212,7 @@ export default function PersonalMenu() {
     if (!open) {
       setLangPickerOpen(false);
       setSharePanelOpen(false);
+      setSettingsPanelOpen(false);
       setSearchOpen(false);
     }
   }, [open]);
@@ -235,7 +240,6 @@ export default function PersonalMenu() {
         { id: "record",      label: t("tabRecord") },
         { id: "assignments", label: t("tabAssignOutbox") },
         { id: "upload",      label: t("uploadQuestions") },
-        { id: "settings",    label: t("tabSettings") },
       ]
     : [];
 
@@ -386,6 +390,22 @@ export default function PersonalMenu() {
                 <path d="M12 3a14 14 0 0 1 0 18" />
               </svg>
             </button>
+            {showOwnerTabs && (
+              <button
+                type="button"
+                onClick={() => settingsPanelOpen ? setSettingsPanelOpen(false) : openSettings()}
+                aria-label={t("tabSettings")}
+                title={t("tabSettings")}
+                aria-expanded={settingsPanelOpen}
+                className="flex items-center justify-center transition-opacity hover:opacity-70"
+                style={{ opacity: settingsPanelOpen ? 1 : undefined }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {isAuthed ? (
@@ -474,6 +494,9 @@ export default function PersonalMenu() {
           )}
           {sharePanelOpen && (
             <SharePanel onClose={() => setSharePanelOpen(false)} />
+          )}
+          {settingsPanelOpen && (
+            <SettingsPanel onClose={() => setSettingsPanelOpen(false)} />
           )}
         </div>
         </div>
