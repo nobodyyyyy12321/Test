@@ -272,7 +272,7 @@ export default function PersonalMenu() {
       <aside
         ref={drawerRef}
         className={`fixed z-50 overflow-x-hidden overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800
-          right-0 top-20 w-48 max-w-[80vw]
+          right-0 top-20 w-64 max-w-[85vw]
           sm:w-56 sm:max-w-[60vw] ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
