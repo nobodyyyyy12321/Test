@@ -272,8 +272,8 @@ export default function PersonalMenu() {
       <aside
         ref={drawerRef}
         className={`fixed z-50 overflow-x-hidden overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800
-          right-0 top-20 w-64 max-w-[85vw]
-          sm:w-56 sm:max-w-[60vw] ${
+          right-0 top-20 w-80 max-w-[90vw]
+          sm:w-72 sm:max-w-[70vw] ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         aria-hidden={!open}
@@ -409,13 +409,13 @@ export default function PersonalMenu() {
           </div>
 
           {isAuthed ? (
-            <>
+            <div className="grid grid-cols-2">
               {tabs.map(tab => (
                 <Link
                   key={tab.id}
                   href={tabHref(tab.id)}
                   onClick={() => setOpen(false)}
-                  className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  className="text-center px-2 py-4 sm:py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 truncate"
                   style={{ color: "var(--zen-ink)", opacity: 0.7 }}
                 >
                   {tab.label}
@@ -431,12 +431,12 @@ export default function PersonalMenu() {
                   } catch {}
                   signOut({ callbackUrl: "/" });
                 }}
-                className="text-left px-4 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                className="text-center px-2 py-4 sm:py-2.5 text-sm transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 style={{ color: "#b19739", opacity: 0.85, fontWeight: 400 }}
               >
                 {t("signOut")}
               </button>
-            </>
+            </div>
           ) : (
             <>
               <Link
