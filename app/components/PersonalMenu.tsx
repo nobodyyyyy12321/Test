@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
 import SharePanel from "./SharePanel";
@@ -14,21 +14,6 @@ type ProfileRoute =
   | "record"
   | "assignments"
   | "upload";
-
-// Single-segment paths that are NOT profile pages (i.e. `/<seg>` is some other
-// app route). Anything else of the form `/<seg>` is treated as `/[name]`.
-const NON_PROFILE_ROOTS = new Set([
-  "admin",
-  "api",
-  "auth",
-  "collections",
-  "jsxgraph",
-  "lists",
-  "recitation",
-  "test",
-  "under-construction",
-  "upload",
-]);
 
 const LANGUAGES: { value: string; label: string }[] = [
   { value: "zh-TW", label: "中文繁體" },
@@ -160,29 +145,7 @@ export default function PersonalMenu() {
 
   const sessionName = (session?.user as { name?: string } | undefined)?.name ?? null;
   const myName = displayName ?? sessionName;
-
-  // Detect whether the current path is a profile page: `/[name]` or one of
-  // its child routes (followers, following, lists, record, etc.).
-  const pathname = usePathname() ?? "/";
-  const profileNameOnPage = (() => {
-    const segs = pathname.split("/").filter(Boolean);
-    if (segs.length === 0) return null;
-    const first = decodeURIComponent(segs[0]);
-    if (NON_PROFILE_ROOTS.has(first)) return null;
-    if (segs.length === 1) return first;
-    const PROFILE_SUB_ROUTES = new Set(["followers", "following", "lists", "record", "assignments", "upload", "groups", "gallery", "blocked"]);
-    if (segs.length === 2 && PROFILE_SUB_ROUTES.has(segs[1])) return first;
-    return null;
-  })();
-
-  // The menu navigates within whichever profile is currently in view; on any
-  // non-profile page, it falls back to navigating within "my" profile.
-  const targetName = profileNameOnPage ?? myName;
-  const isViewingOwnProfile = !!targetName && !!myName && targetName === myName;
   const isAuthed = status === "authenticated" && !!myName;
-  // Show owner-only links only when the viewer owns the target profile (or
-  // the target IS the viewer because we're off a profile page entirely).
-  const showOwnerLinks = isAuthed && (profileNameOnPage === null || isViewingOwnProfile);
 
   // close on Esc or outside-click
   useEffect(() => {
@@ -213,31 +176,23 @@ export default function PersonalMenu() {
   }, [open]);
 
   const routeHref = (route: ProfileRoute): string => {
-    if (!targetName) return "/auth/login";
-    const enc = encodeURIComponent(targetName);
+    if (!myName) return "/auth/login";
+    const enc = encodeURIComponent(myName);
     if (route === "profile") return `/${enc}`;
     return `/${enc}/${route}`;
   };
 
-  // Links visible to *any* viewer (owner or visitor) of a profile page.
-  const visitorLinks: { id: ProfileRoute; label: string }[] = isAuthed
+  // Links to the logged-in user's own account pages, regardless of whose
+  // profile is currently being viewed.
+  const profileLinks: { id: ProfileRoute; label: string }[] = isAuthed
     ? [
         { id: "lists",       label: t("tabLists") },
         { id: "profile",     label: t("tabProfile") },
-      ]
-    : [];
-
-  // Extra links only shown when the viewer is the owner of the target profile
-  // (or when there's no target profile in view, i.e. we're on the homepage).
-  const ownerOnlyLinks: { id: ProfileRoute; label: string }[] = showOwnerLinks
-    ? [
         { id: "record",      label: t("tabRecord") },
         { id: "assignments", label: t("tabAssignOutbox") },
         { id: "upload",      label: t("uploadQuestions") },
       ]
     : [];
-
-  const profileLinks = [...visitorLinks, ...ownerOnlyLinks];
 
   return (
     <>
@@ -384,7 +339,7 @@ export default function PersonalMenu() {
                 <path d="M12 3a14 14 0 0 1 0 18" />
               </svg>
             </button>
-            {showOwnerLinks && (
+            {isAuthed && (
               <button
                 type="button"
                 onClick={() => settingsPanelOpen ? setSettingsPanelOpen(false) : openSettings()}
