@@ -133,7 +133,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
         {displayName && (
           <button
             type="button"
-            onClick={() => { onClose(); router.push(`/${encodeURIComponent(displayName)}?tab=blocked`); }}
+            onClick={() => { onClose(); router.push(`/${encodeURIComponent(displayName)}/blocked`); }}
             className={buttonClass}
             style={controlStyle}
           >

@@ -3,14 +3,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import NextImage from "next/image";
 import { useEdgeSwipeNav } from "../lib/useEdgeSwipeNav";
 import { useExcelSelection } from "../lib/useExcelSelection";
 import UploadClient from "../upload/UploadClient";
 import type { QuestionList, ListQuestion } from "../../lib/lists-supabase";
 import { PersonalListsView } from "../components/PersonalListsView";
-import { PublicCollections } from "../components/PublicCollections";
 import AssignmentsTab from "../components/AssignmentsTab";
 import { SocialIcon } from "../components/SocialIcon";
 import { AVATAR_PLACEHOLDER } from "../lib/asset-version";
@@ -19,10 +18,7 @@ import { getStoredTheme, setTheme as setThemeMode, type ThemeMode, THEME_CHANGE_
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "home" | "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "settings" | "upload";
-
-const TAB_KEYS: readonly Tab[] = ["home", "profile", "lists", "record", "followers", "following", "groups", "blocked", "gallery", "assignments", "settings", "upload"] as const;
-
+type Tab = "profile" | "lists" | "record" | "followers" | "following" | "groups" | "blocked" | "gallery" | "assignments" | "upload";
 
 type GroupMember = { userId: string; userName: string; avatarUrl?: string; status: "pending" | "accepted"; invitedAt: string };
 type Group = { id: string; name: string; ownerId: string; ownerName?: string; ownerAvatarUrl?: string; createdAt: string; memberCount?: number; members?: GroupMember[] };
@@ -179,41 +175,20 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
     const emailMatch = Boolean(initialProfile.email && (session.user as any).email === initialProfile.email);
     return nameMatch || emailMatch;
   }, [initialIsOwner, session, status, urlName, initialProfile.email]);
-  const searchParams = useSearchParams();
-  const rawTab = searchParams?.get("tab") ?? null;
-  // Accept canonical tab keys plus the assignOutbox/assignInbox aliases.
-  const tabFromUrl: Tab | null =
-    rawTab === "assignOutbox" || rawTab === "assignInbox" ? "assignments"
-    : rawTab && (TAB_KEYS as readonly string[]).includes(rawTab) ? (rawTab as Tab)
-    : null;
   // These "tabs" are rendered as popup modals over the profile page instead of
-  // as inline tab bodies. Any URL/initialTab entry for them opens the modal.
+  // as inline tab bodies. A child-route `initialTab` matching one of these
+  // opens the modal instead of switching the base tab.
   const MODAL_TABS = ["followers", "following", "groups", "gallery"] as const;
   type ModalKind = typeof MODAL_TABS[number];
-  const isModalTab = (t: Tab | null): t is ModalKind =>
+  const isModalTab = (t: Tab | null | undefined): t is ModalKind =>
     !!t && (MODAL_TABS as readonly string[]).includes(t);
-  const inputTab: Tab | null = initialTab ?? tabFromUrl;
   const [activeTab, setActiveTab] = useState<Tab>(
-    inputTab && !isModalTab(inputTab) ? inputTab : "profile",
+    initialTab && !isModalTab(initialTab) ? initialTab : "profile",
   );
   const [activeModal, setActiveModal] = useState<ModalKind | null>(
-    isModalTab(inputTab) ? inputTab : null,
+    isModalTab(initialTab) ? initialTab : null,
   );
-  const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">(rawTab === "assignInbox" ? "inbox" : "outbox");
-  // Re-sync when the URL `?tab=` changes (e.g. PersonalMenu link click).
-  // If `initialTab` is provided (child routes like /[name]/followers), let it win.
-  useEffect(() => {
-    if (initialTab) return;
-    if (isModalTab(tabFromUrl)) {
-      setActiveModal(tabFromUrl);
-      setActiveTab("profile");
-    } else if (tabFromUrl && tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
-      setActiveModal(null);
-    }
-    if (rawTab === "assignInbox") setAssignSubTab("inbox");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawTab, initialTab]);
+  const [assignSubTab, setAssignSubTab] = useState<"outbox" | "inbox">("outbox");
 
   // ── profile state ──
   const [name, setName] = useState(initialProfile.name || "");
@@ -916,11 +891,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
 
   // ── render ────────────────────────────────────────────────────────────────
 
-  const handleSidebarTabClick = (id: Tab) => {
-    setActiveTab(id);
-    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-  };
-
   return (
     <div className="flex min-h-screen items-start justify-center bg-transparent dark:bg-black">
       <main className="w-full max-w-2xl md:max-w-4xl px-6 pt-10 pb-36 sm:pb-10">
@@ -979,11 +949,6 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
             )}
           </div>
         </div>
-        )}
-
-        {/* ── home tab (public categories + 公開題庫) ─────────────────────── */}
-        {activeTab === "home" && (
-          <PublicCollections embedded />
         )}
 
         {/* ── profile tab ─────────────────────────────────────────────────── */}
@@ -1162,7 +1127,7 @@ export default function ProfileClient({ urlName, isOwner: initialIsOwner, initia
         {/* ── lists tab ───────────────────────────────────────────────────── */}
         {activeTab === "lists" && (
           <div>
-            <h1 className="text-xl font-semibold mb-4" style={{ color: "var(--zen-ink)" }}>{t("tabLists")}</h1>
+            <h1 className="text-xl font-semibold mb-4" style={{ color: "var(--zen-ink)" }}>{name ? `${name} · ` : ""}{t("tabLists")}</h1>
             <PersonalListsView
               isOwner={isOwner}
               loading={listsLoading}

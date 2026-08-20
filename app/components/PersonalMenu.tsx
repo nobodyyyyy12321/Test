@@ -8,17 +8,12 @@ import { getProfileText, normalizeProfileLanguage } from "../lib/i18n/profile";
 import SharePanel from "./SharePanel";
 import SettingsPanel from "./SettingsPanel";
 
-type Tab =
+type ProfileRoute =
   | "lists"
   | "profile"
   | "record"
   | "assignments"
-  | "upload"
-  | "groups"
-  | "gallery"
-  | "followers"
-  | "following"
-  | "settings";
+  | "upload";
 
 // Single-segment paths that are NOT profile pages (i.e. `/<seg>` is some other
 // app route). Anything else of the form `/<seg>` is treated as `/[name]`.
@@ -166,8 +161,8 @@ export default function PersonalMenu() {
   const sessionName = (session?.user as { name?: string } | undefined)?.name ?? null;
   const myName = displayName ?? sessionName;
 
-  // Detect whether the current path is a profile page: `/[name]`,
-  // `/[name]/followers`, or `/[name]/following`.
+  // Detect whether the current path is a profile page: `/[name]` or one of
+  // its child routes (followers, following, lists, record, etc.).
   const pathname = usePathname() ?? "/";
   const profileNameOnPage = (() => {
     const segs = pathname.split("/").filter(Boolean);
@@ -175,7 +170,7 @@ export default function PersonalMenu() {
     const first = decodeURIComponent(segs[0]);
     if (NON_PROFILE_ROOTS.has(first)) return null;
     if (segs.length === 1) return first;
-    const PROFILE_SUB_ROUTES = new Set(["followers", "following"]);
+    const PROFILE_SUB_ROUTES = new Set(["followers", "following", "lists", "record", "assignments", "upload", "groups", "gallery", "blocked"]);
     if (segs.length === 2 && PROFILE_SUB_ROUTES.has(segs[1])) return first;
     return null;
   })();
@@ -185,9 +180,9 @@ export default function PersonalMenu() {
   const targetName = profileNameOnPage ?? myName;
   const isViewingOwnProfile = !!targetName && !!myName && targetName === myName;
   const isAuthed = status === "authenticated" && !!myName;
-  // Show owner-only tabs only when the viewer owns the target profile (or
+  // Show owner-only links only when the viewer owns the target profile (or
   // the target IS the viewer because we're off a profile page entirely).
-  const showOwnerTabs = isAuthed && (profileNameOnPage === null || isViewingOwnProfile);
+  const showOwnerLinks = isAuthed && (profileNameOnPage === null || isViewingOwnProfile);
 
   // close on Esc or outside-click
   useEffect(() => {
@@ -217,25 +212,24 @@ export default function PersonalMenu() {
     }
   }, [open]);
 
-  const tabHref = (tab: Tab): string => {
+  const routeHref = (route: ProfileRoute): string => {
     if (!targetName) return "/auth/login";
     const enc = encodeURIComponent(targetName);
-    if (tab === "followers") return `/${enc}/followers`;
-    if (tab === "following") return `/${enc}/following`;
-    return `/${enc}?tab=${tab}`;
+    if (route === "profile") return `/${enc}`;
+    return `/${enc}/${route}`;
   };
 
-  // Tabs visible to *any* viewer (owner or visitor) of a profile page.
-  const visitorTabs: { id: Tab; label: string }[] = isAuthed
+  // Links visible to *any* viewer (owner or visitor) of a profile page.
+  const visitorLinks: { id: ProfileRoute; label: string }[] = isAuthed
     ? [
         { id: "lists",       label: t("tabLists") },
         { id: "profile",     label: t("tabProfile") },
       ]
     : [];
 
-  // Extra tabs only shown when the viewer is the owner of the target profile
+  // Extra links only shown when the viewer is the owner of the target profile
   // (or when there's no target profile in view, i.e. we're on the homepage).
-  const ownerOnlyTabs: { id: Tab; label: string }[] = showOwnerTabs
+  const ownerOnlyLinks: { id: ProfileRoute; label: string }[] = showOwnerLinks
     ? [
         { id: "record",      label: t("tabRecord") },
         { id: "assignments", label: t("tabAssignOutbox") },
@@ -243,7 +237,7 @@ export default function PersonalMenu() {
       ]
     : [];
 
-  const tabs = [...visitorTabs, ...ownerOnlyTabs];
+  const profileLinks = [...visitorLinks, ...ownerOnlyLinks];
 
   return (
     <>
@@ -390,7 +384,7 @@ export default function PersonalMenu() {
                 <path d="M12 3a14 14 0 0 1 0 18" />
               </svg>
             </button>
-            {showOwnerTabs && (
+            {showOwnerLinks && (
               <button
                 type="button"
                 onClick={() => settingsPanelOpen ? setSettingsPanelOpen(false) : openSettings()}
@@ -410,15 +404,15 @@ export default function PersonalMenu() {
 
           {isAuthed ? (
             <div className="grid grid-cols-2">
-              {tabs.map(tab => (
+              {profileLinks.map(link => (
                 <Link
-                  key={tab.id}
-                  href={tabHref(tab.id)}
+                  key={link.id}
+                  href={routeHref(link.id)}
                   onClick={() => setOpen(false)}
                   className="text-center px-2 py-4 sm:py-2.5 text-sm transition-colors hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 truncate"
                   style={{ color: "var(--zen-ink)", opacity: 0.7 }}
                 >
-                  {tab.label}
+                  {link.label}
                 </Link>
               ))}
               <button
