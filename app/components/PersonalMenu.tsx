@@ -221,8 +221,8 @@ export default function PersonalMenu() {
       <aside
         ref={drawerRef}
         className={`fixed z-50 overflow-x-hidden overflow-y-auto transition-opacity duration-75 max-h-[70vh] shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800
-          right-0 top-20 w-80 max-w-[90vw]
-          sm:w-72 sm:max-w-[70vw] ${
+          right-0 top-20 w-72 max-w-[90vw]
+          sm:w-64 sm:max-w-[70vw] ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         aria-hidden={!open}
@@ -288,7 +288,7 @@ export default function PersonalMenu() {
           )}
 
           {/* utility icons: home / share / search / language */}
-          <div className="flex items-center justify-between px-4 py-4 sm:py-2.5">
+          <div className="flex items-center justify-center gap-4 px-4 py-4 sm:py-2.5">
             <Link href="/" aria-label="home" onClick={() => setOpen(false)} className="flex items-center justify-center transition-opacity hover:opacity-70">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--zen-ink)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
