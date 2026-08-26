@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useShare } from "../providers/ShareProvider";
 
 function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
-  if (pathname === "/" || pathname === "") return "Test";
+  if (pathname === "/" || pathname === "") return "wikiTest";
 
   const segments = pathname.split("/").filter(Boolean);
 
@@ -16,7 +16,7 @@ function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
     return id;
   }
 
-  return "Test";
+  return "wikiTest";
 }
 
 function SharePanelInner({ onClose }: { onClose: () => void }) {
@@ -31,7 +31,7 @@ function SharePanelInner({ onClose }: { onClose: () => void }) {
   const { shareText, shareTitle, shareScoreCard } = useShare();
   const urlTitle = getPageTitle(pathname, searchParams);
   const documentTitle = typeof document !== "undefined"
-    ? document.title.replace(/\s*[—\-]\s*Test\s*$/, "").trim()
+    ? document.title.replace(/\s*[—\-]\s*wikiTest\s*$/, "").trim()
     : "";
   const title = isTestRoute
     ? (resolvedUrlTitle || shareTitle || documentTitle || urlTitle)

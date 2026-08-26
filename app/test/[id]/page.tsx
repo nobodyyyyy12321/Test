@@ -112,7 +112,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     title: `${title}`,
     description: getTestMetadataDescription(title, activeLang),
     openGraph: {
-      siteName: "Test",
+      siteName: "wikiTest",
       title: `${title}`,
       description: getTestMetadataDescription(title, activeLang),
     },

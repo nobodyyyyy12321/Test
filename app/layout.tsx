@@ -29,8 +29,8 @@ const FAVICON = `/icons/favicon.png?v=${BUILD_ID}`;
 
 export const metadata: Metadata = {
   title: {
-    default: "Test",
-    template: "%s — Test",
+    default: "wikiTest",
+    template: "%s — wikiTest",
   },
   description: "多方位測驗平台",
   metadataBase: new URL("https://testtttt.io"),
@@ -42,14 +42,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Test",
-    title: "Test",
+    siteName: "wikiTest",
+    title: "wikiTest",
     description: "多方位測驗平台",
     locale: "zh_TW",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Test",
+    title: "wikiTest",
     description: "多方位測驗平台",
   },
 };
@@ -80,7 +80,7 @@ export default function RootLayout({
               style={{ color: "#b19739" }}
               aria-label="home"
             >
-              Test
+              wikiTest
             </Link>
             <div className="flex items-center justify-center w-12 h-12 rounded-xl transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700">
               <PersonalMenu />
@@ -94,7 +94,7 @@ export default function RootLayout({
               __html: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                "name": "Test",
+                "name": "wikiTest",
                 "url": "https://testtttt.io",
               }),
             }}
